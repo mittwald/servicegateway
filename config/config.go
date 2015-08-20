@@ -8,6 +8,7 @@ type Application struct {
 	Routing Routing
 	Backend Backend
 	Auth Auth
+	Caching Caching
 }
 
 type Routing struct {
@@ -23,4 +24,10 @@ type Backend struct {
 
 type Auth struct {
 	Disable bool
+}
+
+type Caching struct {
+	Enabled bool
+	Ttl int
+	AutoFlush bool
 }

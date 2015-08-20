@@ -24,7 +24,10 @@ func main() {
 	flag.Parse()
 
 	cfg := config.Configuration{}
-	data, _ := ioutil.ReadFile("apis.yaml")
+	data, err := ioutil.ReadFile("apis.yaml")
+	if err != nil {
+		panic(err)
+	}
 
 	yaml.Unmarshal(data, &cfg)
 
@@ -33,7 +36,9 @@ func main() {
 	bone := bone.New()
 
 	handler := proxy.NewProxyHandler()
-	builder := proxy.NewProxyBuilder(handler)
+	cache := proxy.NewCache(4096)
+
+	builder := proxy.NewProxyBuilder(handler, cache)
 
 //	e := echo.New()
 //	e.SetDebug(true)

@@ -11,11 +11,13 @@ import (
 
 type ProxyBuilder struct {
 	ProxyHandler *ProxyHandler
+	Cache *Cache
 }
 
-func NewProxyBuilder(proxy *ProxyHandler) *ProxyBuilder {
+func NewProxyBuilder(proxy *ProxyHandler, cache *Cache) *ProxyBuilder {
 	b := new(ProxyBuilder)
 	b.ProxyHandler = proxy
+	b.Cache = cache
 	return b
 }
 
@@ -52,19 +54,28 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 				b.ProxyHandler.HandleProxyRequest(rw, req, targetUrl, name, &appCfg)
 			}
 
-			fmt.Println(pattern)
-//			mux.GetFunc(pattern, patternHandler)
 			routes[pattern] = patternHandler
 		}
 	}
 
 	for route, handler := range routes {
-		mux.GetFunc(route, handler)
-		mux.HeadFunc(route, handler)
-		mux.OptionsFunc(route, handler)
+		safeHandler := handler
+		unsafeHandler := handler
 
-		mux.PostFunc(route, handler)
-		mux.PutFunc(route, handler)
-		mux.DeleteFunc(route, handler)
+		if appCfg.Caching.Enabled {
+			safeHandler = b.Cache.DecorateHandler(handler)
+
+			if appCfg.Caching.AutoFlush {
+				unsafeHandler = b.Cache.DecorateUnsafeHandler(handler)
+			}
+		}
+
+		mux.GetFunc(route, safeHandler)
+		mux.HeadFunc(route, safeHandler)
+		mux.OptionsFunc(route, safeHandler)
+
+		mux.PostFunc(route, unsafeHandler)
+		mux.PutFunc(route, unsafeHandler)
+		mux.DeleteFunc(route, unsafeHandler)
 	}
 }
