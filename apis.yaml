@@ -1,0 +1,31 @@
+applications:
+  identity:
+    routing:
+      type: path
+      path: /identity
+    backend:
+      url: http://identity.service.consul
+    auth:
+      disable: yes
+
+  cart_promotion:
+    routing:
+      type: pattern
+      patterns:
+        '/cart/:id/promotion': '/promotion/:id'
+    backend:
+      url: http://cart-promotion.service.consul
+
+  flow:
+    routing:
+      type: path
+      path: /foobar
+    backend:
+      url: http://localhost
+
+  cart:
+    routing:
+      type: path
+      path: /cart
+    backend:
+      url: http://cart.service.consul/rest/v2
