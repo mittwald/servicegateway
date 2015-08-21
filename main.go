@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	yaml "gopkg.in/yaml.v2"
 	"mittwald.de/charon/config"
+	"encoding/json"
 	"io/ioutil"
 	"fmt"
 	"github.com/go-zoo/bone"
@@ -24,12 +24,15 @@ func main() {
 	flag.Parse()
 
 	cfg := config.Configuration{}
-	data, err := ioutil.ReadFile("apis.yaml")
+	data, err := ioutil.ReadFile("apis.json")
 	if err != nil {
 		panic(err)
 	}
 
-	yaml.Unmarshal(data, &cfg)
+	err = json.Unmarshal(data, &cfg)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println(cfg)
 
@@ -37,8 +40,9 @@ func main() {
 
 	handler := proxy.NewProxyHandler()
 	cache := proxy.NewCache(4096)
+	throttler := proxy.NewThrottler(cfg.RateLimiting)
 
-	builder := proxy.NewProxyBuilder(handler, cache)
+	builder := proxy.NewProxyBuilder(handler, cache, throttler)
 
 //	e := echo.New()
 //	e.SetDebug(true)

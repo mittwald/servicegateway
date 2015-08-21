@@ -44,3 +44,8 @@ applications:
       path: /cart
     backend:
       url: http://cart.service.consul/rest/v2
+
+rateLimiting:
+  type: FUCK YOU
+  burst: 100
+  requestsPerSecond: 100

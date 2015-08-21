@@ -12,12 +12,14 @@ import (
 type ProxyBuilder struct {
 	ProxyHandler *ProxyHandler
 	Cache *Cache
+	RateThrottler *RateThrottler
 }
 
-func NewProxyBuilder(proxy *ProxyHandler, cache *Cache) *ProxyBuilder {
+func NewProxyBuilder(proxy *ProxyHandler, cache *Cache, throttler *RateThrottler) *ProxyBuilder {
 	b := new(ProxyBuilder)
 	b.ProxyHandler = proxy
 	b.Cache = cache
+	b.RateThrottler = throttler
 	return b
 }
 
@@ -69,6 +71,9 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 				unsafeHandler = b.Cache.DecorateUnsafeHandler(handler)
 			}
 		}
+
+		safeHandler = b.RateThrottler.DecorateHandler(safeHandler)
+		unsafeHandler = b.RateThrottler.DecorateHandler(unsafeHandler)
 
 		mux.GetFunc(route, safeHandler)
 		mux.HeadFunc(route, safeHandler)

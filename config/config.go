@@ -1,33 +1,39 @@
 package config
 
 type Configuration struct {
-	Applications map[string]Application
+	Applications map[string]Application `json:"applications"`
+	RateLimiting RateLimiting `json:"rate_limiting"`
 }
 
 type Application struct {
-	Routing Routing
-	Backend Backend
-	Auth Auth
-	Caching Caching
+	Routing Routing `json:"routing"`
+	Backend Backend `json:"backend"`
+	Auth Auth `json:"auth"`
+	Caching Caching `json:"caching"`
 }
 
 type Routing struct {
-	Type string
-	Path string
-	Patterns map[string]string
-	Hostname string
+	Type string `json:"type"`
+	Path string `json:"path"`
+	Patterns map[string]string `json:"patterns"`
+	Hostname string `json:"hostname"`
 }
 
 type Backend struct {
-	Url string
+	Url string `json:"url"`
 }
 
 type Auth struct {
-	Disable bool
+	Disable bool `json:"disable"`
 }
 
 type Caching struct {
-	Enabled bool
-	Ttl int
-	AutoFlush bool
+	Enabled bool `json:"enabled"`
+	Ttl int `json:"ttl"`
+	AutoFlush bool `json:"auto_flush"`
+}
+
+type RateLimiting struct {
+	Burst int `json:"burst"`
+	RequestsPerSecond int `json:"requests_per_second"`
 }
