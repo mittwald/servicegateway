@@ -54,17 +54,16 @@ func main() {
 
 	handler := proxy.NewProxyHandler()
 	cache := proxy.NewCache(4096)
-	throttler := proxy.NewThrottler(cfg.RateLimiting, redisPool, logging.MustGetLogger("ratelimiter"))
+	throttler, err := proxy.NewThrottler(cfg.RateLimiting, redisPool, logging.MustGetLogger("ratelimiter"))
+	if err != nil {
+		logger.Fatal("error while configuring rate limiting: %s", err)
+	}
 
 	builder := proxy.NewProxyBuilder(handler, cache, throttler)
-
-//	e := echo.New()
-//	e.SetDebug(true)
 
 	for name, appCfg := range cfg.Applications {
 		builder.BuildHandler(bone, name, appCfg)
 	}
 
 	http.ListenAndServe(":2000", bone)
-//	e.Run(":2000")
 }

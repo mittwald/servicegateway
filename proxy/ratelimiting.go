@@ -5,7 +5,6 @@ import (
 	"sync"
 	"strconv"
 	"net"
-//	"time"
 	"mittwald.de/charon/config"
 	"github.com/garyburd/redigo/redis"
 	logging "github.com/op/go-logging"
@@ -20,21 +19,28 @@ type Bucket struct {
 
 type RateThrottler struct {
 	burstSize int64
+	window time.Duration
 	requestsPerSecond int64
 	redisPool *redis.Pool
 	logger *logging.Logger
 }
 
-func NewThrottler(cfg config.RateLimiting, red *redis.Pool, logger *logging.Logger) *RateThrottler {
+func NewThrottler(cfg config.RateLimiting, red *redis.Pool, logger *logging.Logger) (*RateThrottler, error) {
 	t := new(RateThrottler)
 	t.burstSize = int64(cfg.Burst)
 	t.requestsPerSecond = int64(cfg.RequestsPerSecond)
 	t.redisPool = red
 	t.logger = logger
 
+	if w, err := time.ParseDuration(cfg.Window); err != nil {
+		return nil, err
+	} else {
+		t.window = w
+	}
+
 	logger.Info("Initialize rate limiter (burst size %d)", t.burstSize)
 
-	return t
+	return t, nil
 }
 
 func (t *RateThrottler) identifyClient(req *http.Request) string {
@@ -47,7 +53,7 @@ func (t *RateThrottler) TakeToken(user string) (int, int, error) {
 	conn := t.redisPool.Get()
 
 	conn.Send("MULTI")
-	conn.Send("SET", key, t.burstSize, "EX", 15 * 60, "NX")
+	conn.Send("SET", key, t.burstSize, "EX", t.window.Seconds(), "NX")
 	conn.Send("DECR", key)
 
 	if val, err := redis.Values(conn.Do("EXEC")); err != nil {

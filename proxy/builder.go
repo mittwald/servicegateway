@@ -72,8 +72,10 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 			}
 		}
 
-		safeHandler = b.RateThrottler.DecorateHandler(safeHandler)
-		unsafeHandler = b.RateThrottler.DecorateHandler(unsafeHandler)
+		if appCfg.RateLimiting {
+			safeHandler = b.RateThrottler.DecorateHandler(safeHandler)
+			unsafeHandler = b.RateThrottler.DecorateHandler(unsafeHandler)
+		}
 
 		mux.GetFunc(route, safeHandler)
 		mux.HeadFunc(route, safeHandler)

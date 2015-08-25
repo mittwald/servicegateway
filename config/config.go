@@ -10,6 +10,7 @@ type Application struct {
 	Backend Backend `json:"backend"`
 	Auth Auth `json:"auth"`
 	Caching Caching `json:"caching"`
+	RateLimiting bool `json:"rate_limiting"`
 }
 
 type Routing struct {
@@ -35,5 +36,6 @@ type Caching struct {
 
 type RateLimiting struct {
 	Burst int `json:"burst"`
+	Window string `json:"window"`
 	RequestsPerSecond int `json:"requests_per_second"`
 }

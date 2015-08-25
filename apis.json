@@ -1,68 +1,72 @@
 {
-    "applications": {
-        "identity": {
-            "routing": {
-                "path": "/identity", 
-                "type": "path"
-            }, 
-            "auth": {
-                "disable": true
-            }, 
-            "backend": {
-                "url": "http://identity.service.consul"
-            }
-        }, 
-        "flow": {
-            "caching": {
-                "auto_flush": true,
-                "enabled": true, 
-                "ttl": 3600
-            }, 
-            "routing": {
-                "path": "/foobar", 
-                "type": "path"
-            }, 
-            "backend": {
-                "url": "http://localhost"
-            }
-        }, 
-        "httpbin": {
-            "caching": {
-                "auto_flush": true,
-                "enabled": true, 
-                "ttl": 3600
-            }, 
-            "routing": {
-                "path": "/bin", 
-                "type": "path"
-            }, 
-            "backend": {
-                "url": "http://httpbin.org"
-            }
-        }, 
-        "cart_promotion": {
-            "routing": {
-                "patterns": {
-                    "/cart/:id/promotion": "/promotion/:id"
-                }, 
-                "type": "pattern"
-            }, 
-            "backend": {
-                "url": "http://cart-promotion.service.consul"
-            }
-        }, 
-        "cart": {
-            "routing": {
-                "path": "/cart", 
-                "type": "path"
-            }, 
-            "backend": {
-                "url": "http://cart.service.consul/rest/v2"
-            }
-        }
-    }, 
-    "rate_limiting": {
-        "requests_per_second": 0,
-        "burst": 10000
+  "applications": {
+    "identity": {
+      "routing": {
+        "path": "/identity",
+        "type": "path"
+      },
+      "auth": {
+        "disable": true
+      },
+      "backend": {
+        "url": "http://identity.service.consul"
+      },
+      "rate_limiting": true
+    },
+    "flow": {
+      "caching": {
+        "auto_flush": true,
+        "enabled": true,
+        "ttl": 3600
+      },
+      "routing": {
+        "path": "/foobar",
+        "type": "path"
+      },
+      "backend": {
+        "url": "http://localhost"
+      }
+    },
+    "httpbin": {
+      "caching": {
+        "auto_flush": true,
+        "enabled": true,
+        "ttl": 3600
+      },
+      "routing": {
+        "path": "/bin",
+        "type": "path"
+      },
+      "backend": {
+        "url": "http://httpbin.org"
+      },
+      "rate_limiting": true
+    },
+    "cart_promotion": {
+      "routing": {
+        "patterns": {
+          "/cart/:id/promotion": "/promotion/:id"
+        },
+        "type": "pattern"
+      },
+      "backend": {
+        "url": "http://cart-promotion.service.consul"
+      },
+      "rate_limiting": true
+    },
+    "cart": {
+      "routing": {
+        "path": "/cart",
+        "type": "path"
+      },
+      "backend": {
+        "url": "http://cart.service.consul/rest/v2"
+      },
+      "rate_limiting": true
     }
+  },
+  "rate_limiting": {
+    "window": "15m",
+    "burst": 1000
+  }
 }
