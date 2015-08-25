@@ -4,10 +4,12 @@ import (
 	"net/http"
 	"sync"
 	"strconv"
-	"fmt"
 	"net"
-	"time"
+//	"time"
 	"mittwald.de/charon/config"
+	"github.com/garyburd/redigo/redis"
+	logging "github.com/op/go-logging"
+	"time"
 )
 
 type Bucket struct {
@@ -17,23 +19,20 @@ type Bucket struct {
 }
 
 type RateThrottler struct {
-	buckets map[string]*Bucket
-	burstSize int
-	requestsPerSecond int
+	burstSize int64
+	requestsPerSecond int64
+	redisPool *redis.Pool
+	logger *logging.Logger
 }
 
-func NewThrottler(cfg config.RateLimiting) *RateThrottler {
+func NewThrottler(cfg config.RateLimiting, red *redis.Pool, logger *logging.Logger) *RateThrottler {
 	t := new(RateThrottler)
-	t.buckets = make(map[string]*Bucket)
-	t.burstSize = cfg.Burst
-	t.requestsPerSecond = cfg.RequestsPerSecond
+	t.burstSize = int64(cfg.Burst)
+	t.requestsPerSecond = int64(cfg.RequestsPerSecond)
+	t.redisPool = red
+	t.logger = logger
 
-	ticker := time.NewTicker(1 * time.Second)
-	go func() {
-		for _ = range ticker.C {
-			t.FillBuckets()
-		}
-	}()
+	logger.Info("Initialize rate limiter (burst size %d)", t.burstSize)
 
 	return t
 }
@@ -43,50 +42,75 @@ func (t *RateThrottler) identifyClient(req *http.Request) string {
 	return addr.IP.String()
 }
 
-func (t *RateThrottler) FillBuckets() {
-	for user, bucket := range t.buckets {
-		bucket.Lock()
-		defer bucket.Unlock()
+func (t *RateThrottler) TakeToken(user string) (int, int, error) {
+	key := "RL_BUCKET_" + user
+	conn := t.redisPool.Get()
 
-		if bucket.fillLevel < bucket.limit {
-			bucket.fillLevel ++
-		}
+	conn.Send("MULTI")
+	conn.Send("SET", key, t.burstSize, "EX", 15 * 60, "NX")
+	conn.Send("DECR", key)
 
-		if bucket.fillLevel == bucket.limit {
-			fmt.Println("Purging bucket " + user)
-			delete(t.buckets, user)
-		}
+	if val, err := redis.Values(conn.Do("EXEC")); err != nil {
+		return 0, 0, err
+	} else {
+		return int(val[1].(int64)), int(t.burstSize), nil
 	}
 }
 
-func (t *RateThrottler) TakeToken(user string) Bucket {
-	bucket, ok := t.buckets[user]
-	if ! ok {
-		bucket = new(Bucket)
-		bucket.fillLevel = t.burstSize
-		bucket.limit = t.burstSize
-		t.buckets[user] = bucket
-	}
-
-	bucket.Lock()
-	defer bucket.Unlock()
-
-	if bucket.fillLevel > 0 {
-		bucket.fillLevel -= 1
-	}
-
-	return copy(*bucket)
-}
+//func (t *RateThrottler) TakeToken(user string) (int, int, error) {
+//	key := "RL_BUCKET_" + user
+//	keyLA := "RL_BUCKET_LASTACCESS_" + user
+//	conn := t.redisPool.Get()
+//	now := time.Now().Unix()
+//
+//	conn.Send("MULTI")
+//	conn.Send("SETNX", key, t.burstSize)
+//	conn.Send("GETSET", keyLA, now)
+//	conn.Send("GET", key)
+//
+//	if val, err := redis.Values(conn.Do("EXEC")); err != nil {
+//		return 0, 0, err
+//	} else {
+//		lastTstamp, _ := redis.Int64(val[1], nil)
+//		currentTokenCount, _ := redis.Int64(val[2], nil)
+//		secondsSinceLastRequest := now - lastTstamp
+//		addedTokensSinceLastRequest := secondsSinceLastRequest * t.requestsPerSecond
+//
+//		if currentTokenCount + addedTokensSinceLastRequest > t.burstSize {
+//			addedTokensSinceLastRequest = t.burstSize - currentTokenCount
+//		}
+//
+//		if currentTokenCount + addedTokensSinceLastRequest - 1 <= 0 {
+//			return 0, int(t.burstSize), nil
+//		}
+//
+//		val2, err := redis.Int(conn.Do("INCRBY", key, addedTokensSinceLastRequest - 1))
+//		if err != nil {
+//			return 0, 0, err
+//		}
+//
+//		return val2, int(t.burstSize), nil
+//	}
+//}
 
 func (t *RateThrottler) DecorateHandler(handler http.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
 		user := t.identifyClient(req)
-		bucket := t.TakeToken(user)
+		remaining, limit, err := t.TakeToken(user)
 
-		rw.Header().Add("X-RateLimit", strconv.Itoa(bucket.limit))
-		rw.Header().Add("X-RateLimit-Remaining", strconv.Itoa(bucket.fillLevel))
+		if err != nil {
+			t.logger.Error("Error occurred while handling request from %s: %s", req.RemoteAddr, err)
+			rw.Header().Set("Content-Type", "application/json")
+			rw.WriteHeader(503)
+			rw.Write([]byte("{\"msg\":\"service unavailable\"}"))
+			return
+		}
 
-		if bucket.fillLevel <= 0 {
+		rw.Header().Add("X-RateLimit", strconv.Itoa(limit))
+		rw.Header().Add("X-RateLimit-Remaining", strconv.Itoa(remaining))
+
+		if remaining <= 0 {
+			t.logger.Notice("Client %s exceeded rate limit", req.RemoteAddr)
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(429)
 			rw.Write([]byte("{\"msg\":\"rate limit exceeded\"}"))

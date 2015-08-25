@@ -62,7 +62,7 @@
         }
     }, 
     "rate_limiting": {
-        "requests_per_second": 100,
-        "burst": 100
+        "requests_per_second": 0,
+        "burst": 10000
     }
 }
