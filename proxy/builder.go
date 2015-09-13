@@ -7,20 +7,25 @@ import (
 	"strings"
 	"regexp"
 	"fmt"
+	"mittwald.de/charon/auth"
 )
 
 type ProxyBuilder struct {
+	Configuration *config.Configuration
 	ProxyHandler *ProxyHandler
 	Cache *Cache
 	RateThrottler *RateThrottler
+	AuthDecorator auth.AuthDecorator
 }
 
-func NewProxyBuilder(proxy *ProxyHandler, cache *Cache, throttler *RateThrottler) *ProxyBuilder {
-	b := new(ProxyBuilder)
-	b.ProxyHandler = proxy
-	b.Cache = cache
-	b.RateThrottler = throttler
-	return b
+func NewProxyBuilder(cfg *config.Configuration, proxy *ProxyHandler, cache *Cache, throttler *RateThrottler, authDecorator auth.AuthDecorator) *ProxyBuilder {
+	return &ProxyBuilder {
+		Configuration: cfg,
+		ProxyHandler: proxy,
+		Cache: cache,
+		RateThrottler: throttler,
+		AuthDecorator: authDecorator,
+	}
 }
 
 func debugHandlerDecorator(app string, handler http.HandlerFunc) http.HandlerFunc {
@@ -45,7 +50,6 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 		re := regexp.MustCompile(":([a-zA-Z0-9]+)")
 		for pattern, target := range appCfg.Routing.Patterns {
 			parameters := re.FindAllStringSubmatch(pattern, -1)
-			fmt.Println(parameters)
 			var patternHandler http.HandlerFunc = func(rw http.ResponseWriter, req *http.Request) {
 				targetUrl := appCfg.Backend.Url + target
 				for _, paramName := range parameters {
@@ -70,6 +74,11 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 			if appCfg.Caching.AutoFlush {
 				unsafeHandler = b.Cache.DecorateUnsafeHandler(handler)
 			}
+		}
+
+		if ! appCfg.Auth.Disable {
+			safeHandler = b.AuthDecorator.DecorateHandler(safeHandler)
+			unsafeHandler = b.AuthDecorator.DecorateHandler(unsafeHandler)
 		}
 
 		if appCfg.RateLimiting {

@@ -29,6 +29,7 @@ func NewResponseBuffer() *ResponseBuffer {
 	return b
 }
 
+
 func (r *ResponseBuffer) Header() http.Header {
 	return r.header
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	logging "github.com/op/go-logging"
 	"os"
+	"mittwald.de/charon/auth"
 )
 
 type StartupConfig struct {
@@ -33,7 +34,7 @@ func main() {
 	logger.Info("Completed startup")
 
 	cfg := config.Configuration{}
-	data, err := ioutil.ReadFile("apis.json")
+	data, err := ioutil.ReadFile(startup.ConfigDir + "/apis.json")
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -59,7 +60,12 @@ func main() {
 		logger.Fatal("error while configuring rate limiting: %s", err)
 	}
 
-	builder := proxy.NewProxyBuilder(handler, cache, throttler)
+	authHandler, err := auth.NewAuthHandler(&cfg.Authentication)
+	if err != nil {
+		logger.Fatal("error while configuring authentication: %s", err)
+	}
+
+	builder := proxy.NewProxyBuilder(&cfg, handler, cache, throttler, authHandler)
 
 	for name, appCfg := range cfg.Applications {
 		builder.BuildHandler(bone, name, appCfg)

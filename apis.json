@@ -68,5 +68,18 @@
   "rate_limiting": {
     "window": "15m",
     "burst": 1000
+  },
+  "authentication": {
+    "mode": "graphical",
+    "storage": {
+      "mode": "cookie",
+      "name": "coab"
+    },
+    "graphical": {
+      "login_route": "/login"
+    },
+    "verification_key": "asd",
+    "verification_key_url": null,
+    "key_cache_ttl": "5m"
   }
 }
