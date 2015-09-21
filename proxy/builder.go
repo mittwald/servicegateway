@@ -35,7 +35,7 @@ func debugHandlerDecorator(app string, handler http.HandlerFunc) http.HandlerFun
 	}
 }
 
-func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Application) {
+func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Application) error {
 	routes := make(map[string]http.HandlerFunc)
 
 	if appCfg.Routing.Type == "path" {
@@ -62,6 +62,10 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 
 			routes[pattern] = patternHandler
 		}
+	}
+
+	if err := b.AuthDecorator.RegisterRoutes(mux); err != nil {
+		return err
 	}
 
 	for route, handler := range routes {
@@ -94,4 +98,6 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 		mux.PutFunc(route, unsafeHandler)
 		mux.DeleteFunc(route, unsafeHandler)
 	}
+
+	return nil
 }

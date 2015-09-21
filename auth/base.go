@@ -8,50 +8,46 @@ import (
 	"io/ioutil"
 	"time"
 	"sync"
+	"encoding/json"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/go-zoo/bone"
+	"bytes"
+	logging "github.com/op/go-logging"
 )
 
-var NoTokenError error = errors.New("no authentication token present")
+var InvalidCredentialsError error = errors.New("invalid credentials given")
 
 type AuthDecorator interface {
 	DecorateHandler(http.HandlerFunc) http.HandlerFunc
+	RegisterRoutes(*bone.Mux) error
 }
 
 type AuthenticationHandler struct {
 	config *config.GlobalAuth
-	getToken func(*http.Request) (string, error)
+	storage TokenStorage
 	cacheTtl            time.Duration
-	cachedKey           string
+	cachedKey           []byte
 	cachedKeyExpiration time.Time
 	cachedKeyLock       sync.Mutex
+	tokenTtl            time.Duration
+	httpClient *http.Client
 }
 
-func NewAuthenticationHandler(cfg *config.GlobalAuth) (*AuthenticationHandler, error) {
-	var tokenReader func(*http.Request) (string, error)
+type AuthenticationRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	TimeToLive int `json:"ttl"`
+	Providers []string `json:"providers"`
+}
+
+func NewAuthenticationHandler(cfg *config.GlobalAuth, logger *logging.Logger) (*AuthenticationHandler, error) {
+	var storage TokenStorage
 
 	switch cfg.StorageConfig.Mode {
 	case "cookie":
-		tokenReader = func(req *http.Request) (string, error) {
-			cookie, err := req.Cookie(cfg.StorageConfig.Name)
-			if err != nil {
-				if err == http.ErrNoCookie {
-					return "", NoTokenError
-				} else {
-					return "", err
-				}
-			}
-
-			return cookie.Value, nil
-		}
+		storage = &CookieTokenStorage{Config: &cfg.StorageConfig}
 	case "header":
-		tokenReader = func(req *http.Request) (string, error) {
-			header, ok := req.Header[cfg.StorageConfig.Name]
-			if ok {
-				return header[0], nil
-			} else {
-				return "", NoTokenError
-			}
-		}
+		storage = &HeaderTokenStorage{Config: &cfg.StorageConfig}
 	default:
 		return nil, errors.New(fmt.Sprintf("unsupported token storage mode: '%s'", cfg.StorageConfig.Mode))
 	}
@@ -61,42 +57,80 @@ func NewAuthenticationHandler(cfg *config.GlobalAuth) (*AuthenticationHandler, e
 		return nil, err
 	}
 
+	tokenTtl, err := time.ParseDuration(cfg.ProviderConfig.TokenTimeToLive)
+	if err != nil {
+		return nil, err
+	}
+
 	handler := AuthenticationHandler{
 		config: cfg,
-		getToken: tokenReader,
+		storage: storage,
 		cacheTtl: cacheTtl,
+		tokenTtl: tokenTtl,
+		httpClient: &http.Client{},
 	}
 
 	return &handler, nil
 }
 
-func (h *AuthenticationHandler) GetVerificationKey() (string, error) {
-	if h.config.VerificationKey != "" {
+func (h *AuthenticationHandler) Authenticate(username string, password string) (string, error) {
+	authRequest := AuthenticationRequest{
+		Username: username,
+		Password: password,
+		TimeToLive: int(h.tokenTtl.Seconds()),
+		Providers: h.config.ProviderConfig.Providers,
+	}
+
+	jsonString, err := json.Marshal(authRequest)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url + "/authenticate", bytes.NewBuffer(jsonString))
+	req.Header.Set("Accept", "application/jwt")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode == http.StatusForbidden {
+		return "", InvalidCredentialsError
+	}
+
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	return string(body), nil
+}
+
+func (h *AuthenticationHandler) GetVerificationKey() ([]byte, error) {
+	if h.config.VerificationKey != nil && len(h.config.VerificationKey) > 0 {
 		return h.config.VerificationKey, nil
 	}
 
-	if h.cachedKey != "" && h.cachedKeyExpiration.After(time.Now()) {
+	if h.cachedKey != nil && h.cachedKeyExpiration.After(time.Now()) {
 		return h.cachedKey, nil
 	} else {
 		h.cachedKeyLock.Lock()
 		defer h.cachedKeyLock.Unlock()
 
-		if h.cachedKey != "" && h.cachedKeyExpiration.After(time.Now()) {
+		if h.cachedKey != nil && h.cachedKeyExpiration.After(time.Now()) {
 			return h.cachedKey, nil
 		}
 
 		resp, err := http.Get(h.config.VerificationKeyUrl)
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err))
+			return nil, errors.New(fmt.Sprintf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err))
 		}
 
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err))
+			return nil, errors.New(fmt.Sprintf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err))
 		}
 
-		h.cachedKey = string(body)
+		h.cachedKey = body
 		h.cachedKeyExpiration = time.Now().Add(h.cacheTtl)
 
 		return h.cachedKey, nil
@@ -104,7 +138,7 @@ func (h *AuthenticationHandler) GetVerificationKey() (string, error) {
 }
 
 func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, error) {
-	token, err := h.getToken(req)
+	token, err := h.storage.ReadToken(req)
 	if err != nil {
 		if err == NoTokenError {
 			return false, nil
@@ -118,9 +152,10 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, error)
 		return false, err
 	}
 
-	var keyFunc jwt.Keyfunc = func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %s", token.Header["alg"])
+	var keyFunc jwt.Keyfunc = func(decodedToken *jwt.Token) (interface{}, error) {
+		fmt.Println(decodedToken)
+		if _, ok := decodedToken.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %s", decodedToken.Header["alg"])
 		}
 		return key, nil
 	}
@@ -130,11 +165,15 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, error)
 		return true, nil
 	}
 
+	if err != nil {
+		return false, err
+	}
+
 	return false, nil
 }
 
-func NewAuthHandler(authConfig *config.GlobalAuth) (AuthDecorator, error) {
-	authHandler, err := NewAuthenticationHandler(authConfig)
+func NewAuthDecorator(authConfig *config.GlobalAuth, logger *logging.Logger) (AuthDecorator, error) {
+	authHandler, err := NewAuthenticationHandler(authConfig, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -150,5 +189,5 @@ func NewAuthHandler(authConfig *config.GlobalAuth) (AuthDecorator, error) {
 			authHandler,
 		}, nil
 	}
-	return nil, errors.New(fmt.Sprintf("Unsupported authentication mode: '%s'", authConfig.Mode))
+	return nil, errors.New(fmt.Sprintf("unsupported authentication mode: '%s'", authConfig.Mode))
 }

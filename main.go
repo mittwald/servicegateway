@@ -12,10 +12,12 @@ import (
 	logging "github.com/op/go-logging"
 	"os"
 	"mittwald.de/servicegateway/auth"
+	"fmt"
 )
 
 type StartupConfig struct {
 	ConfigDir string
+	Port int
 	Debug bool
 }
 
@@ -23,6 +25,7 @@ func main() {
 	startup := StartupConfig{}
 
 	flag.StringVar(&startup.ConfigDir, "config-dir", "/etc/charon", "configuration directory")
+	flag.IntVar(&startup.Port, "port", 8080, "HTTP port to listen on")
 	flag.BoolVar(&startup.Debug, "debug", false, "enable to add debug information to each request")
 	flag.Parse()
 
@@ -60,7 +63,7 @@ func main() {
 		logger.Fatal("error while configuring rate limiting: %s", err)
 	}
 
-	authHandler, err := auth.NewAuthHandler(&cfg.Authentication)
+	authHandler, err := auth.NewAuthDecorator(&cfg.Authentication, logging.MustGetLogger("auth"))
 	if err != nil {
 		logger.Fatal("error while configuring authentication: %s", err)
 	}
@@ -68,8 +71,12 @@ func main() {
 	builder := proxy.NewProxyBuilder(&cfg, handler, cache, throttler, authHandler)
 
 	for name, appCfg := range cfg.Applications {
-		builder.BuildHandler(bone, name, appCfg)
+		if err := builder.BuildHandler(bone, name, appCfg); err != nil {
+			logger.Panic(err)
+		}
 	}
 
-	http.ListenAndServe(":2000", bone)
+	listenAddress := fmt.Sprintf(":%d", startup.Port)
+	logger.Info("Listening on address %s", listenAddress)
+	http.ListenAndServe(listenAddress, bone)
 }

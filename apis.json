@@ -73,13 +73,21 @@
     "mode": "graphical",
     "storage": {
       "mode": "cookie",
-      "name": "coab"
+      "name": "coab",
+      "cookie_domain": "localhost:8080",
+      "cookie_secure": false,
+      "cookie_httponly": true
     },
     "graphical": {
       "login_route": "/login"
     },
-    "verification_key": "asd",
-    "verification_key_url": null,
+    "provider": {
+      "url": "http://identity.services.mittwald.it",
+      "token_ttl": "24h",
+      "providers": ["public"]
+    },
+    "verification_key": null,
+    "verification_key_url": "http://identity.services.mittwald.it/key",
     "key_cache_ttl": "5m"
   }
 }

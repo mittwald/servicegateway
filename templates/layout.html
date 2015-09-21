@@ -1,0 +1,19 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mittwald Single-Signon portal</title>
+    <link rel="stylesheet" href="/_static/bower_components/bootstrap/dist/css/bootstrap.min.css" />
+</head>
+<body>
+
+    <div class="container">
+        {{template "login" .}}
+    </div>
+
+<script src="/_static/bower_components/jquery/dist/jquery.min.js"></script>
+<script src="/_static/bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+</body>
+</html>
+{{end}}

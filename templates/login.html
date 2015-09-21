@@ -1,0 +1,32 @@
+{{define "login"}}
+<div class="row">
+    <div class="col-md-offset-3 col-md-6">
+        <div class="panel panel-default">
+            <div class="panel-heading">Sign in</div>
+            <div class="panel-body">
+                {{if .HasErrors}}
+                <div class="alert alert-danger">
+                    Errors occurred during login. Please check if your credentials are correct.
+                </div>
+                {{end}}
+                <form action="/_gateway/authenticate" method="post">
+                    <div class="form-group {{if .Errors.UserEmpty}}has-error{{end}}">
+                        <label class="control-label" for="username">Username</label>
+                        <input type="text" class="form-control" id="username" placeholder="mmustermann" name="username" />
+                    </div>
+                    <div class="form-group {{if .Errors.PasswordEmpty}}has-error{{end}}">
+                        <label class="control-label" for="username">Password</label>
+                        <input type="password" class="form-control" id="password" placeholder="" name="password" />
+                    </div>
+                    {{if .Redirect}}
+                        <input type="hidden" name="redirect" value="{{.Redirect}}" />
+                    {{end}}
+                    <button type="submit" class="btn btn-primary btn-block">
+                        Sign in
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

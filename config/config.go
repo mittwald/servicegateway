@@ -33,7 +33,8 @@ type GlobalAuth struct {
 	Mode string `json:"mode"`
 	StorageConfig StorageAuthConfig `json:"storage"`
 	GraphicalConfig GraphicalAuthConfig `json:"graphical"`
-	VerificationKey string `json:"verification_key"`
+	ProviderConfig ProviderAuthConfig `json:"provider"`
+	VerificationKey []byte `json:"verification_key"`
 	VerificationKeyUrl string `json:"verification_key_url"`
 	KeyCacheTtl string `json:"key_cache_ttl"`
 }
@@ -41,10 +42,19 @@ type GlobalAuth struct {
 type StorageAuthConfig struct {
 	Mode string `json:"mode"`
 	Name string `json:"name"`
+	CookieDomain string `json:"cookie_domain"`
+	CookieHttpOnly bool `json:"cookie_httponly"`
+	CookieSecure bool `json:"cookie_secure"`
 }
 
 type GraphicalAuthConfig struct {
 	LoginRoute string `json:"login_route"`
+}
+
+type ProviderAuthConfig struct {
+	Url string `json:"url"`
+	TokenTimeToLive string `json:"token_ttl"`
+	Providers []string `json:"providers"`
 }
 
 type Caching struct {
