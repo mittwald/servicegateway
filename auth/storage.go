@@ -78,7 +78,7 @@ func (s *SessionTokenStorage) ReadToken(req *http.Request) (string, error) {
 	sessionCookie, err := req.Cookie(s.Config.Name)
 
 	if err != nil {
-		if err = http.ErrNoCookie {
+		if err == http.ErrNoCookie {
 			return "", NoTokenError
 		} else {
 			return "", err
@@ -89,7 +89,7 @@ func (s *SessionTokenStorage) ReadToken(req *http.Request) (string, error) {
 	sessionKey := fmt.Sprintf("token_%s", sessionId)
 	jwt, err := redis.String(conn.Do("GET", sessionKey))
 	if err != nil {
-		return "", jwt
+		return "", err
 	}
 
 	return jwt, nil
