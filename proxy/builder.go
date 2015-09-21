@@ -4,10 +4,16 @@ import (
 	"net/http"
 	"github.com/go-zoo/bone"
 	"mittwald.de/servicegateway/config"
+	"github.com/mailgun/oxy/forward"
+	"github.com/mailgun/oxy/testutils"
+	"github.com/mailgun/oxy/roundrobin"
+	consul "github.com/hashicorp/consul/api"
 	"strings"
 	"regexp"
 	"fmt"
 	"mittwald.de/servicegateway/auth"
+	"net/url"
+	"strconv"
 )
 
 type ProxyBuilder struct {
@@ -16,15 +22,25 @@ type ProxyBuilder struct {
 	Cache *Cache
 	RateThrottler *RateThrottler
 	AuthDecorator auth.AuthDecorator
+	Consul *consul.Client
 }
 
-func NewProxyBuilder(cfg *config.Configuration, proxy *ProxyHandler, cache *Cache, throttler *RateThrottler, authDecorator auth.AuthDecorator) *ProxyBuilder {
+func NewProxyBuilder(cfg *config.Configuration, proxy *ProxyHandler, cache *Cache, throttler *RateThrottler, authDecorator auth.AuthDecorator) (*ProxyBuilder, error) {
+	consulConfig := consul.DefaultConfig()
+	consulConfig.Address = cfg.Consul.URL
+
+	consul, err := consul.NewClient(consulConfig)
+	if err != nil {
+		return err
+	}
+
 	return &ProxyBuilder {
 		Configuration: cfg,
 		ProxyHandler: proxy,
 		Cache: cache,
 		RateThrottler: throttler,
 		AuthDecorator: authDecorator,
+		Consul: consul,
 	}
 }
 
@@ -38,11 +54,37 @@ func debugHandlerDecorator(app string, handler http.HandlerFunc) http.HandlerFun
 func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Application) error {
 	routes := make(map[string]http.HandlerFunc)
 
+	forwarderConfig := func (fwd *forward.Forwarder) error {
+		return nil
+	}
+	forwarder, err := forward.New(forwarderConfig)
+	if err != nil {
+		return err
+	}
+	lb, _ := roundrobin.New(forwarder)
+
+	services, _, err := b.Consul.Catalog().Service(appCfg.Backend.Service, appCfg.Backend.Tag)
+	if err != nil {
+		return err
+	}
+
+	for _, service := range(services) {
+		lb.UpsertServer(&url.URL{
+			Scheme: "http",
+			Host: service.Address + ":" + strconv.Itoa(service.ServicePort),
+		})
+	}
+
+//	lb.UpsertServer(testutils.ParseURI(appCfg.Backend.Url))
+
 	if appCfg.Routing.Type == "path" {
 		var handler http.HandlerFunc = func(rw http.ResponseWriter, req *http.Request) {
 			sanitizedPath := strings.Replace(req.URL.Path, appCfg.Routing.Path, "", 1)
 			proxyUrl := appCfg.Backend.Url + sanitizedPath
-			b.ProxyHandler.HandleProxyRequest(rw, req, proxyUrl, name, &appCfg)
+			req.URL = testutils.ParseURI(proxyUrl)
+
+			lb.ServeHTTP(rw, req)
+			//b.ProxyHandler.HandleProxyRequest(rw, req, proxyUrl, name, &appCfg)
 		}
 
 		routes[appCfg.Routing.Path+"/*"] = handler
@@ -57,7 +99,9 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 				}
 				fmt.Println(targetUrl)
 
-				b.ProxyHandler.HandleProxyRequest(rw, req, targetUrl, name, &appCfg)
+				req.URL = testutils.ParseURI(targetUrl)
+				lb.ServeHTTP(rw, req)
+//				b.ProxyHandler.HandleProxyRequest(rw, req, targetUrl, name, &appCfg)
 			}
 
 			routes[pattern] = patternHandler

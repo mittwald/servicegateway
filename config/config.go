@@ -4,6 +4,7 @@ type Configuration struct {
 	Applications map[string]Application `json:"applications"`
 	RateLimiting RateLimiting `json:"rate_limiting"`
 	Authentication GlobalAuth `json:"authentication"`
+	Consul ConsulConfiguration `json:"consul"`
 }
 
 type Application struct {
@@ -23,6 +24,8 @@ type Routing struct {
 
 type Backend struct {
 	Url string `json:"url"`
+	Service string `json:"service"`
+	Tag string `json:"tag"`
 }
 
 type ApplicationAuth struct {
@@ -37,6 +40,10 @@ type GlobalAuth struct {
 	VerificationKey []byte `json:"verification_key"`
 	VerificationKeyUrl string `json:"verification_key_url"`
 	KeyCacheTtl string `json:"key_cache_ttl"`
+}
+
+type ConsulConfiguration struct {
+	URL string `json:"url"`
 }
 
 type StorageAuthConfig struct {
