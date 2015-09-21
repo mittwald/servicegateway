@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/charon.iml" filepath="$PROJECT_DIR$/.idea/charon.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/servicegateway.iml" filepath="$PROJECT_DIR$/.idea/servicegateway.iml" />
     </modules>
   </component>
 </project>
