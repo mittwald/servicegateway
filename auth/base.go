@@ -13,6 +13,7 @@ import (
 	"github.com/go-zoo/bone"
 	"bytes"
 	logging "github.com/op/go-logging"
+	"github.com/garyburd/redigo/redis"
 )
 
 var InvalidCredentialsError error = errors.New("invalid credentials given")
@@ -39,7 +40,7 @@ type AuthenticationRequest struct {
 	Providers []string `json:"providers"`
 }
 
-func NewAuthenticationHandler(cfg *config.GlobalAuth, logger *logging.Logger) (*AuthenticationHandler, error) {
+func NewAuthenticationHandler(cfg *config.GlobalAuth, redisPool *redis.Pool, logger *logging.Logger) (*AuthenticationHandler, error) {
 	var storage TokenStorage
 
 	switch cfg.StorageConfig.Mode {
@@ -47,6 +48,8 @@ func NewAuthenticationHandler(cfg *config.GlobalAuth, logger *logging.Logger) (*
 		storage = &CookieTokenStorage{Config: &cfg.StorageConfig}
 	case "header":
 		storage = &HeaderTokenStorage{Config: &cfg.StorageConfig}
+	case "session":
+		storage = &SessionTokenStorage{Config: &cfg.StorageConfig, RedisPool: redisPool}
 	default:
 		return nil, errors.New(fmt.Sprintf("unsupported token storage mode: '%s'", cfg.StorageConfig.Mode))
 	}
@@ -162,8 +165,8 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, error)
 	return false, nil
 }
 
-func NewAuthDecorator(authConfig *config.GlobalAuth, logger *logging.Logger) (AuthDecorator, error) {
-	authHandler, err := NewAuthenticationHandler(authConfig, logger)
+func NewAuthDecorator(authConfig *config.GlobalAuth, redisPool *redis.Pool, logger *logging.Logger) (AuthDecorator, error) {
+	authHandler, err := NewAuthenticationHandler(authConfig, redisPool, logger)
 	if err != nil {
 		return nil, err
 	}

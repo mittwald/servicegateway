@@ -63,7 +63,7 @@ func main() {
 		logger.Fatal("error while configuring rate limiting: %s", err)
 	}
 
-	authHandler, err := auth.NewAuthDecorator(&cfg.Authentication, logging.MustGetLogger("auth"))
+	authHandler, err := auth.NewAuthDecorator(&cfg.Authentication, redisPool, logging.MustGetLogger("auth"))
 	if err != nil {
 		logger.Fatal("error while configuring authentication: %s", err)
 	}

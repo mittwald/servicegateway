@@ -72,8 +72,8 @@
   "authentication": {
     "mode": "graphical",
     "storage": {
-      "mode": "cookie",
-      "name": "coab",
+      "mode": "session",
+      "name": "COAB_SESSION",
       "cookie_domain": "localhost:8080",
       "cookie_secure": false,
       "cookie_httponly": true
