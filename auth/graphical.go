@@ -2,7 +2,7 @@ package auth
 
 import (
 	"net/http"
-	"mittwald.de/charon/config"
+	"mittwald.de/servicegateway/config"
 )
 
 type GraphicalAuthDecorator struct {

@@ -2,7 +2,7 @@ package proxy
 
 import (
 	"net/http"
-	"mittwald.de/charon/config"
+	"mittwald.de/servicegateway/config"
 	"bufio"
 	"fmt"
 	"errors"

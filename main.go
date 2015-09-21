@@ -2,16 +2,16 @@ package main
 
 import (
 	"flag"
-	"mittwald.de/charon/config"
+	"mittwald.de/servicegateway/config"
 	"encoding/json"
 	"io/ioutil"
 	"github.com/go-zoo/bone"
 	"net/http"
-	"mittwald.de/charon/proxy"
+	"mittwald.de/servicegateway/proxy"
 	"github.com/garyburd/redigo/redis"
 	logging "github.com/op/go-logging"
 	"os"
-	"mittwald.de/charon/auth"
+	"mittwald.de/servicegateway/auth"
 )
 
 type StartupConfig struct {

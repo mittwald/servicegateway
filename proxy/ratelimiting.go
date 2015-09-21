@@ -5,7 +5,7 @@ import (
 	"sync"
 	"strconv"
 	"net"
-	"mittwald.de/charon/config"
+	"mittwald.de/servicegateway/config"
 	"github.com/garyburd/redigo/redis"
 	logging "github.com/op/go-logging"
 	"time"

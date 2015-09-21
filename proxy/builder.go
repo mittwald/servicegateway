@@ -3,11 +3,11 @@ package proxy
 import (
 	"net/http"
 	"github.com/go-zoo/bone"
-	"mittwald.de/charon/config"
+	"mittwald.de/servicegateway/config"
 	"strings"
 	"regexp"
 	"fmt"
-	"mittwald.de/charon/auth"
+	"mittwald.de/servicegateway/auth"
 )
 
 type ProxyBuilder struct {
