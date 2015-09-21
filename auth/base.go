@@ -29,7 +29,6 @@ type AuthenticationHandler struct {
 	cachedKey           []byte
 	cachedKeyExpiration time.Time
 	cachedKeyLock       sync.Mutex
-	tokenTtl            time.Duration
 	httpClient *http.Client
 }
 
@@ -57,16 +56,10 @@ func NewAuthenticationHandler(cfg *config.GlobalAuth, logger *logging.Logger) (*
 		return nil, err
 	}
 
-	tokenTtl, err := time.ParseDuration(cfg.ProviderConfig.TokenTimeToLive)
-	if err != nil {
-		return nil, err
-	}
-
 	handler := AuthenticationHandler{
 		config: cfg,
 		storage: storage,
 		cacheTtl: cacheTtl,
-		tokenTtl: tokenTtl,
 		httpClient: &http.Client{},
 	}
 
@@ -74,12 +67,9 @@ func NewAuthenticationHandler(cfg *config.GlobalAuth, logger *logging.Logger) (*
 }
 
 func (h *AuthenticationHandler) Authenticate(username string, password string) (string, error) {
-	authRequest := AuthenticationRequest{
-		Username: username,
-		Password: password,
-		TimeToLive: int(h.tokenTtl.Seconds()),
-		Providers: h.config.ProviderConfig.Providers,
-	}
+	authRequest := h.config.ProviderConfig.Parameters
+	authRequest["username"] = username
+	authRequest["password"] = password
 
 	jsonString, err := json.Marshal(authRequest)
 	if err != nil {

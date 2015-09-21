@@ -53,8 +53,8 @@ type GraphicalAuthConfig struct {
 
 type ProviderAuthConfig struct {
 	Url string `json:"url"`
-	TokenTimeToLive string `json:"token_ttl"`
-	Providers []string `json:"providers"`
+	ParameterFormat string `json:"parameter_format"`
+	Parameters map[string]interface{} `json:"parameters"`
 }
 
 type Caching struct {

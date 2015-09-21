@@ -83,8 +83,13 @@
     },
     "provider": {
       "url": "http://identity.services.mittwald.it",
-      "token_ttl": "24h",
-      "providers": ["public"]
+      "parameter_format": "json",
+      "parameters": {
+        "token_ttl": 86400,
+        "providers": [
+          "public"
+        ]
+      }
     },
     "verification_key": null,
     "verification_key_url": "http://identity.services.mittwald.it/key",
