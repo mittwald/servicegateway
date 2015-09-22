@@ -51,12 +51,12 @@ func main() {
 	logger.Debug("%s", cfg)
 
 	redisPool := redis.NewPool(func() (redis.Conn, error) {
-		return redis.Dial("tcp", "localhost:6379")
+		return redis.Dial("tcp", cfg.Redis)
 	}, 8)
 
 	bone := bone.New()
 
-	handler := proxy.NewProxyHandler()
+	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"))
 	cache := proxy.NewCache(4096)
 	throttler, err := proxy.NewThrottler(cfg.RateLimiting, redisPool, logging.MustGetLogger("ratelimiter"))
 	if err != nil {
@@ -68,7 +68,10 @@ func main() {
 		logger.Fatal("error while configuring authentication: %s", err)
 	}
 
-	builder := proxy.NewProxyBuilder(&cfg, handler, cache, throttler, authHandler)
+	builder, err := proxy.NewProxyBuilder(&cfg, handler, cache, throttler, authHandler)
+	if err != nil {
+		logger.Fatal("error while creating proxy builder: %s", err)
+	}
 
 	for name, appCfg := range cfg.Applications {
 		if err := builder.BuildHandler(bone, name, appCfg); err != nil {

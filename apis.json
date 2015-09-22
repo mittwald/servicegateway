@@ -9,7 +9,7 @@
         "disable": true
       },
       "backend": {
-        "url": "http://identity.service.consul"
+        "service": "identity"
       },
       "rate_limiting": true
     },
@@ -70,8 +70,10 @@
     "burst": 1000
   },
   "consul": {
-    "url": "http://localhost:8500"
+    "host": "localhost",
+    "port": 8500
   },
+  "redis": "redis:6379",
   "authentication": {
     "mode": "graphical",
     "storage": {
@@ -85,10 +87,10 @@
       "login_route": "/login"
     },
     "provider": {
-      "url": "http://identity.services.mittwald.it",
+      "url": "http://identity.service.consul",
       "parameter_format": "json",
       "parameters": {
-        "token_ttl": 86400,
+        "ttl": 86400,
         "providers": [
           "public"
         ]

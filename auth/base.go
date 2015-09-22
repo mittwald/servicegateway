@@ -31,6 +31,7 @@ type AuthenticationHandler struct {
 	cachedKeyExpiration time.Time
 	cachedKeyLock       sync.Mutex
 	httpClient *http.Client
+	logger *logging.Logger
 }
 
 type AuthenticationRequest struct {
@@ -64,6 +65,7 @@ func NewAuthenticationHandler(cfg *config.GlobalAuth, redisPool *redis.Pool, log
 		storage: storage,
 		cacheTtl: cacheTtl,
 		httpClient: &http.Client{},
+		logger: logger,
 	}
 
 	return &handler, nil
@@ -79,6 +81,8 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 		return "", err
 	}
 
+	h.logger.Debug("request body: %s", jsonString)
+
 	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url + "/authenticate", bytes.NewBuffer(jsonString))
 	req.Header.Set("Accept", "application/jwt")
 	req.Header.Set("Content-Type", "application/json")
@@ -87,12 +91,14 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	if err != nil {
 		return "", err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusForbidden {
+		body, _ := ioutil.ReadAll(resp.Body)
+		h.logger.Error("error while trying to authenticate %s: %s", username, body)
 		return "", InvalidCredentialsError
 	}
 
-	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
 	return string(body), nil
 }
@@ -158,7 +164,14 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, error)
 		return true, nil
 	}
 
+	acceptableErrors := jwt.ValidationErrorExpired | jwt.ValidationErrorSignatureInvalid
 	if err != nil {
+		switch t := err.(type) {
+		case *jwt.ValidationError:
+			if t.Errors & acceptableErrors != 0 {
+				return false, nil
+			}
+		}
 		return false, err
 	}
 
@@ -176,6 +189,7 @@ func NewAuthDecorator(authConfig *config.GlobalAuth, redisPool *redis.Pool, logg
 		return &GraphicalAuthDecorator{
 			authHandler,
 			authConfig,
+			logger,
 		}, nil
 	case "rest":
 		return &RestAuthDecorator{

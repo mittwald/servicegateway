@@ -5,6 +5,7 @@ type Configuration struct {
 	RateLimiting RateLimiting `json:"rate_limiting"`
 	Authentication GlobalAuth `json:"authentication"`
 	Consul ConsulConfiguration `json:"consul"`
+	Redis string `json:"redis"`
 }
 
 type Application struct {
@@ -43,7 +44,8 @@ type GlobalAuth struct {
 }
 
 type ConsulConfiguration struct {
-	URL string `json:"url"`
+	Host string `json:"host"`
+	Port int `json:"port"`
 }
 
 type StorageAuthConfig struct {

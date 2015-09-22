@@ -41,9 +41,6 @@ func (r *ResponseBuffer) WriteHeader(status int) {
 func (r *ResponseBuffer) Write(b []byte) (int, error) {
 	l, err := r.buf.Write(b)
 	return l, err
-//	b := bytes.NewBuffer([]byte())
-//	b.Write(b)
-//	r.body = append()
 }
 
 func (r *ResponseBuffer) Complete() {
@@ -58,7 +55,6 @@ func (r *ResponseBuffer) Dump(rw http.ResponseWriter) {
 		}
 	}
 
-	fmt.Printf("%d bytes in body\n", len(r.body))
 	rw.Write(r.body)
 }
 

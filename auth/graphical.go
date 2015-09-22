@@ -7,11 +7,13 @@ import (
 	"html/template"
 	"fmt"
 	"net/url"
+	"github.com/op/go-logging"
 )
 
 type GraphicalAuthDecorator struct {
 	authHandler *AuthenticationHandler
 	config *config.GlobalAuth
+	logger *logging.Logger
 }
 
 type LoginResult struct {
@@ -33,6 +35,7 @@ func (a *GraphicalAuthDecorator) DecorateHandler(orig http.HandlerFunc) http.Han
 	return func(res http.ResponseWriter, req *http.Request) {
 		authenticated, err := a.authHandler.IsAuthenticated(req)
 		if err != nil {
+			a.logger.Error(err.Error())
 			res.Header().Set("Content-Type", "application/json")
 			res.Write([]byte("{\"msg\": \"service unavailable\"}"))
 			res.WriteHeader(503)
