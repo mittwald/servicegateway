@@ -3,15 +3,16 @@ package auth
 import (
 	"net/http"
 	"github.com/go-zoo/bone"
+	"mittwald.de/servicegateway/config"
 )
 
 type RestAuthDecorator struct {
 	authHandler *AuthenticationHandler
 }
 
-func (a *RestAuthDecorator) DecorateHandler(orig http.HandlerFunc) http.HandlerFunc {
+func (a *RestAuthDecorator) DecorateHandler(orig http.HandlerFunc, appCfg *config.Application) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		authenticated, err := a.authHandler.IsAuthenticated(req)
+		authenticated, _, err := a.authHandler.IsAuthenticated(req)
 		if err != nil {
 			res.Header().Set("Content-Type", "application/json")
 			res.WriteHeader(503)

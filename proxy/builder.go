@@ -143,8 +143,8 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 		}
 
 		if ! appCfg.Auth.Disable {
-			safeHandler = b.AuthDecorator.DecorateHandler(safeHandler)
-			unsafeHandler = b.AuthDecorator.DecorateHandler(unsafeHandler)
+			safeHandler = b.AuthDecorator.DecorateHandler(safeHandler, &appCfg)
+			unsafeHandler = b.AuthDecorator.DecorateHandler(unsafeHandler, &appCfg)
 		}
 
 		if appCfg.RateLimiting {

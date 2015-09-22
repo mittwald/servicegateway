@@ -19,7 +19,7 @@ import (
 var InvalidCredentialsError error = errors.New("invalid credentials given")
 
 type AuthDecorator interface {
-	DecorateHandler(http.HandlerFunc) http.HandlerFunc
+	DecorateHandler(http.HandlerFunc, *config.Application) http.HandlerFunc
 	RegisterRoutes(*bone.Mux) error
 }
 
@@ -136,19 +136,19 @@ func (h *AuthenticationHandler) GetVerificationKey() ([]byte, error) {
 	}
 }
 
-func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, error) {
+func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string, error) {
 	token, err := h.storage.ReadToken(req)
 	if err != nil {
 		if err == NoTokenError {
-			return false, nil
+			return false, "", nil
 		} else {
-			return false, err
+			return false, "", err
 		}
 	}
 
 	key, err := h.GetVerificationKey()
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	var keyFunc jwt.Keyfunc = func(decodedToken *jwt.Token) (interface{}, error) {
@@ -161,7 +161,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, error)
 
 	dec, err := jwt.Parse(token, keyFunc)
 	if err == nil && dec.Valid {
-		return true, nil
+		return true, token, nil
 	}
 
 	acceptableErrors := jwt.ValidationErrorExpired | jwt.ValidationErrorSignatureInvalid
@@ -169,13 +169,13 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, error)
 		switch t := err.(type) {
 		case *jwt.ValidationError:
 			if t.Errors & acceptableErrors != 0 {
-				return false, nil
+				return false, "", nil
 			}
 		}
-		return false, err
+		return false, "", err
 	}
 
-	return false, nil
+	return false, "", nil
 }
 
 func NewAuthDecorator(authConfig *config.GlobalAuth, redisPool *redis.Pool, logger *logging.Logger) (AuthDecorator, error) {

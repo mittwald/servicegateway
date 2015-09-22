@@ -15,7 +15,10 @@ var NoTokenError error = errors.New("no authentication token present")
 type TokenStorage interface {
 	ReadToken(*http.Request) (string, error)
 	WriteToken(http.ResponseWriter, string) error
+	WriteTokenToUpstreamRequest(*http.Request, string) error
 }
+
+type NoOpTokenStorage struct {}
 
 type CookieTokenStorage struct {
 	Config *config.StorageAuthConfig
@@ -28,6 +31,18 @@ type HeaderTokenStorage struct {
 type SessionTokenStorage struct {
 	Config *config.StorageAuthConfig
 	RedisPool *redis.Pool
+}
+
+func (n *NoOpTokenStorage) ReadToken(req *http.Request) (string, error) {
+	return "", NoTokenError
+}
+
+func (n *NoOpTokenStorage) WriteToken(res http.ResponseWriter, token string) error {
+	return nil
+}
+
+func (n *NoOpTokenStorage) WriteTokenToUpstreamRequest(res *http.Request, token string) error {
+	return nil
 }
 
 func (c *CookieTokenStorage) ReadToken(req *http.Request) (string, error) {
@@ -58,6 +73,17 @@ func (c *CookieTokenStorage) WriteToken(res http.ResponseWriter, token string) e
 	return nil
 }
 
+func (c *CookieTokenStorage) WriteTokenToUpstreamRequest(req *http.Request, token string) error {
+	if _, err := req.Cookie(c.Config.Name); err == http.ErrNoCookie {
+		val, ok := req.Header[c.Config.Name]; if ok {
+			req.Header.Set("Cookie", fmt.Sprintf("%s; %s=%s", val, c.Config.Name, token))
+		} else {
+			req.Header.Set("Cookie", fmt.Sprintf("%s=%s", c.Config.Name, token))
+		}
+	}
+	return nil
+}
+
 func (h *HeaderTokenStorage) ReadToken(req *http.Request) (string, error) {
 	header, ok := req.Header[h.Config.Name]
 	if ok {
@@ -69,6 +95,12 @@ func (h *HeaderTokenStorage) ReadToken(req *http.Request) (string, error) {
 
 func (h *HeaderTokenStorage) WriteToken(res http.ResponseWriter, token string) error {
 	res.Header().Set(h.Config.Name, token)
+	return nil
+}
+
+func (h *HeaderTokenStorage) WriteTokenToUpstreamRequest(req *http.Request, token string) error {
+	fmt.Println("Adding header ", h.Config.Name, " to request")
+	req.Header.Set(h.Config.Name, token)
 	return nil
 }
 
@@ -119,4 +151,8 @@ func (s *SessionTokenStorage) WriteToken(res http.ResponseWriter, token string) 
 	}
 	http.SetCookie(res, &cookie)
 	return nil
+}
+
+func (s *SessionTokenStorage) WriteTokenToUpstreamRequest(req *http.Request, token string) error {
+	return errors.New("session token storage is unsupported for upstream services")
 }

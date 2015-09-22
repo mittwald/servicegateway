@@ -31,6 +31,7 @@ type Backend struct {
 
 type ApplicationAuth struct {
 	Disable bool `json:"disable"`
+	Storage StorageAuthConfig `json:"storage"`
 }
 
 type GlobalAuth struct {
