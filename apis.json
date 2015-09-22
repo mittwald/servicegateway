@@ -13,20 +13,6 @@
       },
       "rate_limiting": true
     },
-    "flow": {
-      "caching": {
-        "auto_flush": true,
-        "enabled": true,
-        "ttl": 3600
-      },
-      "routing": {
-        "path": "/foobar",
-        "type": "path"
-      },
-      "backend": {
-        "url": "http://localhost"
-      }
-    },
     "httpbin": {
       "caching": {
         "auto_flush": true,
@@ -42,27 +28,21 @@
       },
       "rate_limiting": true
     },
-    "cart_promotion": {
+    "tickets": {
       "routing": {
-        "patterns": {
-          "/cart/:id/promotion": "/promotion/:id"
-        },
-        "type": "pattern"
+        "type": "path",
+        "path": "/tickets"
       },
       "backend": {
-        "url": "http://cart-promotion.service.consul"
+        "url": "http://tickets/rest/tickets"
       },
-      "rate_limiting": true
-    },
-    "cart": {
-      "routing": {
-        "path": "/cart",
-        "type": "path"
-      },
-      "backend": {
-        "url": "http://cart.service.consul/rest/v2"
-      },
-      "rate_limiting": true
+      "rate_limiting": true,
+      "auth": {
+        "storage": {
+          "mode": "header",
+          "name": "X-JWT"
+        }
+      }
     }
   },
   "rate_limiting": {
