@@ -40,21 +40,8 @@ func NewProxyBuilder(cfg *config.Configuration, proxy *ProxyHandler, cache *Cach
 	}, nil
 }
 
-func debugHandlerDecorator(app string, handler http.HandlerFunc) http.HandlerFunc {
-	return func(rw http.ResponseWriter, req *http.Request) {
-		rw.Header().Add("X-Charon-TargetApplication", app)
-		handler(rw, req)
-	}
-}
-
 func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Application) error {
 	routes := make(map[string]http.HandlerFunc)
-
-//	forwarder, err := forward.New(forward.PassHostHeader(true))
-//	if err != nil {
-//		return err
-//	}
-//	lb, _ := roundrobin.New(forwarder)
 
 	backendUrl := appCfg.Backend.Url
 	if backendUrl == "" && appCfg.Backend.Service != "" {
@@ -65,43 +52,10 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 		}
 	}
 
-//	if appCfg.Backend.Url != "" {
-//		lb.UpsertServer(testutils.ParseURI(appCfg.Backend.Url))
-//	} else {
-//		services, _, err := b.Consul.Catalog().Service(appCfg.Backend.Service, appCfg.Backend.Tag, &consul.QueryOptions{})
-//		if err != nil {
-//			return err
-//		}
-//
-//		if len(services) == 0 {
-//			return fmt.Errorf("service %s is not registered in Consul", appCfg.Backend.Service)
-//		}
-//
-//		for _, service := range (services) {
-//			lb.UpsertServer(&url.URL{
-//				Scheme: "http",
-//				Host: service.Address + ":" + strconv.Itoa(service.ServicePort),
-//			})
-//		}
-//	}
-
-//	lb.UpsertServer(testutils.ParseURI(appCfg.Backend.Url))
-
 	if appCfg.Routing.Type == "path" {
 		var handler http.HandlerFunc = func(rw http.ResponseWriter, req *http.Request) {
 			sanitizedPath := strings.Replace(req.URL.Path, appCfg.Routing.Path, "", 1)
 			proxyUrl := backendUrl + sanitizedPath
-			fmt.Println(proxyUrl)
-//			req.URL = testutils.ParseURI(proxyUrl)
-
-//			fmt.Println(req.URL)
-//			fmt.Println(lb.Servers())
-//
-//			if appCfg.Backend.Service != "" {
-//				req.Header.Set("Host", fmt.Sprintf("%s.service.consul", appCfg.Backend.Service))
-//			}
-
-//			lb.ServeHTTP(rw, req)
 			b.ProxyHandler.HandleProxyRequest(rw, req, proxyUrl, name, &appCfg)
 		}
 
@@ -115,10 +69,8 @@ func (b *ProxyBuilder) BuildHandler(mux *bone.Mux, name string, appCfg config.Ap
 				for _, paramName := range parameters {
 					targetUrl = strings.Replace(targetUrl, paramName[0], bone.GetValue(req, paramName[1]), -1)
 				}
-				fmt.Println(targetUrl)
 
 				req.URL = testutils.ParseURI(targetUrl)
-//				lb.ServeHTTP(rw, req)
 				b.ProxyHandler.HandleProxyRequest(rw, req, targetUrl, name, &appCfg)
 			}
 
