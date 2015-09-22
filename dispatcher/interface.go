@@ -1,19 +1,24 @@
 package dispatcher
 
 import (
-	"net/http"
-	"mittwald.de/servicegateway/config"
 	"github.com/go-zoo/bone"
-	"mittwald.de/servicegateway/proxy"
 	"github.com/op/go-logging"
-	"mittwald.de/servicegateway/auth"
-	"mittwald.de/servicegateway/cache"
-	"mittwald.de/servicegateway/ratelimit"
+	"mittwald.de/servicegateway/config"
+	"mittwald.de/servicegateway/proxy"
+	"net/http"
 )
 
 type Dispatcher interface {
-	http.Handler
 	RegisterApplication(string, config.Application) error
+	AddBehaviour(...DispatcherBehaviour)
+}
+
+type DispatcherBehaviour interface {
+	Apply(http.Handler, http.Handler, Dispatcher, *config.Application) (http.Handler, http.Handler, error)
+}
+
+type RoutingBehaviour interface {
+	AddRoutes(*bone.Mux) error
 }
 
 type abstractDispatcher struct {
@@ -22,23 +27,15 @@ type abstractDispatcher struct {
 	prx *proxy.ProxyHandler
 	log *logging.Logger
 
-	auth auth.AuthDecorator
-	cache cache.CacheMiddleware
-	rlim ratelimit.RateLimitingMiddleware
-}
-
-func (d *abstractDispatcher) setAuth(a auth.AuthDecorator) {
-	d.auth = a
-}
-
-func (d *abstractDispatcher) setCache(c cache.CacheMiddleware) {
-	d.cache = c
-}
-
-func (d *abstractDispatcher) setRatelimit(r ratelimit.RateLimitingMiddleware) {
-	d.rlim = r
+	behaviours []DispatcherBehaviour
 }
 
 func (d *abstractDispatcher) setProxy(p *proxy.ProxyHandler) {
 	d.prx = p
+}
+
+func (d *abstractDispatcher) AddBehaviour(behaviours ...DispatcherBehaviour) {
+	for _, behaviour := range behaviours {
+		d.behaviours = append(d.behaviours, behaviour)
+	}
 }

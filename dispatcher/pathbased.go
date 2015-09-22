@@ -19,28 +19,20 @@ func NewPathBasedDispatcher(
 	cfg *config.Configuration,
 	mux *bone.Mux,
 	log *logging.Logger,
-	opts ...DispatcherOption,
+	prx *proxy.ProxyHandler,
 ) (*pathBasedDispatcher, error) {
 	dispatcher := new(pathBasedDispatcher)
 	dispatcher.cfg = cfg
 	dispatcher.mux = mux
 	dispatcher.log = log
-
-	for _, opt := range opts {
-		if err := opt(dispatcher); err != nil {
-			return nil, err
-		}
-	}
-
-	if dispatcher.prx == nil {
-		dispatcher.prx = proxy.NewProxyHandler(log)
-	}
+	dispatcher.prx = prx
+	dispatcher.behaviours = make([]DispatcherBehaviour, 0, 8)
 
 	return dispatcher, nil
 }
 
 func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.Application) error {
-	routes := make(map[string]http.HandlerFunc)
+	routes := make(map[string]http.Handler)
 
 	backendUrl := appCfg.Backend.Url
 	if backendUrl == "" && appCfg.Backend.Service != "" {
@@ -61,7 +53,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 			d.prx.HandleProxyRequest(rw, req, proxyUrl, name, &appCfg)
 		}
 
-		routes[appCfg.Routing.Path+"/*"] = handler
+		routes[appCfg.Routing.Path+"/*"] = http.HandlerFunc(handler)
 	} else if appCfg.Routing.Type == "pattern" {
 		re := regexp.MustCompile(":([a-zA-Z0-9]+)")
 		for pattern, target := range appCfg.Routing.Patterns {
@@ -75,13 +67,16 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 				d.prx.HandleProxyRequest(rw, req, targetUrl, name, &appCfg)
 			}
 
-			routes[pattern] = patternHandler
+			routes[pattern] = http.HandlerFunc(patternHandler)
 		}
 	}
 
-	if d.auth != nil {
-		if err := d.auth.RegisterRoutes(d.mux); err != nil {
-			return err
+	for _, behaviour := range d.behaviours {
+		switch t := behaviour.(type) {
+		case RoutingBehaviour:
+			if err := t.AddRoutes(d.mux); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -89,31 +84,20 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 		safeHandler := handler
 		unsafeHandler := handler
 
-		if d.cache != nil && appCfg.Caching.Enabled {
-			safeHandler = d.cache.DecorateHandler(handler)
-
-			if appCfg.Caching.AutoFlush {
-				unsafeHandler = d.cache.DecorateUnsafeHandler(handler)
+		for _, behaviour := range d.behaviours {
+			var err error
+			safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, d, &appCfg)
+			if err != nil {
+				return err
 			}
 		}
 
-		if d.auth != nil && !appCfg.Auth.Disable {
-			safeHandler = d.auth.DecorateHandler(safeHandler, &appCfg)
-			unsafeHandler = d.auth.DecorateHandler(unsafeHandler, &appCfg)
-		}
-
-		if d.rlim != nil && appCfg.RateLimiting {
-			safeHandler = d.rlim.DecorateHandler(safeHandler)
-			unsafeHandler = d.rlim.DecorateHandler(unsafeHandler)
-		}
-
-		d.mux.GetFunc(route, safeHandler)
-		d.mux.HeadFunc(route, safeHandler)
-		d.mux.OptionsFunc(route, safeHandler)
-
-		d.mux.PostFunc(route, unsafeHandler)
-		d.mux.PutFunc(route, unsafeHandler)
-		d.mux.DeleteFunc(route, unsafeHandler)
+		d.mux.Get(route, safeHandler)
+		d.mux.Head(route, safeHandler)
+		d.mux.Options(route, safeHandler)
+		d.mux.Post(route, unsafeHandler)
+		d.mux.Put(route, unsafeHandler)
+		d.mux.Delete(route, unsafeHandler)
 	}
 
 	return nil

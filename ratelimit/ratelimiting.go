@@ -18,7 +18,7 @@ type Bucket struct {
 }
 
 type RateLimitingMiddleware interface {
-	DecorateHandler(handler http.HandlerFunc) http.HandlerFunc
+	DecorateHandler(handler http.Handler) http.Handler
 }
 
 type RedisSimpleRateThrottler struct {
@@ -103,8 +103,8 @@ func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 //	}
 //}
 
-func (t *RedisSimpleRateThrottler) DecorateHandler(handler http.HandlerFunc) http.HandlerFunc {
-	return func(rw http.ResponseWriter, req *http.Request) {
+func (t *RedisSimpleRateThrottler) DecorateHandler(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		user := t.identifyClient(req)
 		remaining, limit, err := t.takeToken(user)
 
@@ -125,7 +125,7 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler http.HandlerFunc) htt
 			rw.WriteHeader(429)
 			rw.Write([]byte("{\"msg\":\"rate limit exceeded\"}"))
 		} else {
-			handler(rw, req)
+			handler.ServeHTTP(rw, req)
 		}
-	}
+	})
 }

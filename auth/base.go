@@ -19,7 +19,7 @@ import (
 var InvalidCredentialsError error = errors.New("invalid credentials given")
 
 type AuthDecorator interface {
-	DecorateHandler(http.HandlerFunc, *config.Application) http.HandlerFunc
+	DecorateHandler(http.Handler, *config.Application) http.Handler
 	RegisterRoutes(*bone.Mux) error
 }
 

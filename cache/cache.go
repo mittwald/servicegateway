@@ -9,8 +9,8 @@ import (
 )
 
 type CacheMiddleware interface {
-	DecorateHandler(handler http.HandlerFunc) http.HandlerFunc
-	DecorateUnsafeHandler(handler http.HandlerFunc) http.HandlerFunc
+	DecorateHandler(handler http.Handler) http.Handler
+	DecorateUnsafeHandler(handler http.Handler) http.Handler
 }
 
 type inMemoryCacheMiddleware struct {
@@ -79,17 +79,17 @@ func (c *inMemoryCacheMiddleware) identifierForRequest(req *http.Request) string
 	return identifier
 }
 
-func (c *inMemoryCacheMiddleware) DecorateUnsafeHandler(handler http.HandlerFunc) http.HandlerFunc {
-	return func(rw http.ResponseWriter, req *http.Request) {
+func (c *inMemoryCacheMiddleware) DecorateUnsafeHandler(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		identifier := c.identifierForRequest(req)
 		c.cache.Remove(identifier)
 		rw.Header().Add("X-Cache", "PURGED")
-		handler(rw, req)
-	}
+		handler.ServeHTTP(rw, req)
+	})
 }
 
-func (c *inMemoryCacheMiddleware) DecorateHandler(handler http.HandlerFunc) http.HandlerFunc {
-	return func(rw http.ResponseWriter, req *http.Request) {
+func (c *inMemoryCacheMiddleware) DecorateHandler(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		identifier := c.identifierForRequest(req)
 
 		useCache := true
@@ -101,7 +101,7 @@ func (c *inMemoryCacheMiddleware) DecorateHandler(handler http.HandlerFunc) http
 		if useCache == false || err == gcache.NotFoundKeyError {
 			buf := NewResponseBuffer()
 
-			handler(buf, req)
+			handler.ServeHTTP(buf, req)
 			buf.Complete()
 
 			if useCache {
@@ -127,5 +127,5 @@ func (c *inMemoryCacheMiddleware) DecorateHandler(handler http.HandlerFunc) http
 			rw.Write([]byte("{\"msg\":\"internal server error\"}"))
 		}
 
-	}
+	})
 }

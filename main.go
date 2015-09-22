@@ -76,11 +76,14 @@ func main() {
 		&cfg,
 		bone,
 		logging.MustGetLogger("dispatch"),
-		dispatcher.ProxyHandler(handler),
-		dispatcher.AuthHandler(authHandler),
-		dispatcher.CachingMiddleware(cache),
-		dispatcher.RateLimitingMiddleware(rlim),
+		handler,
 	)
+
+	// Order is important here! Behaviours will be called in LIFO order;
+	// behaviours that are added last will be called first!
+	disp.AddBehaviour(dispatcher.NewCachingBehaviour(cache))
+	disp.AddBehaviour(dispatcher.NewAuthenticationBehaviour(authHandler))
+	disp.AddBehaviour(dispatcher.NewRatelimitBehaviour(rlim))
 
 	if err != nil {
 		logger.Fatal("error while creating proxy builder: %s", err)

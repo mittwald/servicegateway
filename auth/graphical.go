@@ -31,7 +31,7 @@ func (r *LoginResult) HasErrors() bool {
 		r.Errors.InvalidCredentials
 }
 
-func (a *GraphicalAuthDecorator) DecorateHandler(orig http.HandlerFunc, appCfg *config.Application) http.HandlerFunc {
+func (a *GraphicalAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Application) http.Handler {
 	var storage TokenStorage
 
 	fmt.Println(appCfg)
@@ -44,7 +44,7 @@ func (a *GraphicalAuthDecorator) DecorateHandler(orig http.HandlerFunc, appCfg *
 		storage = &HeaderTokenStorage{Config: &appCfg.Auth.Storage}
 	}
 
-	return func(res http.ResponseWriter, req *http.Request) {
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		authenticated, token, err := a.authHandler.IsAuthenticated(req)
 		if err != nil {
 			a.logger.Error(err.Error())
@@ -60,9 +60,9 @@ func (a *GraphicalAuthDecorator) DecorateHandler(orig http.HandlerFunc, appCfg *
 			res.Write([]byte("{\"msg\": \"authentication required\"}"))
 		} else {
 			storage.WriteTokenToUpstreamRequest(req, token)
-			orig(res, req)
+			orig.ServeHTTP(res, req)
 		}
-	}
+	})
 }
 
 func (a *GraphicalAuthDecorator) RegisterRoutes(mux *bone.Mux) error {
