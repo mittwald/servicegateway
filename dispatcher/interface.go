@@ -9,6 +9,7 @@ import (
 )
 
 type Dispatcher interface {
+	http.Handler
 	RegisterApplication(string, config.Application) error
 	AddBehaviour(...DispatcherBehaviour)
 }

@@ -17,18 +17,21 @@ type pathBasedDispatcher struct {
 
 func NewPathBasedDispatcher(
 	cfg *config.Configuration,
-	mux *bone.Mux,
 	log *logging.Logger,
 	prx *proxy.ProxyHandler,
 ) (*pathBasedDispatcher, error) {
 	dispatcher := new(pathBasedDispatcher)
 	dispatcher.cfg = cfg
-	dispatcher.mux = mux
+	dispatcher.mux = bone.New()
 	dispatcher.log = log
 	dispatcher.prx = prx
 	dispatcher.behaviours = make([]DispatcherBehaviour, 0, 8)
 
 	return dispatcher, nil
+}
+
+func (d *pathBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	d.mux.ServeHTTP(res, req)
 }
 
 func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.Application) error {

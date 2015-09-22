@@ -5,7 +5,6 @@ import (
 	"mittwald.de/servicegateway/config"
 	"encoding/json"
 	"io/ioutil"
-	"github.com/go-zoo/bone"
 	"net/http"
 	"mittwald.de/servicegateway/proxy"
 	"github.com/garyburd/redigo/redis"
@@ -57,8 +56,6 @@ func main() {
 		return redis.Dial("tcp", cfg.Redis)
 	}, 8)
 
-	bone := bone.New()
-
 	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"))
 	cache := cache.NewCache(4096)
 
@@ -74,7 +71,6 @@ func main() {
 
 	disp, err := dispatcher.NewPathBasedDispatcher(
 		&cfg,
-		bone,
 		logging.MustGetLogger("dispatch"),
 		handler,
 	)
@@ -99,7 +95,7 @@ func main() {
 	listenAddress := fmt.Sprintf(":%d", startup.Port)
 	logger.Info("Listening on address %s", listenAddress)
 
-	err = http.ListenAndServe(listenAddress, bone)
+	err = http.ListenAndServe(listenAddress, disp)
 	if err != nil {
 		logger.Panic(err)
 	}
