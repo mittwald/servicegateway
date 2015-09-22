@@ -1,4 +1,4 @@
-package proxy
+package ratelimit
 
 import (
 	"net/http"
@@ -17,7 +17,11 @@ type Bucket struct {
 	fillLevel int
 }
 
-type RateThrottler struct {
+type RateLimitingMiddleware interface {
+	DecorateHandler(handler http.HandlerFunc) http.HandlerFunc
+}
+
+type RedisSimpleRateThrottler struct {
 	burstSize int64
 	window time.Duration
 	requestsPerSecond int64
@@ -25,8 +29,8 @@ type RateThrottler struct {
 	logger *logging.Logger
 }
 
-func NewThrottler(cfg config.RateLimiting, red *redis.Pool, logger *logging.Logger) (*RateThrottler, error) {
-	t := new(RateThrottler)
+func NewRateLimiter(cfg config.RateLimiting, red *redis.Pool, logger *logging.Logger) (RateLimitingMiddleware, error) {
+	t := new(RedisSimpleRateThrottler)
 	t.burstSize = int64(cfg.Burst)
 	t.requestsPerSecond = int64(cfg.RequestsPerSecond)
 	t.redisPool = red
@@ -43,12 +47,12 @@ func NewThrottler(cfg config.RateLimiting, red *redis.Pool, logger *logging.Logg
 	return t, nil
 }
 
-func (t *RateThrottler) identifyClient(req *http.Request) string {
+func (t *RedisSimpleRateThrottler) identifyClient(req *http.Request) string {
 	addr, _ := net.ResolveTCPAddr("tcp", req.RemoteAddr)
 	return addr.IP.String()
 }
 
-func (t *RateThrottler) TakeToken(user string) (int, int, error) {
+func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 	key := "RL_BUCKET_" + user
 	conn := t.redisPool.Get()
 
@@ -99,10 +103,10 @@ func (t *RateThrottler) TakeToken(user string) (int, int, error) {
 //	}
 //}
 
-func (t *RateThrottler) DecorateHandler(handler http.HandlerFunc) http.HandlerFunc {
+func (t *RedisSimpleRateThrottler) DecorateHandler(handler http.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
 		user := t.identifyClient(req)
-		remaining, limit, err := t.TakeToken(user)
+		remaining, limit, err := t.takeToken(user)
 
 		if err != nil {
 			t.logger.Error("Error occurred while handling request from %s: %s", req.RemoteAddr, err)

@@ -13,6 +13,9 @@ import (
 	"os"
 	"mittwald.de/servicegateway/auth"
 	"fmt"
+	"mittwald.de/servicegateway/dispatcher"
+	"mittwald.de/servicegateway/cache"
+	"mittwald.de/servicegateway/ratelimit"
 )
 
 type StartupConfig struct {
@@ -30,7 +33,7 @@ func main() {
 	flag.Parse()
 
 	logger := logging.MustGetLogger("startup")
-	format := logging.MustStringFormatter("%{color}%{time:15:04:05.000} %{module} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}")
+	format := logging.MustStringFormatter("%{color}%{time:15:04:05.000} %{module:12s} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}")
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 
 	logging.SetBackend(logging.NewBackendFormatter(backend, format))
@@ -57,8 +60,9 @@ func main() {
 	bone := bone.New()
 
 	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"))
-	cache := proxy.NewCache(4096)
-	throttler, err := proxy.NewThrottler(cfg.RateLimiting, redisPool, logging.MustGetLogger("ratelimiter"))
+	cache := cache.NewCache(4096)
+
+	rlim, err := ratelimit.NewRateLimiter(cfg.RateLimiting, redisPool, logging.MustGetLogger("ratelimiter"))
 	if err != nil {
 		logger.Fatal("error while configuring rate limiting: %s", err)
 	}
@@ -68,18 +72,32 @@ func main() {
 		logger.Fatal("error while configuring authentication: %s", err)
 	}
 
-	builder, err := proxy.NewProxyBuilder(&cfg, handler, cache, throttler, authHandler)
+	disp, err := dispatcher.NewPathBasedDispatcher(
+		&cfg,
+		bone,
+		logging.MustGetLogger("dispatch"),
+		dispatcher.ProxyHandler(handler),
+		dispatcher.AuthHandler(authHandler),
+		dispatcher.CachingMiddleware(cache),
+		dispatcher.RateLimitingMiddleware(rlim),
+	)
+
 	if err != nil {
 		logger.Fatal("error while creating proxy builder: %s", err)
 	}
 
 	for name, appCfg := range cfg.Applications {
-		if err := builder.BuildHandler(bone, name, appCfg); err != nil {
+		logger.Info("Registering application %s", name)
+		if err := disp.RegisterApplication(name, appCfg); err != nil {
 			logger.Panic(err)
 		}
 	}
 
 	listenAddress := fmt.Sprintf(":%d", startup.Port)
 	logger.Info("Listening on address %s", listenAddress)
-	http.ListenAndServe(listenAddress, bone)
+
+	err = http.ListenAndServe(listenAddress, bone)
+	if err != nil {
+		logger.Panic(err)
+	}
 }

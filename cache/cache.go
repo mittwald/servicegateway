@@ -1,4 +1,4 @@
-package proxy
+package cache
 
 import (
 	"github.com/bluele/gcache"
@@ -8,7 +8,12 @@ import (
 	"io/ioutil"
 )
 
-type Cache struct {
+type CacheMiddleware interface {
+	DecorateHandler(handler http.HandlerFunc) http.HandlerFunc
+	DecorateUnsafeHandler(handler http.HandlerFunc) http.HandlerFunc
+}
+
+type inMemoryCacheMiddleware struct {
 	cache gcache.Cache
 }
 
@@ -58,13 +63,13 @@ func (r *ResponseBuffer) Dump(rw http.ResponseWriter) {
 	rw.Write(r.body)
 }
 
-func NewCache(s int) *Cache {
-	c := new(Cache)
+func NewCache(s int) CacheMiddleware {
+	c := new(inMemoryCacheMiddleware)
 	c.cache = gcache.New(s).LRU().Build()
 	return c
 }
 
-func (c *Cache) identifierForRequest(req *http.Request) string {
+func (c *inMemoryCacheMiddleware) identifierForRequest(req *http.Request) string {
 	identifier := req.RequestURI
 
 	if accept := req.Header.Get("Accept"); accept != "" {
@@ -74,7 +79,7 @@ func (c *Cache) identifierForRequest(req *http.Request) string {
 	return identifier
 }
 
-func (c *Cache) DecorateUnsafeHandler(handler http.HandlerFunc) http.HandlerFunc {
+func (c *inMemoryCacheMiddleware) DecorateUnsafeHandler(handler http.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
 		identifier := c.identifierForRequest(req)
 		c.cache.Remove(identifier)
@@ -83,7 +88,7 @@ func (c *Cache) DecorateUnsafeHandler(handler http.HandlerFunc) http.HandlerFunc
 	}
 }
 
-func (c *Cache) DecorateHandler(handler http.HandlerFunc) http.HandlerFunc {
+func (c *inMemoryCacheMiddleware) DecorateHandler(handler http.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
 		identifier := c.identifierForRequest(req)
 
