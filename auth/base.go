@@ -46,11 +46,11 @@ func NewAuthenticationHandler(cfg *config.GlobalAuth, redisPool *redis.Pool, log
 
 	switch cfg.StorageConfig.Mode {
 	case "cookie":
-		storage = &CookieTokenStorage{Config: &cfg.StorageConfig}
+		storage = &CookieTokenStorage{cfg: &cfg.StorageConfig, log: logger}
 	case "header":
-		storage = &HeaderTokenStorage{Config: &cfg.StorageConfig}
+		storage = &HeaderTokenStorage{cfg: &cfg.StorageConfig, log: logger}
 	case "session":
-		storage = &SessionTokenStorage{Config: &cfg.StorageConfig, RedisPool: redisPool}
+		storage = &SessionTokenStorage{cfg: &cfg.StorageConfig, log: logger, redisPool: redisPool}
 	default:
 		return nil, errors.New(fmt.Sprintf("unsupported token storage mode: '%s'", cfg.StorageConfig.Mode))
 	}
@@ -81,7 +81,13 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 		return "", err
 	}
 
-	h.logger.Debug("request body: %s", jsonString)
+	redactedAuthRequest := authRequest
+	redactedAuthRequest["password"] = "*REDACTED*"
+
+	debugJsonString, _ := json.Marshal(redactedAuthRequest)
+
+	h.logger.Info("authenticating user %s", username)
+	h.logger.Debug("authentication request: %s", debugJsonString)
 
 	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url + "/authenticate", bytes.NewBuffer(jsonString))
 	req.Header.Set("Accept", "application/jwt")
@@ -93,10 +99,17 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusForbidden {
+	if resp.StatusCode >= 400 {
 		body, _ := ioutil.ReadAll(resp.Body)
-		h.logger.Error("error while trying to authenticate %s: %s", username, body)
-		return "", InvalidCredentialsError
+
+		if resp.StatusCode == http.StatusForbidden {
+			h.logger.Warning("invalid credentials for user %s: %s", username, body)
+			return "", InvalidCredentialsError
+		} else {
+			err := fmt.Errorf("unexpected status code %d for user %s: %s", resp.StatusCode, username, body)
+			h.logger.Error(err.Error())
+			return "", err
+		}
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -110,30 +123,30 @@ func (h *AuthenticationHandler) GetVerificationKey() ([]byte, error) {
 
 	if h.cachedKey != nil && h.cachedKeyExpiration.After(time.Now()) {
 		return h.cachedKey, nil
-	} else {
-		h.cachedKeyLock.Lock()
-		defer h.cachedKeyLock.Unlock()
+	}
 
-		if h.cachedKey != nil && h.cachedKeyExpiration.After(time.Now()) {
-			return h.cachedKey, nil
-		}
+	h.cachedKeyLock.Lock()
+	defer h.cachedKeyLock.Unlock()
 
-		resp, err := http.Get(h.config.VerificationKeyUrl)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err))
-		}
-
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err))
-		}
-
-		h.cachedKey = body
-		h.cachedKeyExpiration = time.Now().Add(h.cacheTtl)
-
+	if h.cachedKey != nil && h.cachedKeyExpiration.After(time.Now()) {
 		return h.cachedKey, nil
 	}
+
+	resp, err := http.Get(h.config.VerificationKeyUrl)
+	if err != nil {
+		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
+	}
+
+	h.cachedKey = body
+	h.cachedKeyExpiration = time.Now().Add(h.cacheTtl)
+
+	return h.cachedKey, nil
 }
 
 func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string, error) {
@@ -152,7 +165,6 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 	}
 
 	var keyFunc jwt.Keyfunc = func(decodedToken *jwt.Token) (interface{}, error) {
-		fmt.Println(decodedToken)
 		if _, ok := decodedToken.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %s", decodedToken.Header["alg"])
 		}

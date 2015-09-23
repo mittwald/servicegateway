@@ -46,8 +46,6 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 		}
 	}
 
-	fmt.Println(appCfg.Routing)
-
 	if appCfg.Routing.Type == "path" {
 		var handler http.HandlerFunc = func(rw http.ResponseWriter, req *http.Request) {
 			sanitizedPath := strings.Replace(req.URL.Path, appCfg.Routing.Path, "", 1)

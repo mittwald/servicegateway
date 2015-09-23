@@ -34,14 +34,13 @@ func (r *LoginResult) HasErrors() bool {
 func (a *GraphicalAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Application) http.Handler {
 	var storage TokenStorage
 
-	fmt.Println(appCfg)
 	switch appCfg.Auth.Storage.Mode {
 	case "":
 		storage = &NoOpTokenStorage{}
 	case "cookie":
-		storage = &CookieTokenStorage{Config: &appCfg.Auth.Storage}
+		storage = &CookieTokenStorage{cfg: &appCfg.Auth.Storage}
 	case "header":
-		storage = &HeaderTokenStorage{Config: &appCfg.Auth.Storage}
+		storage = &HeaderTokenStorage{cfg: &appCfg.Auth.Storage}
 	}
 
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -104,7 +103,6 @@ func (a *GraphicalAuthDecorator) RegisterRoutes(mux *bone.Mux) error {
 		}
 
 		if result.HasErrors() {
-			fmt.Println(result)
 			tmpl.ExecuteTemplate(res, "layout", &result)
 			return
 		}

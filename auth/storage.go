@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"crypto/rand"
 	"encoding/base64"
+	"github.com/op/go-logging"
 )
 
 var NoTokenError error = errors.New("no authentication token present")
@@ -21,16 +22,19 @@ type TokenStorage interface {
 type NoOpTokenStorage struct {}
 
 type CookieTokenStorage struct {
-	Config *config.StorageAuthConfig
+	cfg *config.StorageAuthConfig
+	log *logging.Logger
 }
 
 type HeaderTokenStorage struct {
-	Config *config.StorageAuthConfig
+	cfg *config.StorageAuthConfig
+	log *logging.Logger
 }
 
 type SessionTokenStorage struct {
-	Config *config.StorageAuthConfig
-	RedisPool *redis.Pool
+	cfg *config.StorageAuthConfig
+	log *logging.Logger
+	redisPool *redis.Pool
 }
 
 func (n *NoOpTokenStorage) ReadToken(req *http.Request) (string, error) {
@@ -46,7 +50,7 @@ func (n *NoOpTokenStorage) WriteTokenToUpstreamRequest(res *http.Request, token 
 }
 
 func (c *CookieTokenStorage) ReadToken(req *http.Request) (string, error) {
-	cookie, err := req.Cookie(c.Config.Name)
+	cookie, err := req.Cookie(c.cfg.Name)
 	if err != nil {
 		if err == http.ErrNoCookie {
 			return "", NoTokenError
@@ -60,12 +64,12 @@ func (c *CookieTokenStorage) ReadToken(req *http.Request) (string, error) {
 
 func (c *CookieTokenStorage) WriteToken(res http.ResponseWriter, token string) error {
 	cookie := http.Cookie{
-		Name: c.Config.Name,
+		Name: c.cfg.Name,
 		Value: token,
 		MaxAge: 0,
-		Secure: c.Config.CookieSecure,
-		HttpOnly: c.Config.CookieHttpOnly,
-		Domain: c.Config.CookieDomain,
+		Secure: c.cfg.CookieSecure,
+		HttpOnly: c.cfg.CookieHttpOnly,
+		Domain: c.cfg.CookieDomain,
 		Path: "/",
 	}
 
@@ -74,18 +78,18 @@ func (c *CookieTokenStorage) WriteToken(res http.ResponseWriter, token string) e
 }
 
 func (c *CookieTokenStorage) WriteTokenToUpstreamRequest(req *http.Request, token string) error {
-	if _, err := req.Cookie(c.Config.Name); err == http.ErrNoCookie {
-		val, ok := req.Header[c.Config.Name]; if ok {
-			req.Header.Set("Cookie", fmt.Sprintf("%s; %s=%s", val, c.Config.Name, token))
+	if _, err := req.Cookie(c.cfg.Name); err == http.ErrNoCookie {
+		val, ok := req.Header[c.cfg.Name]; if ok {
+			req.Header.Set("Cookie", fmt.Sprintf("%s; %s=%s", val, c.cfg.Name, token))
 		} else {
-			req.Header.Set("Cookie", fmt.Sprintf("%s=%s", c.Config.Name, token))
+			req.Header.Set("Cookie", fmt.Sprintf("%s=%s", c.cfg.Name, token))
 		}
 	}
 	return nil
 }
 
 func (h *HeaderTokenStorage) ReadToken(req *http.Request) (string, error) {
-	header, ok := req.Header[h.Config.Name]
+	header, ok := req.Header[h.cfg.Name]
 	if ok {
 		return header[0], nil
 	} else {
@@ -94,20 +98,19 @@ func (h *HeaderTokenStorage) ReadToken(req *http.Request) (string, error) {
 }
 
 func (h *HeaderTokenStorage) WriteToken(res http.ResponseWriter, token string) error {
-	res.Header().Set(h.Config.Name, token)
+	res.Header().Set(h.cfg.Name, token)
 	return nil
 }
 
 func (h *HeaderTokenStorage) WriteTokenToUpstreamRequest(req *http.Request, token string) error {
-	fmt.Println("Adding header ", h.Config.Name, " to request")
-	req.Header.Set(h.Config.Name, token)
+	req.Header.Set(h.cfg.Name, token)
 	return nil
 }
 
 func (s *SessionTokenStorage) ReadToken(req *http.Request) (string, error) {
-	conn := s.RedisPool.Get()
+	conn := s.redisPool.Get()
 	defer conn.Close()
-	sessionCookie, err := req.Cookie(s.Config.Name)
+	sessionCookie, err := req.Cookie(s.cfg.Name)
 
 	if err != nil {
 		if err == http.ErrNoCookie {
@@ -129,7 +132,7 @@ func (s *SessionTokenStorage) ReadToken(req *http.Request) (string, error) {
 
 func (s *SessionTokenStorage) WriteToken(res http.ResponseWriter, token string) error {
 	rb := make([]byte, 32)
-	conn := s.RedisPool.Get()
+	conn := s.redisPool.Get()
 	defer conn.Close()
 
 	if _, err := rand.Read(rb); err != nil {
@@ -139,14 +142,16 @@ func (s *SessionTokenStorage) WriteToken(res http.ResponseWriter, token string) 
 	sessionId := base64.URLEncoding.EncodeToString(rb)
 	sessionKey := fmt.Sprintf("token_%s", sessionId)
 
+	s.log.Debug("Starting session %s", sessionId)
+
 	conn.Do("SET", sessionKey, token)
 	cookie := http.Cookie{
-		Name: s.Config.Name,
+		Name: s.cfg.Name,
 		Value: sessionId,
 		MaxAge: 0,
-		Secure: s.Config.CookieSecure,
-		HttpOnly: s.Config.CookieHttpOnly,
-		Domain: s.Config.CookieDomain,
+		Secure: s.cfg.CookieSecure,
+		HttpOnly: s.cfg.CookieHttpOnly,
+		Domain: s.cfg.CookieDomain,
 		Path: "/",
 	}
 	http.SetCookie(res, &cookie)
