@@ -105,3 +105,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 
 	return nil
 }
+
+func (d *pathBasedDispatcher) Initialize() error {
+	return nil
+}

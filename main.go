@@ -19,6 +19,7 @@ import (
 
 type StartupConfig struct {
 	ConfigDir string
+	DispatchingMode string
 	Port int
 	Debug bool
 }
@@ -27,6 +28,7 @@ func main() {
 	startup := StartupConfig{}
 
 	flag.StringVar(&startup.ConfigDir, "config-dir", "/etc/charon", "configuration directory")
+	flag.StringVar(&startup.DispatchingMode, "dispatch", "path", "dispatching mode ('path' or 'host')")
 	flag.IntVar(&startup.Port, "port", 8080, "HTTP port to listen on")
 	flag.BoolVar(&startup.Debug, "debug", false, "enable to add debug information to each request")
 	flag.Parse()
@@ -69,11 +71,21 @@ func main() {
 		logger.Fatal("error while configuring authentication: %s", err)
 	}
 
-	disp, err := dispatcher.NewPathBasedDispatcher(
-		&cfg,
-		logging.MustGetLogger("dispatch"),
-		handler,
-	)
+	var disp dispatcher.Dispatcher
+	dispLogger := logging.MustGetLogger("dispatch")
+
+	switch startup.DispatchingMode {
+	case "path":
+		disp, err = dispatcher.NewPathBasedDispatcher(&cfg, dispLogger, handler)
+	case "host":
+		disp, err = dispatcher.NewHostBasedDispatcher(&cfg, dispLogger, handler)
+	default:
+		err = fmt.Errorf("unsupported dispatching mode: '%s'", startup.DispatchingMode)
+	}
+
+	if err != nil {
+		logger.Fatal("error while creating proxy builder: %s", err)
+	}
 
 	// Order is important here! Behaviours will be called in LIFO order;
 	// behaviours that are added last will be called first!
@@ -81,15 +93,15 @@ func main() {
 	disp.AddBehaviour(dispatcher.NewAuthenticationBehaviour(authHandler))
 	disp.AddBehaviour(dispatcher.NewRatelimitBehaviour(rlim))
 
-	if err != nil {
-		logger.Fatal("error while creating proxy builder: %s", err)
-	}
-
 	for name, appCfg := range cfg.Applications {
 		logger.Info("Registering application %s", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
 			logger.Panic(err)
 		}
+	}
+
+	if err = disp.Initialize(); err != nil {
+		logger.Panic(err)
 	}
 
 	listenAddress := fmt.Sprintf(":%d", startup.Port)

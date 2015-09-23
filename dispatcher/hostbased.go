@@ -71,15 +71,44 @@ func (d *hostBasedDispatcher) RegisterApplication(name string, app config.Applic
 	return nil
 }
 
-func (d *hostBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	handler, ok := d.handlers[req.Host]
-	if ! ok {
-		d.mux.ServeHTTP(res, req)
+func (d *hostBasedDispatcher) Initialize() error {
+	for _, behaviour := range d.behaviours {
+		switch t := behaviour.(type) {
+		case RoutingBehaviour:
+			if err := t.AddRoutes(d.mux); err != nil {
+				return err
+			}
+		}
 	}
 
-	if req.Method == "GET" || req.Method == "HEAD" || req.Method == "OPTIONS" {
-		handler.safe.ServeHTTP(res, req)
-	} else {
-		handler.unsafe.ServeHTTP(res, req)
-	}
+	d.mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+		handler, ok := d.handlers[req.Host]
+		if ! ok {
+			res.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		if req.Method == "GET" || req.Method == "HEAD" || req.Method == "OPTIONS" {
+			handler.safe.ServeHTTP(res, req)
+		} else {
+			handler.unsafe.ServeHTTP(res, req)
+		}
+	})
+
+	return nil
+}
+
+func (d *hostBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	d.mux.ServeHTTP(res, req)
+//	handler, ok := d.handlers[req.Host]
+//	if ! ok {
+//		d.mux.ServeHTTP(res, req)
+//		return
+//	}
+//
+//	if req.Method == "GET" || req.Method == "HEAD" || req.Method == "OPTIONS" {
+//		handler.safe.ServeHTTP(res, req)
+//	} else {
+//		handler.unsafe.ServeHTTP(res, req)
+//	}
 }

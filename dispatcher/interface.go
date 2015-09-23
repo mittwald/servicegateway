@@ -11,6 +11,7 @@ import (
 type Dispatcher interface {
 	http.Handler
 	RegisterApplication(string, config.Application) error
+	Initialize() error
 	AddBehaviour(...DispatcherBehaviour)
 }
 
