@@ -100,15 +100,4 @@ func (d *hostBasedDispatcher) Initialize() error {
 
 func (d *hostBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	d.mux.ServeHTTP(res, req)
-//	handler, ok := d.handlers[req.Host]
-//	if ! ok {
-//		d.mux.ServeHTTP(res, req)
-//		return
-//	}
-//
-//	if req.Method == "GET" || req.Method == "HEAD" || req.Method == "OPTIONS" {
-//		handler.safe.ServeHTTP(res, req)
-//	} else {
-//		handler.unsafe.ServeHTTP(res, req)
-//	}
 }
