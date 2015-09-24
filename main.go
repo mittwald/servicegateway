@@ -15,11 +15,15 @@ import (
 	"mittwald.de/servicegateway/ratelimit"
 	"net/http"
 	"os"
+	"github.com/hashicorp/consul/api"
+	"strings"
 )
 
 type StartupConfig struct {
+	ConfigSource    string
 	ConfigDir       string
 	DispatchingMode string
+	ConsulBaseKey   string
 	Port            int
 	Debug           bool
 }
@@ -31,6 +35,7 @@ func main() {
 	flag.StringVar(&startup.DispatchingMode, "dispatch", "path", "dispatching mode ('path' or 'host')")
 	flag.IntVar(&startup.Port, "port", 8080, "HTTP port to listen on")
 	flag.BoolVar(&startup.Debug, "debug", false, "enable to add debug information to each request")
+	flag.StringVar(&startup.ConsulBaseKey, "consul-base", "gateway/ui", "base key name for configuration")
 	flag.Parse()
 
 	logger := logging.MustGetLogger("startup")
@@ -53,6 +58,10 @@ func main() {
 	}
 
 	logger.Debug("%s", cfg)
+
+	consulConfig := api.DefaultConfig()
+	consulConfig.Address = "consul.service.consul:8500"
+	consulConfig.Datacenter = "dev"
 
 	redisPool := redis.NewPool(func() (redis.Conn, error) {
 		return redis.Dial("tcp", cfg.Redis)
@@ -93,8 +102,32 @@ func main() {
 	disp.AddBehaviour(dispatcher.NewAuthenticationBehaviour(authHandler))
 	disp.AddBehaviour(dispatcher.NewRatelimitBehaviour(rlim))
 
+	if startup.ConsulBaseKey != "" {
+		applicationConfigBase := startup.ConsulBaseKey + "/applications"
+
+		consul, _ := api.NewClient(consulConfig)
+		applications, _, err := consul.KV().List(applicationConfigBase, nil)
+		if err != nil {
+			logger.Panic(err)
+		}
+
+		for _, appJson := range applications {
+			var appCfg config.Application
+
+			if err := json.Unmarshal(appJson.Value, &appCfg); err != nil {
+				logger.Panic(err)
+			}
+
+			name := strings.TrimPrefix(appJson.Key, applicationConfigBase + "/")
+			logger.Info("registering application '%s' from Consul", name)
+			if err := disp.RegisterApplication(name, appCfg); err != nil {
+				logger.Panic(err)
+			}
+		}
+	}
+
 	for name, appCfg := range cfg.Applications {
-		logger.Info("Registering application %s", name)
+		logger.Info("registering application '%s' from local config", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
 			logger.Panic(err)
 		}
