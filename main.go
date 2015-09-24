@@ -1,27 +1,27 @@
 package main
 
 import (
-	"flag"
-	"mittwald.de/servicegateway/config"
 	"encoding/json"
-	"io/ioutil"
-	"net/http"
-	"mittwald.de/servicegateway/proxy"
+	"flag"
+	"fmt"
 	"github.com/garyburd/redigo/redis"
 	logging "github.com/op/go-logging"
-	"os"
+	"io/ioutil"
 	"mittwald.de/servicegateway/auth"
-	"fmt"
-	"mittwald.de/servicegateway/dispatcher"
 	"mittwald.de/servicegateway/cache"
+	"mittwald.de/servicegateway/config"
+	"mittwald.de/servicegateway/dispatcher"
+	"mittwald.de/servicegateway/proxy"
 	"mittwald.de/servicegateway/ratelimit"
+	"net/http"
+	"os"
 )
 
 type StartupConfig struct {
-	ConfigDir string
+	ConfigDir       string
 	DispatchingMode string
-	Port int
-	Debug bool
+	Port            int
+	Debug           bool
 }
 
 func main() {

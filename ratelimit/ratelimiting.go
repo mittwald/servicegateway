@@ -1,19 +1,19 @@
 package ratelimit
 
 import (
-	"net/http"
-	"sync"
-	"strconv"
-	"net"
-	"mittwald.de/servicegateway/config"
 	"github.com/garyburd/redigo/redis"
 	logging "github.com/op/go-logging"
+	"mittwald.de/servicegateway/config"
+	"net"
+	"net/http"
+	"strconv"
+	"sync"
 	"time"
 )
 
 type Bucket struct {
 	sync.Mutex
-	limit int
+	limit     int
 	fillLevel int
 }
 
@@ -22,11 +22,11 @@ type RateLimitingMiddleware interface {
 }
 
 type RedisSimpleRateThrottler struct {
-	burstSize int64
-	window time.Duration
+	burstSize         int64
+	window            time.Duration
 	requestsPerSecond int64
-	redisPool *redis.Pool
-	logger *logging.Logger
+	redisPool         *redis.Pool
+	logger            *logging.Logger
 }
 
 func NewRateLimiter(cfg config.RateLimiting, red *redis.Pool, logger *logging.Logger) (RateLimitingMiddleware, error) {

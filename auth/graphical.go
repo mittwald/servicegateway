@@ -1,28 +1,28 @@
 package auth
 
 import (
-	"net/http"
-	"mittwald.de/servicegateway/config"
-	"github.com/go-zoo/bone"
-	"html/template"
 	"fmt"
-	"net/url"
+	"github.com/go-zoo/bone"
 	"github.com/op/go-logging"
+	"html/template"
+	"mittwald.de/servicegateway/config"
+	"net/http"
+	"net/url"
 )
 
 type GraphicalAuthDecorator struct {
 	authHandler *AuthenticationHandler
-	config *config.GlobalAuth
-	logger *logging.Logger
+	config      *config.GlobalAuth
+	logger      *logging.Logger
 }
 
 type LoginResult struct {
 	Redirect string
-	Errors struct {
+	Errors   struct {
 		InvalidCredentials bool
-		UserEmpty bool
-		PasswordEmpty bool
-    }
+		UserEmpty          bool
+		PasswordEmpty      bool
+	}
 }
 
 func (r *LoginResult) HasErrors() bool {
@@ -50,7 +50,7 @@ func (a *GraphicalAuthDecorator) DecorateHandler(orig http.Handler, appCfg *conf
 			res.Header().Set("Content-Type", "application/json")
 			res.Write([]byte("{\"msg\": \"service unavailable\"}"))
 			res.WriteHeader(503)
-		} else if ! authenticated {
+		} else if !authenticated {
 			target := fmt.Sprintf("%s?redirect=%s", a.config.GraphicalConfig.LoginRoute, url.QueryEscape(req.URL.String()))
 
 			res.Header().Set("Content-Type", "application/json")

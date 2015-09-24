@@ -1,28 +1,28 @@
 package auth
 
 import (
-	"mittwald.de/servicegateway/config"
-	"time"
-	"sync"
-	"net/http"
-	"github.com/op/go-logging"
-	"github.com/garyburd/redigo/redis"
-	"fmt"
-	"encoding/json"
 	"bytes"
-	"io/ioutil"
+	"encoding/json"
+	"fmt"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/garyburd/redigo/redis"
+	"github.com/op/go-logging"
+	"io/ioutil"
+	"mittwald.de/servicegateway/config"
+	"net/http"
+	"sync"
+	"time"
 )
 
 type AuthenticationHandler struct {
-	config *config.GlobalAuth
-	storage TokenStorage
+	config              *config.GlobalAuth
+	storage             TokenStorage
 	cacheTtl            time.Duration
 	cachedKey           []byte
 	cachedKeyExpiration time.Time
 	cachedKeyLock       sync.Mutex
-	httpClient *http.Client
-	logger *logging.Logger
+	httpClient          *http.Client
+	logger              *logging.Logger
 }
 
 func NewAuthenticationHandler(cfg *config.GlobalAuth, redisPool *redis.Pool, logger *logging.Logger) (*AuthenticationHandler, error) {
@@ -45,11 +45,11 @@ func NewAuthenticationHandler(cfg *config.GlobalAuth, redisPool *redis.Pool, log
 	}
 
 	handler := AuthenticationHandler{
-		config: cfg,
-		storage: storage,
-		cacheTtl: cacheTtl,
+		config:     cfg,
+		storage:    storage,
+		cacheTtl:   cacheTtl,
 		httpClient: &http.Client{},
-		logger: logger,
+		logger:     logger,
 	}
 
 	return &handler, nil
@@ -73,7 +73,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	h.logger.Info("authenticating user %s", username)
 	h.logger.Debug("authentication request: %s", debugJsonString)
 
-	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url + "/authenticate", bytes.NewBuffer(jsonString))
+	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url+"/authenticate", bytes.NewBuffer(jsonString))
 	req.Header.Set("Accept", "application/jwt")
 	req.Header.Set("Content-Type", "application/json")
 
@@ -164,7 +164,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 	if err != nil {
 		switch t := err.(type) {
 		case *jwt.ValidationError:
-			if t.Errors & acceptableErrors != 0 {
+			if t.Errors&acceptableErrors != 0 {
 				return false, "", nil
 			}
 		}

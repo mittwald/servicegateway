@@ -1,9 +1,9 @@
 package auth
 
 import (
-	"net/http"
 	"github.com/go-zoo/bone"
 	"mittwald.de/servicegateway/config"
+	"net/http"
 )
 
 type RestAuthDecorator struct {
@@ -17,7 +17,7 @@ func (a *RestAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Ap
 			res.Header().Set("Content-Type", "application/json")
 			res.WriteHeader(503)
 			res.Write([]byte("{\"msg\": \"service unavailable\"}"))
-		} else if ! authenticated {
+		} else if !authenticated {
 			res.Header().Set("Content-Type", "application/json")
 			res.WriteHeader(403)
 			res.Write([]byte("{\"msg\": \"not authenticated\"}"))

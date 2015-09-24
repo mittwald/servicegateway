@@ -2,13 +2,13 @@ package auth
 
 import "net/http"
 import (
-	"errors"
-	"mittwald.de/servicegateway/config"
-	"github.com/garyburd/redigo/redis"
-	"fmt"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
+	"fmt"
+	"github.com/garyburd/redigo/redis"
 	"github.com/op/go-logging"
+	"mittwald.de/servicegateway/config"
 )
 
 var NoTokenError error = errors.New("no authentication token present")
@@ -19,7 +19,7 @@ type TokenStorage interface {
 	WriteTokenToUpstreamRequest(*http.Request, string) error
 }
 
-type NoOpTokenStorage struct {}
+type NoOpTokenStorage struct{}
 
 type CookieTokenStorage struct {
 	cfg *config.StorageAuthConfig
@@ -32,8 +32,8 @@ type HeaderTokenStorage struct {
 }
 
 type SessionTokenStorage struct {
-	cfg *config.StorageAuthConfig
-	log *logging.Logger
+	cfg       *config.StorageAuthConfig
+	log       *logging.Logger
 	redisPool *redis.Pool
 }
 
@@ -64,13 +64,13 @@ func (c *CookieTokenStorage) ReadToken(req *http.Request) (string, error) {
 
 func (c *CookieTokenStorage) WriteToken(res http.ResponseWriter, token string) error {
 	cookie := http.Cookie{
-		Name: c.cfg.Name,
-		Value: token,
-		MaxAge: 0,
-		Secure: c.cfg.CookieSecure,
+		Name:     c.cfg.Name,
+		Value:    token,
+		MaxAge:   0,
+		Secure:   c.cfg.CookieSecure,
 		HttpOnly: c.cfg.CookieHttpOnly,
-		Domain: c.cfg.CookieDomain,
-		Path: "/",
+		Domain:   c.cfg.CookieDomain,
+		Path:     "/",
 	}
 
 	http.SetCookie(res, &cookie)
@@ -79,7 +79,8 @@ func (c *CookieTokenStorage) WriteToken(res http.ResponseWriter, token string) e
 
 func (c *CookieTokenStorage) WriteTokenToUpstreamRequest(req *http.Request, token string) error {
 	if _, err := req.Cookie(c.cfg.Name); err == http.ErrNoCookie {
-		val, ok := req.Header[c.cfg.Name]; if ok {
+		val, ok := req.Header[c.cfg.Name]
+		if ok {
 			req.Header.Set("Cookie", fmt.Sprintf("%s; %s=%s", val, c.cfg.Name, token))
 		} else {
 			req.Header.Set("Cookie", fmt.Sprintf("%s=%s", c.cfg.Name, token))
@@ -146,13 +147,13 @@ func (s *SessionTokenStorage) WriteToken(res http.ResponseWriter, token string) 
 
 	conn.Do("SET", sessionKey, token)
 	cookie := http.Cookie{
-		Name: s.cfg.Name,
-		Value: sessionId,
-		MaxAge: 0,
-		Secure: s.cfg.CookieSecure,
+		Name:     s.cfg.Name,
+		Value:    sessionId,
+		MaxAge:   0,
+		Secure:   s.cfg.CookieSecure,
 		HttpOnly: s.cfg.CookieHttpOnly,
-		Domain: s.cfg.CookieDomain,
-		Path: "/",
+		Domain:   s.cfg.CookieDomain,
+		Path:     "/",
 	}
 	http.SetCookie(res, &cookie)
 	return nil

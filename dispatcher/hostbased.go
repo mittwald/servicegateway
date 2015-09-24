@@ -1,15 +1,16 @@
 package dispatcher
+
 import (
-	"mittwald.de/servicegateway/config"
-	"github.com/op/go-logging"
-	"mittwald.de/servicegateway/proxy"
-	"github.com/go-zoo/bone"
-	"net/http"
 	"fmt"
+	"github.com/go-zoo/bone"
+	"github.com/op/go-logging"
+	"mittwald.de/servicegateway/config"
+	"mittwald.de/servicegateway/proxy"
+	"net/http"
 )
 
 type handlerPair struct {
-	safe http.Handler
+	safe   http.Handler
 	unsafe http.Handler
 }
 
@@ -83,7 +84,7 @@ func (d *hostBasedDispatcher) Initialize() error {
 
 	d.mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
 		handler, ok := d.handlers[req.Host]
-		if ! ok {
+		if !ok {
 			res.WriteHeader(http.StatusNotFound)
 			return
 		}

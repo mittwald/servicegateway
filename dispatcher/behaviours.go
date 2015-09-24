@@ -1,11 +1,12 @@
 package dispatcher
+
 import (
+	"github.com/go-zoo/bone"
+	"mittwald.de/servicegateway/auth"
+	"mittwald.de/servicegateway/cache"
+	"mittwald.de/servicegateway/config"
 	"mittwald.de/servicegateway/ratelimit"
 	"net/http"
-	"mittwald.de/servicegateway/config"
-	"mittwald.de/servicegateway/cache"
-	"mittwald.de/servicegateway/auth"
-	"github.com/go-zoo/bone"
 )
 
 type cachingBehaviour struct {
@@ -20,7 +21,7 @@ type ratelimitBehaviour struct {
 	rlim ratelimit.RateLimitingMiddleware
 }
 
-func NewCachingBehaviour(c cache.CacheMiddleware) (DispatcherBehaviour) {
+func NewCachingBehaviour(c cache.CacheMiddleware) DispatcherBehaviour {
 	return &cachingBehaviour{c}
 }
 
@@ -35,7 +36,7 @@ func (c *cachingBehaviour) Apply(safe http.Handler, unsafe http.Handler, d Dispa
 	return safe, unsafe, nil
 }
 
-func NewAuthenticationBehaviour(a auth.AuthDecorator) (DispatcherBehaviour) {
+func NewAuthenticationBehaviour(a auth.AuthDecorator) DispatcherBehaviour {
 	return &authBehaviour{a}
 }
 
@@ -51,7 +52,7 @@ func (a *authBehaviour) AddRoutes(mux *bone.Mux) error {
 	return a.auth.RegisterRoutes(mux)
 }
 
-func NewRatelimitBehaviour(rlim ratelimit.RateLimitingMiddleware) (DispatcherBehaviour) {
+func NewRatelimitBehaviour(rlim ratelimit.RateLimitingMiddleware) DispatcherBehaviour {
 	return &ratelimitBehaviour{rlim}
 }
 

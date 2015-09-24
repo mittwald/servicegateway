@@ -1,11 +1,11 @@
 package cache
 
 import (
-	"github.com/bluele/gcache"
-	"net/http"
-	"fmt"
 	"bytes"
+	"fmt"
+	"github.com/bluele/gcache"
 	"io/ioutil"
+	"net/http"
 )
 
 type CacheMiddleware interface {
@@ -18,10 +18,10 @@ type inMemoryCacheMiddleware struct {
 }
 
 type ResponseBuffer struct {
-	body []byte
-	buf *bytes.Buffer
-	header http.Header
-	status int
+	body     []byte
+	buf      *bytes.Buffer
+	header   http.Header
+	status   int
 	complete bool
 }
 
@@ -33,7 +33,6 @@ func NewResponseBuffer() *ResponseBuffer {
 	b.header = http.Header{}
 	return b
 }
-
 
 func (r *ResponseBuffer) Header() http.Header {
 	return r.header

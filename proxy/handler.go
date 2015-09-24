@@ -1,12 +1,12 @@
 package proxy
 
 import (
-	"net/http"
-	"mittwald.de/servicegateway/config"
-	logging "github.com/op/go-logging"
 	"bufio"
-	"fmt"
 	"errors"
+	"fmt"
+	logging "github.com/op/go-logging"
+	"mittwald.de/servicegateway/config"
+	"net/http"
 	"net/url"
 	"strings"
 )

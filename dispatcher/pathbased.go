@@ -3,12 +3,12 @@ package dispatcher
 import (
 	"fmt"
 	"github.com/go-zoo/bone"
+	"github.com/op/go-logging"
 	"mittwald.de/servicegateway/config"
 	"mittwald.de/servicegateway/proxy"
 	"net/http"
 	"regexp"
 	"strings"
-	"github.com/op/go-logging"
 )
 
 type pathBasedDispatcher struct {

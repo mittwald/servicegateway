@@ -1,13 +1,13 @@
 package auth
 
 import (
-	"net/http"
-	"mittwald.de/servicegateway/config"
 	"errors"
 	"fmt"
+	"github.com/garyburd/redigo/redis"
 	"github.com/go-zoo/bone"
 	logging "github.com/op/go-logging"
-	"github.com/garyburd/redigo/redis"
+	"mittwald.de/servicegateway/config"
+	"net/http"
 )
 
 var InvalidCredentialsError error = errors.New("invalid credentials given")
@@ -18,10 +18,10 @@ type AuthDecorator interface {
 }
 
 type AuthenticationRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	TimeToLive int `json:"ttl"`
-	Providers []string `json:"providers"`
+	Username   string   `json:"username"`
+	Password   string   `json:"password"`
+	TimeToLive int      `json:"ttl"`
+	Providers  []string `json:"providers"`
 }
 
 func NewAuthDecorator(authConfig *config.GlobalAuth, redisPool *redis.Pool, logger *logging.Logger) (AuthDecorator, error) {
