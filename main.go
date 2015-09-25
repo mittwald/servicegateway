@@ -21,7 +21,7 @@ import (
 
 type StartupConfig struct {
 	ConfigSource    string
-	ConfigDir       string
+	ConfigFile      string
 	DispatchingMode string
 	ConsulBaseKey   string
 	Port            int
@@ -31,7 +31,7 @@ type StartupConfig struct {
 func main() {
 	startup := StartupConfig{}
 
-	flag.StringVar(&startup.ConfigDir, "config-dir", "/etc/charon", "configuration directory")
+	flag.StringVar(&startup.ConfigFile, "config", "/etc/servicegateway.json", "configuration file")
 	flag.StringVar(&startup.DispatchingMode, "dispatch", "path", "dispatching mode ('path' or 'host')")
 	flag.IntVar(&startup.Port, "port", 8080, "HTTP port to listen on")
 	flag.BoolVar(&startup.Debug, "debug", false, "enable to add debug information to each request")
@@ -46,7 +46,7 @@ func main() {
 	logger.Info("Completed startup")
 
 	cfg := config.Configuration{}
-	data, err := ioutil.ReadFile(startup.ConfigDir + "/apis.json")
+	data, err := ioutil.ReadFile(startup.ConfigFile)
 	if err != nil {
 		logger.Fatal(err)
 	}
