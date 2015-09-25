@@ -1,0 +1,70 @@
+{
+  "applications": {
+    "httpbin": {
+      "caching": {
+        "auto_flush": true,
+        "enabled": true,
+        "ttl": 3600
+      },
+      "routing": {
+        "type": "host",
+        "hostname": "bin.services.mittwald.it"
+      },
+      "backend": {
+        "url": "http://httpbin.org"
+      },
+      "rate_limiting": true
+    },
+    "tickets": {
+      "routing": {
+        "type": "host",
+        "hostname": "tickets.services.mittwald.it"
+      },
+      "backend": {
+        "url": "http://tickets"
+      },
+      "rate_limiting": true,
+      "auth": {
+        "storage": {
+          "mode": "header",
+          "name": "X-JWT"
+        }
+      }
+    }
+  },
+  "rate_limiting": {
+    "window": "15m",
+    "burst": 1000
+  },
+  "consul": {
+    "host": "localhost",
+    "port": 8500
+  },
+  "redis": "redis:6379",
+  "authentication": {
+    "mode": "graphical",
+    "storage": {
+      "mode": "session",
+      "name": "COAB_SESSION",
+      "cookie_domain": ".mittwald.it",
+      "cookie_secure": false,
+      "cookie_httponly": true
+    },
+    "graphical": {
+      "login_route": "/login"
+    },
+    "provider": {
+      "url": "http://identity.service.consul",
+      "parameter_format": "json",
+      "parameters": {
+        "ttl": 86400,
+        "providers": [
+          "public"
+        ]
+      }
+    },
+    "verification_key": null,
+    "verification_key_url": "http://identity.service.consul/key",
+    "key_cache_ttl": "5m"
+  }
+}
