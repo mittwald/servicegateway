@@ -80,60 +80,8 @@ func main() {
 		logger.Fatal("error while configuring authentication: %s", err)
 	}
 
-	var disp dispatcher.Dispatcher
-	dispLogger := logging.MustGetLogger("dispatch")
-
-	switch startup.DispatchingMode {
-	case "path":
-		disp, err = dispatcher.NewPathBasedDispatcher(&cfg, dispLogger, handler)
-	case "host":
-		disp, err = dispatcher.NewHostBasedDispatcher(&cfg, dispLogger, handler)
-	default:
-		err = fmt.Errorf("unsupported dispatching mode: '%s'", startup.DispatchingMode)
-	}
-
+	disp, err := buildDispatcher(&startup, &cfg, consulConfig, handler, cache, authHandler, rlim, logger)
 	if err != nil {
-		logger.Fatal("error while creating proxy builder: %s", err)
-	}
-
-	// Order is important here! Behaviours will be called in LIFO order;
-	// behaviours that are added last will be called first!
-	disp.AddBehaviour(dispatcher.NewCachingBehaviour(cache))
-	disp.AddBehaviour(dispatcher.NewAuthenticationBehaviour(authHandler))
-	disp.AddBehaviour(dispatcher.NewRatelimitBehaviour(rlim))
-
-	if startup.ConsulBaseKey != "" {
-		applicationConfigBase := startup.ConsulBaseKey + "/applications"
-
-		consul, _ := api.NewClient(consulConfig)
-		applications, _, err := consul.KV().List(applicationConfigBase, nil)
-		if err != nil {
-			logger.Panic(err)
-		}
-
-		for _, appJson := range applications {
-			var appCfg config.Application
-
-			if err := json.Unmarshal(appJson.Value, &appCfg); err != nil {
-				logger.Panic(err)
-			}
-
-			name := strings.TrimPrefix(appJson.Key, applicationConfigBase + "/")
-			logger.Info("registering application '%s' from Consul", name)
-			if err := disp.RegisterApplication(name, appCfg); err != nil {
-				logger.Panic(err)
-			}
-		}
-	}
-
-	for name, appCfg := range cfg.Applications {
-		logger.Info("registering application '%s' from local config", name)
-		if err := disp.RegisterApplication(name, appCfg); err != nil {
-			logger.Panic(err)
-		}
-	}
-
-	if err = disp.Initialize(); err != nil {
 		logger.Panic(err)
 	}
 
@@ -144,4 +92,76 @@ func main() {
 	if err != nil {
 		logger.Panic(err)
 	}
+}
+
+func buildDispatcher(
+	startup *StartupConfig,
+	cfg *config.Configuration,
+	consulConfig *api.Config,
+	handler *proxy.ProxyHandler,
+	cch cache.CacheMiddleware,
+	authHandler auth.AuthDecorator,
+	rlim ratelimit.RateLimitingMiddleware,
+	logger *logging.Logger,
+) (dispatcher.Dispatcher, error) {
+	var disp dispatcher.Dispatcher
+	var err error
+
+	dispLogger := logging.MustGetLogger("dispatch")
+
+	switch startup.DispatchingMode {
+	case "path":
+		disp, err = dispatcher.NewPathBasedDispatcher(cfg, dispLogger, handler)
+	case "host":
+		disp, err = dispatcher.NewHostBasedDispatcher(cfg, dispLogger, handler)
+	default:
+		err = fmt.Errorf("unsupported dispatching mode: '%s'", startup.DispatchingMode)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error while creating proxy builder: %s", err)
+	}
+
+	// Order is important here! Behaviours will be called in LIFO order;
+	// behaviours that are added last will be called first!
+	disp.AddBehaviour(dispatcher.NewCachingBehaviour(cch))
+	disp.AddBehaviour(dispatcher.NewAuthenticationBehaviour(authHandler))
+	disp.AddBehaviour(dispatcher.NewRatelimitBehaviour(rlim))
+
+	if startup.ConsulBaseKey != "" {
+		applicationConfigBase := startup.ConsulBaseKey + "/applications"
+
+		consul, _ := api.NewClient(consulConfig)
+		applications, _, err := consul.KV().List(applicationConfigBase, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, appJson := range applications {
+			var appCfg config.Application
+
+			if err := json.Unmarshal(appJson.Value, &appCfg); err != nil {
+				return nil, err
+			}
+
+			name := strings.TrimPrefix(appJson.Key, applicationConfigBase + "/")
+			logger.Info("registering application '%s' from Consul", name)
+			if err := disp.RegisterApplication(name, appCfg); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	for name, appCfg := range cfg.Applications {
+		logger.Info("registering application '%s' from local config", name)
+		if err := disp.RegisterApplication(name, appCfg); err != nil {
+			return nil, err
+		}
+	}
+
+	if err = disp.Initialize(); err != nil {
+		return nil, err
+	}
+
+	return disp, nil
 }
