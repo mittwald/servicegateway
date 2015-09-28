@@ -1,7 +1,7 @@
 package dispatcher
 
 import (
-	"mittwald.de/servicegateway/proxy"
+	"github.com/mittwald/servicegateway/proxy"
 )
 
 type dispatcherSetters interface {

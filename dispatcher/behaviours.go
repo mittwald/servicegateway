@@ -2,10 +2,10 @@ package dispatcher
 
 import (
 	"github.com/go-zoo/bone"
-	"mittwald.de/servicegateway/auth"
-	"mittwald.de/servicegateway/cache"
-	"mittwald.de/servicegateway/config"
-	"mittwald.de/servicegateway/ratelimit"
+	"github.com/mittwald/servicegateway/auth"
+	"github.com/mittwald/servicegateway/cache"
+	"github.com/mittwald/servicegateway/config"
+	"github.com/mittwald/servicegateway/ratelimit"
 	"net/http"
 )
 
