@@ -63,7 +63,6 @@ type GraphicalAuthConfig struct {
 
 type ProviderAuthConfig struct {
 	Url             string                 `json:"url"`
-	ParameterFormat string                 `json:"parameter_format"`
 	Parameters      map[string]interface{} `json:"parameters"`
 }
 
