@@ -8,7 +8,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/op/go-logging"
 	"io/ioutil"
-	"mittwald.de/servicegateway/config"
+	"github.com/mittwald/servicegateway/config"
 	"net/http"
 	"sync"
 	"time"

@@ -5,7 +5,7 @@ import (
 	"github.com/go-zoo/bone"
 	"github.com/op/go-logging"
 	"html/template"
-	"mittwald.de/servicegateway/config"
+	"github.com/mittwald/servicegateway/config"
 	"net/http"
 	"net/url"
 )

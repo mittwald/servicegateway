@@ -2,7 +2,7 @@ package auth
 
 import (
 	"github.com/go-zoo/bone"
-	"mittwald.de/servicegateway/config"
+	"github.com/mittwald/servicegateway/config"
 	"net/http"
 )
 

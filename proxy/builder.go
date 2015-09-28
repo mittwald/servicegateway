@@ -3,13 +3,13 @@ package proxy
 import (
 //	"net/http"
 //	"github.com/go-zoo/bone"
-//	"mittwald.de/servicegateway/config"
+//	"github.com/mittwald/servicegateway/config"
 //	"github.com/mailgun/oxy/testutils"
 //	consul "github.com/hashicorp/consul/api"
 //	"strings"
 //	"regexp"
 //	"fmt"
-//	"mittwald.de/servicegateway/auth"
+//	"github.com/mittwald/servicegateway/auth"
 )
 
 //type ProxyBuilder struct {

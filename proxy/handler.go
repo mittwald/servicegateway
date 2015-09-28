@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	logging "github.com/op/go-logging"
-	"mittwald.de/servicegateway/config"
+	"github.com/mittwald/servicegateway/config"
 	"net/http"
 	"net/url"
 	"strings"

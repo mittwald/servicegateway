@@ -3,8 +3,8 @@ package dispatcher
 import (
 	"github.com/go-zoo/bone"
 	"github.com/op/go-logging"
-	"mittwald.de/servicegateway/config"
-	"mittwald.de/servicegateway/proxy"
+	"github.com/mittwald/servicegateway/config"
+	"github.com/mittwald/servicegateway/proxy"
 	"net/http"
 )
 
