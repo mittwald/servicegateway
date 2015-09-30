@@ -146,7 +146,10 @@ func buildDispatcher(
 	}
 
 	applicationConfigBase := startup.ConsulBaseKey + "/applications"
-	queryOpts := api.QueryOptions{WaitIndex: lastIndex}
+	queryOpts := api.QueryOptions{
+		WaitIndex: lastIndex,
+		WaitTime: 30 * time.Minute,
+	}
 
 	logger.Info("loading gateway config from KV %s", startup.ConsulBaseKey)
 	configs, meta, err = consul.KV().List(startup.ConsulBaseKey, &queryOpts)
