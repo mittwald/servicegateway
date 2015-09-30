@@ -91,6 +91,11 @@ func main() {
 
 		for {
 			var dispatcher dispatcher.Dispatcher
+
+			if lastIndex > 0 {
+				time.Sleep(30 * time.Second)
+			}
+
 			dispatcher, lastIndex, err = buildDispatcher(
 				&startup,
 				&cfg,
