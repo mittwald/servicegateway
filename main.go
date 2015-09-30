@@ -16,6 +16,7 @@ import (
 	"os"
 	"github.com/hashicorp/consul/api"
 	"strings"
+	"time"
 	"github.com/mailgun/manners"
 )
 
