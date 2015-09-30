@@ -27,22 +27,6 @@
         "url": "http://httpbin.org"
       },
       "rate_limiting": true
-    },
-    "tickets": {
-      "routing": {
-        "type": "path",
-        "path": "/tickets"
-      },
-      "backend": {
-        "url": "http://tickets/rest/tickets"
-      },
-      "rate_limiting": true,
-      "auth": {
-        "storage": {
-          "mode": "header",
-          "name": "X-JWT"
-        }
-      }
     }
   },
   "rate_limiting": {

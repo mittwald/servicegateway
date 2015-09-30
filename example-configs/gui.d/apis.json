@@ -14,22 +14,6 @@
         "url": "http://httpbin.org"
       },
       "rate_limiting": true
-    },
-    "tickets": {
-      "routing": {
-        "type": "host",
-        "hostname": "tickets.services.mittwald.it"
-      },
-      "backend": {
-        "url": "http://tickets"
-      },
-      "rate_limiting": true,
-      "auth": {
-        "storage": {
-          "mode": "header",
-          "name": "X-JWT"
-        }
-      }
     }
   },
   "rate_limiting": {
