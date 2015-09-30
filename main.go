@@ -13,10 +13,10 @@ import (
 	"github.com/mittwald/servicegateway/dispatcher"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/mittwald/servicegateway/ratelimit"
-	"net/http"
 	"os"
 	"github.com/hashicorp/consul/api"
 	"strings"
+	"github.com/mailgun/manners"
 )
 
 type StartupConfig struct {
@@ -63,6 +63,11 @@ func main() {
 	consulConfig.Address = "consul.service.consul:8500"
 	consulConfig.Datacenter = "dev"
 
+	consulClient, err := api.NewClient(consulConfig)
+	if err != nil {
+		logger.Panic(err)
+	}
+
 	redisPool := redis.NewPool(func() (redis.Conn, error) {
 		return redis.Dial("tcp", cfg.Redis)
 	}, 8)
@@ -80,32 +85,52 @@ func main() {
 		logger.Fatal("error while configuring authentication: %s", err)
 	}
 
-	disp, err := buildDispatcher(&startup, &cfg, consulConfig, handler, cache, authHandler, rlim, logger)
-	if err != nil {
-		logger.Panic(err)
-	}
-
 	listenAddress := fmt.Sprintf(":%d", startup.Port)
-	logger.Info("Listening on address %s", listenAddress)
+	done := make(chan bool)
 
-	err = http.ListenAndServe(listenAddress, disp)
-	if err != nil {
-		logger.Panic(err)
-	}
+	go func() {
+		var lastIndex uint64 = 0
+		var err error
+
+		dispChan := make(chan dispatcher.Dispatcher)
+		go func() {
+			for disp := range dispChan {
+				logger.Info("starting dispatcher on address %s", listenAddress)
+				manners.ListenAndServe(listenAddress, disp)
+			}
+		}()
+
+		for {
+			var dispatcher dispatcher.Dispatcher
+			dispatcher, lastIndex, err = buildDispatcher(&startup, &cfg, consulClient, handler, cache, authHandler, rlim, logger, lastIndex)
+			if err != nil {
+				logger.Panic(err)
+			}
+
+			manners.Close()
+			dispChan <- dispatcher
+		}
+	}()
+
+	logger.Info("waiting to die")
+	<- done
 }
 
 func buildDispatcher(
 	startup *StartupConfig,
 	cfg *config.Configuration,
-	consulConfig *api.Config,
+	consul *api.Client,
 	handler *proxy.ProxyHandler,
 	cch cache.CacheMiddleware,
 	authHandler auth.AuthDecorator,
 	rlim ratelimit.RateLimitingMiddleware,
 	logger *logging.Logger,
-) (dispatcher.Dispatcher, error) {
+	lastIndex uint64,
+) (dispatcher.Dispatcher, uint64, error) {
 	var disp dispatcher.Dispatcher
 	var err error
+	var meta *api.QueryMeta
+	var applications api.KVPairs
 
 	dispLogger := logging.MustGetLogger("dispatch")
 
@@ -119,7 +144,7 @@ func buildDispatcher(
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("error while creating proxy builder: %s", err)
+		return nil, 0, fmt.Errorf("error while creating proxy builder: %s", err)
 	}
 
 	// Order is important here! Behaviours will be called in LIFO order;
@@ -128,40 +153,39 @@ func buildDispatcher(
 	disp.AddBehaviour(dispatcher.NewAuthenticationBehaviour(authHandler))
 	disp.AddBehaviour(dispatcher.NewRatelimitBehaviour(rlim))
 
-	if startup.ConsulBaseKey != "" {
-		applicationConfigBase := startup.ConsulBaseKey + "/applications"
+	applicationConfigBase := startup.ConsulBaseKey + "/applications"
+	queryOpts := api.QueryOptions{WaitIndex: lastIndex}
 
-		consul, _ := api.NewClient(consulConfig)
-		applications, _, err := consul.KV().List(applicationConfigBase, nil)
-		if err != nil {
-			return nil, err
+	logger.Info("loading application config from KV %s", applicationConfigBase)
+	applications, meta, err = consul.KV().List(applicationConfigBase, &queryOpts)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	for _, appJson := range applications {
+		var appCfg config.Application
+
+		if err := json.Unmarshal(appJson.Value, &appCfg); err != nil {
+			return nil, 0, err
 		}
 
-		for _, appJson := range applications {
-			var appCfg config.Application
-
-			if err := json.Unmarshal(appJson.Value, &appCfg); err != nil {
-				return nil, err
-			}
-
-			name := strings.TrimPrefix(appJson.Key, applicationConfigBase + "/")
-			logger.Info("registering application '%s' from Consul", name)
-			if err := disp.RegisterApplication(name, appCfg); err != nil {
-				return nil, err
-			}
+		name := strings.TrimPrefix(appJson.Key, applicationConfigBase + "/")
+		logger.Info("registering application '%s' from Consul", name)
+		if err := disp.RegisterApplication(name, appCfg); err != nil {
+			return nil, 0, err
 		}
 	}
 
 	for name, appCfg := range cfg.Applications {
 		logger.Info("registering application '%s' from local config", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 
 	if err = disp.Initialize(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return disp, nil
+	return disp, meta.LastIndex, nil
 }
