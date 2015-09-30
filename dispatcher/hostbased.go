@@ -39,6 +39,10 @@ func (d *hostBasedDispatcher) RegisterApplication(name string, app config.Applic
 		return fmt.Errorf("unsupported routing type '%s' for application '%s'", app.Routing.Type, name)
 	}
 
+	if _, ok := d.handlers[app.Routing.Hostname]; ok {
+		return fmt.Errorf("another application is already registered for host '%s'", app.Routing.Hostname)
+	}
+
 	backendUrl := app.Backend.Url
 	if backendUrl == "" && app.Backend.Service != "" {
 		if app.Backend.Tag != "" {
@@ -82,9 +86,10 @@ func (d *hostBasedDispatcher) Initialize() error {
 		}
 	}
 
-	d.mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+	d.mux.HandleFunc("/*", func(res http.ResponseWriter, req *http.Request) {
 		handler, ok := d.handlers[req.Host]
 		if !ok {
+			d.log.Warning("unknown hostname: '%s'", req.Host)
 			res.WriteHeader(http.StatusNotFound)
 			return
 		}
