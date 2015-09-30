@@ -62,8 +62,8 @@ type GraphicalAuthConfig struct {
 }
 
 type ProviderAuthConfig struct {
-	Url             string                 `json:"url"`
-	Parameters      map[string]interface{} `json:"parameters"`
+	Url        string                 `json:"url"`
+	Parameters map[string]interface{} `json:"parameters"`
 }
 
 type Caching struct {

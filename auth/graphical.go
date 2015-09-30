@@ -3,9 +3,9 @@ package auth
 import (
 	"fmt"
 	"github.com/go-zoo/bone"
+	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
 	"html/template"
-	"github.com/mittwald/servicegateway/config"
 	"net/http"
 	"net/url"
 )

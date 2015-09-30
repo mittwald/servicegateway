@@ -2,8 +2,8 @@ package ratelimit
 
 import (
 	"github.com/garyburd/redigo/redis"
-	logging "github.com/op/go-logging"
 	"github.com/mittwald/servicegateway/config"
+	logging "github.com/op/go-logging"
 	"net"
 	"net/http"
 	"strconv"

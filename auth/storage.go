@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
-	"github.com/op/go-logging"
 	"github.com/mittwald/servicegateway/config"
+	"github.com/op/go-logging"
 )
 
 var NoTokenError error = errors.New("no authentication token present")

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"github.com/go-zoo/bone"
-	logging "github.com/op/go-logging"
 	"github.com/mittwald/servicegateway/config"
+	logging "github.com/op/go-logging"
 	"net/http"
 )
 

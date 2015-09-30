@@ -2,9 +2,9 @@ package dispatcher
 
 import (
 	"github.com/go-zoo/bone"
-	"github.com/op/go-logging"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/proxy"
+	"github.com/op/go-logging"
 	"net/http"
 )
 

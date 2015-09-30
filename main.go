@@ -5,19 +5,19 @@ import (
 	"flag"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
-	logging "github.com/op/go-logging"
-	"io/ioutil"
+	"github.com/hashicorp/consul/api"
+	"github.com/mailgun/manners"
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/cache"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/dispatcher"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/mittwald/servicegateway/ratelimit"
+	logging "github.com/op/go-logging"
+	"io/ioutil"
 	"os"
-	"github.com/hashicorp/consul/api"
 	"strings"
 	"time"
-	"github.com/mailgun/manners"
 )
 
 type StartupConfig struct {
@@ -117,7 +117,7 @@ func main() {
 	}()
 
 	logger.Info("waiting to die")
-	<- done
+	<-done
 }
 
 func buildDispatcher(
@@ -154,7 +154,7 @@ func buildDispatcher(
 	applicationConfigBase := startup.ConsulBaseKey + "/applications"
 	queryOpts := api.QueryOptions{
 		WaitIndex: lastIndex,
-		WaitTime: 30 * time.Minute,
+		WaitTime:  30 * time.Minute,
 	}
 
 	logger.Info("loading gateway config from KV %s", startup.ConsulBaseKey)
@@ -166,7 +166,7 @@ func buildDispatcher(
 	for _, cfgKVPair := range configs {
 		logger.Debug("found KV pair with key '%s'", cfgKVPair.Key)
 
-		switch strings.TrimPrefix(startup.ConsulBaseKey + "/", cfgKVPair.Key) {
+		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
 		case "authentication":
 			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.Authentication); err != nil {
 				return nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
@@ -184,7 +184,7 @@ func buildDispatcher(
 				return nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
 			}
 
-			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase + "/")
+			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase+"/")
 			appCfgs[name] = appCfg
 		}
 	}
