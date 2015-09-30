@@ -73,17 +73,6 @@ func main() {
 	}, 8)
 
 	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"))
-	cache := cache.NewCache(4096)
-
-	rlim, err := ratelimit.NewRateLimiter(cfg.RateLimiting, redisPool, logging.MustGetLogger("ratelimiter"))
-	if err != nil {
-		logger.Fatal("error while configuring rate limiting: %s", err)
-	}
-
-	authHandler, err := auth.NewAuthDecorator(&cfg.Authentication, redisPool, logging.MustGetLogger("auth"))
-	if err != nil {
-		logger.Fatal("error while configuring authentication: %s", err)
-	}
 
 	listenAddress := fmt.Sprintf(":%d", startup.Port)
 	done := make(chan bool)
@@ -102,13 +91,22 @@ func main() {
 
 		for {
 			var dispatcher dispatcher.Dispatcher
-			dispatcher, lastIndex, err = buildDispatcher(&startup, &cfg, consulClient, handler, cache, authHandler, rlim, logger, lastIndex)
-			if err != nil {
-				logger.Panic(err)
-			}
+			dispatcher, lastIndex, err = buildDispatcher(
+				&startup,
+				&cfg,
+				consulClient,
+				handler,
+				redisPool,
+				logger,
+				lastIndex,
+			)
 
-			manners.Close()
-			dispChan <- dispatcher
+			if err != nil {
+				logger.Error(err.Error())
+			} else {
+				manners.Close()
+				dispChan <- dispatcher
+			}
 		}
 	}()
 
@@ -121,24 +119,24 @@ func buildDispatcher(
 	cfg *config.Configuration,
 	consul *api.Client,
 	handler *proxy.ProxyHandler,
-	cch cache.CacheMiddleware,
-	authHandler auth.AuthDecorator,
-	rlim ratelimit.RateLimitingMiddleware,
+	rpool *redis.Pool,
 	logger *logging.Logger,
 	lastIndex uint64,
 ) (dispatcher.Dispatcher, uint64, error) {
 	var disp dispatcher.Dispatcher
 	var err error
 	var meta *api.QueryMeta
-	var applications api.KVPairs
+	var configs api.KVPairs
+	var localCfg config.Configuration = *cfg
+	var appCfgs map[string]config.Application = make(map[string]config.Application)
 
 	dispLogger := logging.MustGetLogger("dispatch")
 
 	switch startup.DispatchingMode {
 	case "path":
-		disp, err = dispatcher.NewPathBasedDispatcher(cfg, dispLogger, handler)
+		disp, err = dispatcher.NewPathBasedDispatcher(&localCfg, dispLogger, handler)
 	case "host":
-		disp, err = dispatcher.NewHostBasedDispatcher(cfg, dispLogger, handler)
+		disp, err = dispatcher.NewHostBasedDispatcher(&localCfg, dispLogger, handler)
 	default:
 		err = fmt.Errorf("unsupported dispatching mode: '%s'", startup.DispatchingMode)
 	}
@@ -147,44 +145,75 @@ func buildDispatcher(
 		return nil, 0, fmt.Errorf("error while creating proxy builder: %s", err)
 	}
 
+	applicationConfigBase := startup.ConsulBaseKey + "/applications"
+	queryOpts := api.QueryOptions{WaitIndex: lastIndex}
+
+	logger.Info("loading gateway config from KV %s", startup.ConsulBaseKey)
+	configs, meta, err = consul.KV().List(startup.ConsulBaseKey, &queryOpts)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	for _, cfgKVPair := range configs {
+		logger.Debug("found KV pair with key '%s'", cfgKVPair.Key)
+
+		switch strings.TrimPrefix(startup.ConsulBaseKey + "/", cfgKVPair.Key) {
+		case "authentication":
+			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.Authentication); err != nil {
+				return nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
+			}
+		case "rate_limiting":
+			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.RateLimiting); err != nil {
+				return nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
+			}
+		}
+
+		if strings.HasPrefix(cfgKVPair.Key, applicationConfigBase) {
+			var appCfg config.Application
+
+			if err := json.Unmarshal(cfgKVPair.Value, &appCfg); err != nil {
+				return nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
+			}
+
+			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase + "/")
+			appCfgs[name] = appCfg
+		}
+	}
+
+	authHandler, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"))
+	if err != nil {
+		return nil, meta.LastIndex, err
+	}
+
+	rlim, err := ratelimit.NewRateLimiter(localCfg.RateLimiting, rpool, logging.MustGetLogger("ratelimiter"))
+	if err != nil {
+		logger.Fatal("error while configuring rate limiting: %s", err)
+	}
+
+	cch := cache.NewCache(4096)
+
 	// Order is important here! Behaviours will be called in LIFO order;
 	// behaviours that are added last will be called first!
 	disp.AddBehaviour(dispatcher.NewCachingBehaviour(cch))
 	disp.AddBehaviour(dispatcher.NewAuthenticationBehaviour(authHandler))
 	disp.AddBehaviour(dispatcher.NewRatelimitBehaviour(rlim))
 
-	applicationConfigBase := startup.ConsulBaseKey + "/applications"
-	queryOpts := api.QueryOptions{WaitIndex: lastIndex}
-
-	logger.Info("loading application config from KV %s", applicationConfigBase)
-	applications, meta, err = consul.KV().List(applicationConfigBase, &queryOpts)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	for _, appJson := range applications {
-		var appCfg config.Application
-
-		if err := json.Unmarshal(appJson.Value, &appCfg); err != nil {
-			return nil, 0, err
-		}
-
-		name := strings.TrimPrefix(appJson.Key, applicationConfigBase + "/")
+	for name, appCfg := range appCfgs {
 		logger.Info("registering application '%s' from Consul", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
-			return nil, 0, err
+			return nil, meta.LastIndex, err
 		}
 	}
 
-	for name, appCfg := range cfg.Applications {
+	for name, appCfg := range localCfg.Applications {
 		logger.Info("registering application '%s' from local config", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
-			return nil, 0, err
+			return nil, meta.LastIndex, err
 		}
 	}
 
 	if err = disp.Initialize(); err != nil {
-		return nil, 0, err
+		return nil, meta.LastIndex, err
 	}
 
 	return disp, meta.LastIndex, nil
