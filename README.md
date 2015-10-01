@@ -71,11 +71,19 @@ This `PUT`s the contents of the following file `app.json` into the Consul key/va
 }
 ```
 
+### Configuration reference
+
+See the [documentation reference](docs/configuration.md).
+
 ## Core concepts
 
 ### Routing and dispatching
 
+tbw.
+
 ### Authentication forwarding
+
+tbw.
 
 [consul]: https://consul.io
 [consul-kv]: https://www.consul.io/docs/agent/http/kv.html
