@@ -31,15 +31,24 @@ Alternatively, use the Dockerfile that is shipped within this repository to buil
 
 ### Configuration sources
 
-#### Basic configuration
+#### Basic configuration file
 
 The basic configuration is read from a configuration file that by default is expected to be located in `/etc/servicegateway.json`. However, you can override that location using the `-config` command line parameter.
 
 Check the [example-configs](example-configs) directory for example configurations for usage as API gateway and Single-SignOn gateway.
 
-#### Configuring upstream applications
+#### Configuration with Consul
 
-This gateway application is tightly coupled to [Consul][consul], an open-source service discovery engine. The configuration up upstream applications is stored in Consul's [key-value store][consul-kv]. Each application is its own key/value pair with the value being a JSON document describing the application.
+Most of the configuration options (that are not required for the actual program startup) can also be provided by [Consul][consul], an open-source service discovery engine. Configuration can be stored in Consul's [key-value store][consul-kv].
+
+Consul uses a hierarchical key-value store. All configuration items for the servicegateway must be stored under a common key prefix that is supplied via the `-consul-base` command-line parameter.
+This affects the following configuration items:
+
+1.  Rate-limiting configuration (key `<base-prefix>/ratelimiting`)
+2.  Caching configuration (key `<base-prefix>/caching`)
+3.  Upstream application (keys `<base-prefix>/application/<app-identifier>`)
+
+Each upstream application is its own key/value pair with the value being a JSON document describing the application.
 
 You can configure the key prefix in which the service gateway should look for configured applications using the `-consul-base` parameter:
 
@@ -70,6 +79,8 @@ This `PUT`s the contents of the following file `app.json` into the Consul key/va
   "rate_limiting": true
 }
 ```
+
+**Important**: Configuration changes made in Consul will become effective immediately, without needing to restart the service gateway.
 
 ### Configuration reference
 
