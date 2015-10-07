@@ -3,5 +3,8 @@ GOFILES=$(wildcard **/*.go)
 servicegateway: ${GOFILES}
 	go build -tags netgo
 
-docker: servicegateway Dockerfile
+build-static:
+	$(MAKE) -C static
+
+docker: servicegateway build-static Dockerfile
 	docker build -t mittwald/servicegateway .
