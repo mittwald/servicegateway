@@ -44,6 +44,7 @@ type StartupConfig struct {
 	ConfigFile      string
 	DispatchingMode string
 	ConsulBaseKey   string
+	UiDir           string
 	Port            int
 	Debug           bool
 }
@@ -56,6 +57,7 @@ func main() {
 	flag.IntVar(&startup.Port, "port", 8080, "HTTP port to listen on")
 	flag.BoolVar(&startup.Debug, "debug", false, "enable to add debug information to each request")
 	flag.StringVar(&startup.ConsulBaseKey, "consul-base", "gateway/ui", "base key name for configuration")
+	flag.StringVar(&startup.UiDir, "ui-dir", "/usr/share/servicegateway", "directory in which UI files can be found")
 	flag.Parse()
 
 	logger := logging.MustGetLogger("startup")
@@ -208,7 +210,7 @@ func buildDispatcher(
 		}
 	}
 
-	authHandler, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"))
+	authHandler, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"), startup.UiDir)
 	if err != nil {
 		return nil, meta.LastIndex, err
 	}

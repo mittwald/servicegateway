@@ -33,6 +33,7 @@ type GraphicalAuthDecorator struct {
 	authHandler *AuthenticationHandler
 	config      *config.GlobalAuth
 	logger      *logging.Logger
+	uiDir       string
 }
 
 type LoginResult struct {
@@ -84,12 +85,15 @@ func (a *GraphicalAuthDecorator) DecorateHandler(orig http.Handler, appCfg *conf
 }
 
 func (a *GraphicalAuthDecorator) RegisterRoutes(mux *bone.Mux) error {
-	tmpl, err := template.ParseFiles("templates/login.html", "templates/layout.html")
+	tmpl, err := template.ParseFiles(
+		a.uiDir + "/templates/login.html",
+		a.uiDir + "/templates/layout.html",
+	)
 	if err != nil {
 		return err
 	}
 
-	fileserver := http.FileServer(http.Dir("./static/"))
+	fileserver := http.FileServer(http.Dir(a.uiDir + "/static/"))
 	mux.Get("/_static/", http.StripPrefix("/_static/", fileserver))
 
 	mux.GetFunc(a.config.GraphicalConfig.LoginRoute, func(res http.ResponseWriter, req *http.Request) {

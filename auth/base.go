@@ -43,7 +43,12 @@ type AuthenticationRequest struct {
 	Providers  []string `json:"providers"`
 }
 
-func NewAuthDecorator(authConfig *config.GlobalAuth, redisPool *redis.Pool, logger *logging.Logger) (AuthDecorator, error) {
+func NewAuthDecorator(
+	authConfig *config.GlobalAuth,
+	redisPool *redis.Pool,
+	logger *logging.Logger,
+	uiDir string,
+) (AuthDecorator, error) {
 	authHandler, err := NewAuthenticationHandler(authConfig, redisPool, logger)
 	if err != nil {
 		return nil, err
@@ -55,6 +60,7 @@ func NewAuthDecorator(authConfig *config.GlobalAuth, redisPool *redis.Pool, logg
 			authHandler,
 			authConfig,
 			logger,
+			uiDir,
 		}, nil
 	case "rest":
 		return &RestAuthDecorator{
