@@ -217,7 +217,7 @@ func buildDispatcher(
 
 	rlim, err := ratelimit.NewRateLimiter(localCfg.RateLimiting, rpool, logging.MustGetLogger("ratelimiter"))
 	if err != nil {
-		logger.Fatal("error while configuring rate limiting: %s", err)
+		logger.Fatal(fmt.Sprintf("error while configuring rate limiting: %s", err))
 	}
 
 	cch := cache.NewCache(4096)

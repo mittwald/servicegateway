@@ -92,7 +92,7 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	proxyRes, err := p.Client.Do(proxyReq)
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok == false || uerr.Err != redirectRequest {
-			p.Logger.Error("could not proxy request to %s: %s", targetUrl, uerr)
+			p.Logger.Error(fmt.Sprintf("could not proxy request to %s: %s", targetUrl, uerr))
 			p.UnavailableError(rw, req)
 			return
 		}

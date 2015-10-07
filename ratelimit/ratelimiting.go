@@ -128,7 +128,7 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler http.Handler) http.Ha
 		remaining, limit, err := t.takeToken(user)
 
 		if err != nil {
-			t.logger.Error("Error occurred while handling request from %s: %s", req.RemoteAddr, err)
+			t.logger.Error(fmt.Sprintf("Error occurred while handling request from %s: %s", req.RemoteAddr, err))
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(503)
 			rw.Write([]byte("{\"msg\":\"service unavailable\"}"))
