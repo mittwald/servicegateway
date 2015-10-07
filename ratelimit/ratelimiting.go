@@ -23,6 +23,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/mittwald/servicegateway/config"
 	logging "github.com/op/go-logging"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
