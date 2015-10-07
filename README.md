@@ -21,10 +21,11 @@ For building, you will need a halfway current [Go SDK][go] (tested with 1.4 and 
 
 This will produce a (more or less) static binary that you can deploy without any dependencies.
 
-Alternatively, use the Dockerfile that is shipped within this repository to build a [Docker][docker] image containing this application:
+Alternatively, use the Makefile that is shipped within this repository to build the binary and/or a [Docker][docker] image containing this application:
 
 ```shellsession
-> docker build -t servicegateway .
+> make
+> make docker
 ```
 
 ## Configuration
