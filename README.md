@@ -91,7 +91,47 @@ See the [documentation reference](docs/configuration.md).
 
 ### Routing and dispatching
 
-tbw.
+For this service gateway, multiple upstream applications can be configured. Each application is a key/value entry in Consul's key/value store.
+
+The servicegateway employs a compex logic to determine which HTTP request to route to which upstream application. Currently, there are three different strategies supported that can be used alongside each other:
+
+-   **Path based routing**: The target upstream application is determined by a HTTP path prefix. For example, all requests having a path starting with `/one` may be routed to one upstream application and all requests starting with `/two` to another upstream application. This may cause issues when the response from the upstream applications contain absolute links to other documents (like in-document links, `Link` headers or `Location` headers); the servicegateway tries to rewrite these links to use the path prefix configured for the upstream application.
+
+    Example:
+
+    ```json
+    {
+      "type": "path",
+      "path": "/one"
+    }
+    ```
+
+-   **Host based routing**: The target upstream application is determined by the HTTP host header.
+
+    Example:
+
+    ```json
+    {
+      "type": "host",
+      "host": "name.servcices.acme.corp"
+    }
+    ```
+
+-   **Pattern based routing**: This is the most complex routing strategy. For each application, you can configure a set of path patterns that are mapped to path patterns of the upstream application.
+
+    Example:
+
+    ```json
+    {
+      "type": "pattern",
+      "patterns": {
+        "/products": "app.php?controller=products&action=list",
+        "/products/:id": "app.php?controller=products&action=show&product_id=:id"
+      }
+    }
+    ```
+
+Applications can be configured by adding new key/value entries into Consul's key/value store under the configured prefix. This can be done at runtime; changes become effective immediately without restarting the servicegateway.
 
 ### Authentication forwarding
 
