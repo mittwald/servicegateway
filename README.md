@@ -152,7 +152,7 @@ In order to make authentication work, you'll need the following:
      }
      ```
 
- 2.  Configure where to look for tokens in the client requests. Currently, the token can be included in a custom header or a cookie.
+2.  Configure where to look for tokens in the client requests. Currently, the token can be included in a custom header or a cookie.
 
      ```json
      {
