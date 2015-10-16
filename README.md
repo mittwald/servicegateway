@@ -135,7 +135,74 @@ Applications can be configured by adding new key/value entries into Consul's key
 
 ### Authentication forwarding
 
-tbw.
+The Servicegateway also features a (very opinionated) authentication handling. Currently, authenticaiton is done using [JSON Web Tokens][jwt] that can be sent in a request header, or a cookie. If you do not want to expose the JWT's to your users, the Servicegateway also supports traditional sessions.
+
+#### Basic configuration
+
+In order to make authentication work, you'll need the following:
+
+1.   Configure the key that the gateway can use to verify tokens presented by users. For this, you can either specify the key directly, or specify a URL from which the key can be loaded.
+
+     ```json
+     {
+       "authentication": {
+         "verification_key": "...",
+         "verification_key_url": "..."
+       }
+     }
+     ```
+
+ 2.  Configure where to look for tokens in the client requests. Currently, the token can be included in a custom header or a cookie.
+
+     ```json
+     {
+       "authentication": {
+         "mode": "rest",
+         "storage": {
+           "mode": "header",
+           "name": "X-Jwt"
+         }
+       }
+     }
+     ```
+
+3.  Configure an authentication provider that you'll redirect users to that are not authenticated.
+
+    ```json
+    {
+      "authentication": {
+        "mode": "rest",
+        "provider": {
+          "url": "https://identity.service.consul/authenticate"
+        }
+      }
+    }
+    ```
+
+#### With graphical login form
+
+You can also use the Servicegateway to present a graphical login form to your users (the *graphical* authentication mode). In graphical authentication mode, unauthenticated users will be presented a login form in which they can enter a username and password. Upon submit, these credentials will be submitted to the configured identity provider URL as a JSON document. The response document MUST contain a JWT that will then be stored in a cookie.
+
+Example configuration:
+
+```json
+{
+  "authentication": {
+    "mode": "graphical",
+    "provider": {
+      "url": "https://identity.service.consul/authenticate"
+    },
+    "verification_key_url": "https://identity.service.consul/key",
+    "storage": {
+      "mode": "session",
+      "name": "ACME_SESSION",
+      "cookie_domain": ".services.acme.corp",
+      "cookie_httponly": true,
+      "cookie_secure": true
+    }
+  }
+}
+```
 
 [consul]: https://consul.io
 [consul-kv]: https://www.consul.io/docs/agent/http/kv.html
@@ -143,3 +210,4 @@ tbw.
 [fowler-microservices]: http://martinfowler.com/articles/microservices.html
 [go]: https://golang.org/dl/
 [go-duration]: https://golang.org/pkg/time/#ParseDuration
+[jwt]: http://jwt.io/
