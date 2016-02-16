@@ -1,4 +1,5 @@
 package config
+import "fmt"
 
 /*
  * Microservice gateway application
@@ -64,8 +65,13 @@ type GlobalAuth struct {
 }
 
 type ConsulConfiguration struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+	Host       string `json:"host"`
+	Port       int    `json:"port"`
+	DataCenter string `json:"datacenter"`
+}
+
+func (c ConsulConfiguration) Address() string {
+	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }
 
 type StorageAuthConfig struct {

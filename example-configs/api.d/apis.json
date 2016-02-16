@@ -35,7 +35,8 @@
   },
   "consul": {
     "host": "localhost",
-    "port": 8500
+    "port": 8500,
+    "datacenter": "dc1"
   },
   "redis": "redis:6379",
   "authentication": {

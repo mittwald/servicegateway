@@ -82,8 +82,8 @@ func main() {
 	logger.Debug("%s", cfg)
 
 	consulConfig := api.DefaultConfig()
-	consulConfig.Address = "consul.service.consul:8500"
-	consulConfig.Datacenter = "dev"
+	consulConfig.Address = cfg.Consul.Address()
+	consulConfig.Datacenter = cfg.Consul.DataCenter
 
 	consulClient, err := api.NewClient(consulConfig)
 	if err != nil {
@@ -130,6 +130,9 @@ func main() {
 
 			if err != nil {
 				logger.Error(err.Error())
+				if lastIndex == 0 {
+					logger.Panic("error on startup")
+				}
 			} else {
 				manners.Close()
 				dispChan <- dispatcher
