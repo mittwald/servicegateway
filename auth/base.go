@@ -47,25 +47,17 @@ func NewAuthDecorator(
 	authConfig *config.GlobalAuth,
 	redisPool *redis.Pool,
 	logger *logging.Logger,
+	tokenStore TokenStore,
 	uiDir string,
 ) (AuthDecorator, error) {
-	authHandler, err := NewAuthenticationHandler(authConfig, redisPool, logger)
+	authHandler, err := NewAuthenticationHandler(authConfig, redisPool, tokenStore, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	switch authConfig.Mode {
-	case "graphical":
-		return &GraphicalAuthDecorator{
-			authHandler,
-			authConfig,
-			logger,
-			uiDir,
-		}, nil
 	case "rest":
-		return &RestAuthDecorator{
-			authHandler,
-		}, nil
+		return NewRestAuthDecorator(authHandler, tokenStore), nil
 	}
 	return nil, errors.New(fmt.Sprintf("unsupported authentication mode: '%s'", authConfig.Mode))
 }

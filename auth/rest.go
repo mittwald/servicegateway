@@ -27,6 +27,14 @@ import (
 
 type RestAuthDecorator struct {
 	authHandler *AuthenticationHandler
+	tokenStore TokenStore
+}
+
+func NewRestAuthDecorator(authHandler *AuthenticationHandler, tokenStore TokenStore) *RestAuthDecorator {
+	return &RestAuthDecorator{
+		authHandler: authHandler,
+		tokenStore: tokenStore,
+	}
 }
 
 func (a *RestAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Application) http.Handler {

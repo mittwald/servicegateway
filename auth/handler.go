@@ -35,7 +35,8 @@ import (
 
 type AuthenticationHandler struct {
 	config              *config.GlobalAuth
-	storage             TokenStorage
+	storage             TokenStore
+	tokenReader         TokenReader
 	cacheTtl            time.Duration
 	cachedKey           []byte
 	cachedKeyExpiration time.Time
@@ -44,31 +45,19 @@ type AuthenticationHandler struct {
 	logger              *logging.Logger
 }
 
-func NewAuthenticationHandler(cfg *config.GlobalAuth, redisPool *redis.Pool, logger *logging.Logger) (*AuthenticationHandler, error) {
-	var storage TokenStorage
-
-	switch cfg.StorageConfig.Mode {
-	case "cookie":
-		storage = &CookieTokenStorage{cfg: &cfg.StorageConfig, log: logger}
-	case "header":
-		storage = &HeaderTokenStorage{cfg: &cfg.StorageConfig, log: logger}
-	case "session":
-		storage = &SessionTokenStorage{cfg: &cfg.StorageConfig, log: logger, redisPool: redisPool}
-	default:
-		return nil, fmt.Errorf("unsupported token storage mode: '%s'", cfg.StorageConfig.Mode)
-	}
-
+func NewAuthenticationHandler(cfg *config.GlobalAuth, redisPool *redis.Pool, tokenStore TokenStore, logger *logging.Logger) (*AuthenticationHandler, error) {
 	cacheTtl, err := time.ParseDuration(cfg.KeyCacheTtl)
 	if err != nil {
 		return nil, err
 	}
 
 	handler := AuthenticationHandler{
-		config:     cfg,
-		storage:    storage,
-		cacheTtl:   cacheTtl,
-		httpClient: &http.Client{},
-		logger:     logger,
+		config:      cfg,
+		storage:     tokenStore,
+		tokenReader: &BearerTokenReader{store: tokenStore},
+		cacheTtl:    cacheTtl,
+		httpClient:  &http.Client{},
+		logger:      logger,
 	}
 
 	return &handler, nil
@@ -92,7 +81,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	h.logger.Info("authenticating user %s", username)
 	h.logger.Debug("authentication request: %s", debugJsonString)
 
-	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url+"/authenticate", bytes.NewBuffer(jsonString))
+	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url + "/authenticate", bytes.NewBuffer(jsonString))
 	req.Header.Set("Accept", "application/jwt")
 	req.Header.Set("Content-Type", "application/json")
 
@@ -153,7 +142,7 @@ func (h *AuthenticationHandler) GetVerificationKey() ([]byte, error) {
 }
 
 func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string, error) {
-	token, err := h.storage.ReadToken(req)
+	token, err := h.tokenReader.TokenFromRequest(req)
 	if err != nil {
 		if err == NoTokenError {
 			return false, "", nil
@@ -183,7 +172,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 	if err != nil {
 		switch t := err.(type) {
 		case *jwt.ValidationError:
-			if t.Errors&acceptableErrors != 0 {
+			if t.Errors & acceptableErrors != 0 {
 				return false, "", nil
 			}
 		}

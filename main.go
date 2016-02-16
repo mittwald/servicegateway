@@ -94,6 +94,11 @@ func main() {
 		return redis.Dial("tcp", cfg.Redis)
 	}, 8)
 
+	tokenStore, err := auth.NewTokenStore(redisPool, auth.TokenStoreOptions{})
+	if err != nil {
+		logger.Panic(err)
+	}
+
 	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"))
 
 	listenAddress := fmt.Sprintf(":%d", startup.Port)
@@ -125,6 +130,7 @@ func main() {
 				handler,
 				redisPool,
 				logger,
+				tokenStore,
 				lastIndex,
 			)
 
@@ -151,6 +157,7 @@ func buildDispatcher(
 	handler *proxy.ProxyHandler,
 	rpool *redis.Pool,
 	logger *logging.Logger,
+	tokenStore auth.TokenStore,
 	lastIndex uint64,
 ) (dispatcher.Dispatcher, uint64, error) {
 	var disp dispatcher.Dispatcher
@@ -213,7 +220,7 @@ func buildDispatcher(
 		}
 	}
 
-	authHandler, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"), startup.UiDir)
+	authHandler, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"), tokenStore, startup.UiDir)
 	if err != nil {
 		return nil, meta.LastIndex, err
 	}
