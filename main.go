@@ -37,6 +37,8 @@ import (
 	"os"
 	"strings"
 	"time"
+	"github.com/mittwald/servicegateway/admin"
+	"net/http"
 )
 
 type StartupConfig struct {
@@ -46,6 +48,8 @@ type StartupConfig struct {
 	ConsulBaseKey   string
 	UiDir           string
 	Port            int
+	AdminAddress    string
+	AdminPort       int
 	Debug           bool
 }
 
@@ -55,6 +59,8 @@ func main() {
 	flag.StringVar(&startup.ConfigFile, "config", "/etc/servicegateway.json", "configuration file")
 	flag.StringVar(&startup.DispatchingMode, "dispatch", "path", "dispatching mode ('path' or 'host')")
 	flag.IntVar(&startup.Port, "port", 8080, "HTTP port to listen on")
+	flag.StringVar(&startup.AdminAddress, "admin-addr", "127.0.0.1", "Address to listen on (administration port)")
+	flag.IntVar(&startup.AdminPort, "admin-port", 8081, "HTTP port to listen on (administration port)")
 	flag.BoolVar(&startup.Debug, "debug", false, "enable to add debug information to each request")
 	flag.StringVar(&startup.ConsulBaseKey, "consul-base", "gateway/ui", "base key name for configuration")
 	flag.StringVar(&startup.UiDir, "ui-dir", "/usr/share/servicegateway", "directory in which UI files can be found")
@@ -94,7 +100,12 @@ func main() {
 		return redis.Dial("tcp", cfg.Redis)
 	}, 8)
 
-	tokenStore, err := auth.NewTokenStore(redisPool, auth.TokenStoreOptions{})
+	tokenVerifier, err := auth.NewJwtVerifier(&cfg.Authentication)
+	if err != nil {
+		logger.Panic(err)
+	}
+
+	tokenStore, err := auth.NewTokenStore(redisPool, tokenVerifier, auth.TokenStoreOptions{})
 	if err != nil {
 		logger.Panic(err)
 	}
@@ -102,6 +113,8 @@ func main() {
 	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"))
 
 	listenAddress := fmt.Sprintf(":%d", startup.Port)
+	adminListenAddress := fmt.Sprintf("%s:%d", startup.AdminAddress, startup.AdminPort)
+
 	done := make(chan bool)
 
 	go func() {
@@ -109,6 +122,8 @@ func main() {
 		var err error
 
 		dispChan := make(chan dispatcher.Dispatcher)
+		admChan := make(chan http.Handler)
+
 		go func() {
 			for disp := range dispChan {
 				logger.Info("starting dispatcher on address %s", listenAddress)
@@ -116,14 +131,22 @@ func main() {
 			}
 		}()
 
+		go func() {
+			for handler := range admChan {
+				logger.Info("starting admin server on address %s", adminListenAddress)
+				manners.ListenAndServe(adminListenAddress, handler)
+			}
+		}()
+
 		for {
 			var dispatcher dispatcher.Dispatcher
+			var adminServer http.Handler
 
 			if lastIndex > 0 {
 				time.Sleep(30 * time.Second)
 			}
 
-			dispatcher, lastIndex, err = buildDispatcher(
+			dispatcher, adminServer, lastIndex, err = buildDispatcher(
 				&startup,
 				&cfg,
 				consulClient,
@@ -131,6 +154,7 @@ func main() {
 				redisPool,
 				logger,
 				tokenStore,
+				tokenVerifier,
 				lastIndex,
 			)
 
@@ -142,6 +166,7 @@ func main() {
 			} else {
 				manners.Close()
 				dispChan <- dispatcher
+				admChan <- adminServer
 			}
 		}
 	}()
@@ -158,8 +183,9 @@ func buildDispatcher(
 	rpool *redis.Pool,
 	logger *logging.Logger,
 	tokenStore auth.TokenStore,
+	tokenVerifier *auth.JwtVerifier,
 	lastIndex uint64,
-) (dispatcher.Dispatcher, uint64, error) {
+) (dispatcher.Dispatcher, http.Handler, uint64, error) {
 	var disp dispatcher.Dispatcher
 	var err error
 	var meta *api.QueryMeta
@@ -179,7 +205,7 @@ func buildDispatcher(
 	}
 
 	if err != nil {
-		return nil, 0, fmt.Errorf("error while creating proxy builder: %s", err)
+		return nil, nil, 0, fmt.Errorf("error while creating proxy builder: %s", err)
 	}
 
 	applicationConfigBase := startup.ConsulBaseKey + "/applications"
@@ -191,20 +217,20 @@ func buildDispatcher(
 	logger.Info("loading gateway config from KV %s", startup.ConsulBaseKey)
 	configs, meta, err = consul.KV().List(startup.ConsulBaseKey, &queryOpts)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, 0, err
 	}
 
 	for _, cfgKVPair := range configs {
 		logger.Debug("found KV pair with key '%s'", cfgKVPair.Key)
 
 		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
-		case "authentication":
-			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.Authentication); err != nil {
-				return nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
-			}
+//		case "authentication":
+//			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.Authentication); err != nil {
+//				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
+//			}
 		case "rate_limiting":
 			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.RateLimiting); err != nil {
-				return nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
+				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
 			}
 		}
 
@@ -212,7 +238,7 @@ func buildDispatcher(
 			var appCfg config.Application
 
 			if err := json.Unmarshal(cfgKVPair.Value, &appCfg); err != nil {
-				return nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
+				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
 			}
 
 			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase+"/")
@@ -220,9 +246,14 @@ func buildDispatcher(
 		}
 	}
 
-	authHandler, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"), tokenStore, startup.UiDir)
+	authHandler, err := auth.NewAuthenticationHandler(&localCfg.Authentication, rpool, tokenStore, tokenVerifier, logger)
 	if err != nil {
-		return nil, meta.LastIndex, err
+		return nil, nil, meta.LastIndex, err
+	}
+
+	authDecorator, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"), authHandler, tokenStore, startup.UiDir)
+	if err != nil {
+		return nil, nil, meta.LastIndex, err
 	}
 
 	rlim, err := ratelimit.NewRateLimiter(localCfg.RateLimiting, rpool, logging.MustGetLogger("ratelimiter"))
@@ -235,26 +266,36 @@ func buildDispatcher(
 	// Order is important here! Behaviours will be called in LIFO order;
 	// behaviours that are added last will be called first!
 	disp.AddBehaviour(dispatcher.NewCachingBehaviour(cch))
-	disp.AddBehaviour(dispatcher.NewAuthenticationBehaviour(authHandler))
+	disp.AddBehaviour(dispatcher.NewAuthenticationBehaviour(authDecorator))
 	disp.AddBehaviour(dispatcher.NewRatelimitBehaviour(rlim))
 
 	for name, appCfg := range appCfgs {
 		logger.Info("registering application '%s' from Consul", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
-			return nil, meta.LastIndex, err
+			return nil, nil, meta.LastIndex, err
 		}
 	}
 
 	for name, appCfg := range localCfg.Applications {
 		logger.Info("registering application '%s' from local config", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
-			return nil, meta.LastIndex, err
+			return nil, nil, meta.LastIndex, err
 		}
 	}
 
 	if err = disp.Initialize(); err != nil {
-		return nil, meta.LastIndex, err
+		return nil, nil, meta.LastIndex, err
 	}
 
-	return disp, meta.LastIndex, nil
+	adminLogger, err := logging.GetLogger("admin-api")
+	if err != nil {
+		return nil, nil, meta.LastIndex, err
+	}
+
+	admin, err := admin.NewAdminServer(tokenStore, tokenVerifier, authHandler, adminLogger)
+	if err != nil {
+		return nil, nil, meta.LastIndex, err
+	}
+
+	return disp, admin, meta.LastIndex, nil
 }

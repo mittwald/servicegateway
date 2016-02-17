@@ -29,35 +29,31 @@ import (
 	"github.com/op/go-logging"
 	"io/ioutil"
 	"net/http"
-	"sync"
-	"time"
 )
 
 type AuthenticationHandler struct {
 	config              *config.GlobalAuth
 	storage             TokenStore
 	tokenReader         TokenReader
-	cacheTtl            time.Duration
-	cachedKey           []byte
-	cachedKeyExpiration time.Time
-	cachedKeyLock       sync.Mutex
 	httpClient          *http.Client
 	logger              *logging.Logger
+	verifier *JwtVerifier
 }
 
-func NewAuthenticationHandler(cfg *config.GlobalAuth, redisPool *redis.Pool, tokenStore TokenStore, logger *logging.Logger) (*AuthenticationHandler, error) {
-	cacheTtl, err := time.ParseDuration(cfg.KeyCacheTtl)
-	if err != nil {
-		return nil, err
-	}
-
+func NewAuthenticationHandler(
+	cfg *config.GlobalAuth,
+	redisPool *redis.Pool,
+	tokenStore TokenStore,
+    verifier *JwtVerifier,
+	logger *logging.Logger,
+) (*AuthenticationHandler, error) {
 	handler := AuthenticationHandler{
 		config:      cfg,
 		storage:     tokenStore,
 		tokenReader: &BearerTokenReader{store: tokenStore},
-		cacheTtl:    cacheTtl,
 		httpClient:  &http.Client{},
 		logger:      logger,
+		verifier: verifier,
 	}
 
 	return &handler, nil
@@ -81,7 +77,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	h.logger.Info("authenticating user %s", username)
 	h.logger.Debug("authentication request: %s", debugJsonString)
 
-	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url + "/authenticate", bytes.NewBuffer(jsonString))
+	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url+"/authenticate", bytes.NewBuffer(jsonString))
 	req.Header.Set("Accept", "application/jwt")
 	req.Header.Set("Content-Type", "application/json")
 
@@ -108,63 +104,17 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	return string(body), nil
 }
 
-func (h *AuthenticationHandler) GetVerificationKey() ([]byte, error) {
-	if h.config.VerificationKey != nil && len(h.config.VerificationKey) > 0 {
-		return h.config.VerificationKey, nil
-	}
-
-	if h.cachedKey != nil && h.cachedKeyExpiration.After(time.Now()) {
-		return h.cachedKey, nil
-	}
-
-	h.cachedKeyLock.Lock()
-	defer h.cachedKeyLock.Unlock()
-
-	if h.cachedKey != nil && h.cachedKeyExpiration.After(time.Now()) {
-		return h.cachedKey, nil
-	}
-
-	resp, err := http.Get(h.config.VerificationKeyUrl)
-	if err != nil {
-		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
-	}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
-	}
-
-	h.cachedKey = body
-	h.cachedKeyExpiration = time.Now().Add(h.cacheTtl)
-
-	return h.cachedKey, nil
-}
-
 func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string, error) {
 	token, err := h.tokenReader.TokenFromRequest(req)
-	if err != nil {
-		if err == NoTokenError {
-			return false, "", nil
-		} else {
-			return false, "", err
-		}
-	}
-
-	key, err := h.GetVerificationKey()
-	if err != nil {
+	if err == NoTokenError {
+		return false, "", nil
+	} else if err != nil {
+		h.logger.Warning("error while reading token from request: %s", err)
 		return false, "", err
 	}
 
-	var keyFunc jwt.Keyfunc = func(decodedToken *jwt.Token) (interface{}, error) {
-		if _, ok := decodedToken.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %s", decodedToken.Header["alg"])
-		}
-		return key, nil
-	}
-
-	dec, err := jwt.Parse(token, keyFunc)
-	if err == nil && dec.Valid {
+	valid, _, err := h.verifier.VerifyToken(token)
+	if err == nil && valid {
 		return true, token, nil
 	}
 
@@ -172,12 +122,13 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 	if err != nil {
 		switch t := err.(type) {
 		case *jwt.ValidationError:
-			if t.Errors & acceptableErrors != 0 {
-				return false, "", nil
+			if t.Errors&acceptableErrors != 0 {
+				return false, "", err
 			}
 		}
 		return false, "", err
 	}
 
+	h.logger.Warning("could not authenticate request. huh?")
 	return false, "", nil
 }

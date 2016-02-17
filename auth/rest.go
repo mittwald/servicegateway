@@ -23,24 +23,41 @@ import (
 	"github.com/go-zoo/bone"
 	"github.com/mittwald/servicegateway/config"
 	"net/http"
+	"github.com/op/go-logging"
 )
 
 type RestAuthDecorator struct {
 	authHandler *AuthenticationHandler
 	tokenStore TokenStore
+	logger *logging.Logger
 }
 
-func NewRestAuthDecorator(authHandler *AuthenticationHandler, tokenStore TokenStore) *RestAuthDecorator {
+func NewRestAuthDecorator(authHandler *AuthenticationHandler, tokenStore TokenStore, logger *logging.Logger) *RestAuthDecorator {
 	return &RestAuthDecorator{
 		authHandler: authHandler,
 		tokenStore: tokenStore,
+		logger: logger,
 	}
 }
 
 func (a *RestAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Application) http.Handler {
+	var writer TokenWriter
+
+	switch appCfg.Auth.Writer.Mode {
+	case "header":
+		writer = &HeaderTokenWriter{HeaderName: appCfg.Auth.Writer.Name}
+	case "authorization":
+		writer = &AuthorizationTokenWriter{}
+	default:
+		writer = &HeaderTokenWriter{HeaderName: "X-JWT"}
+		a.logger.Error("bad token writer: %s", appCfg.Auth.Writer.Mode)
+	}
+
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		authenticated, _, err := a.authHandler.IsAuthenticated(req)
+		authenticated, token, err := a.authHandler.IsAuthenticated(req)
 		if err != nil {
+			a.logger.Error("authentication error: %s", err)
+
 			res.Header().Set("Content-Type", "application/json")
 			res.WriteHeader(503)
 			res.Write([]byte("{\"msg\": \"service unavailable\"}"))
@@ -49,6 +66,7 @@ func (a *RestAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Ap
 			res.WriteHeader(403)
 			res.Write([]byte("{\"msg\": \"not authenticated\"}"))
 		} else {
+			writer.WriteTokenToRequest(token, req)
 			orig.ServeHTTP(res, req)
 		}
 	})

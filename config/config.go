@@ -51,12 +51,12 @@ type Backend struct {
 
 type ApplicationAuth struct {
 	Disable bool              `json:"disable"`
-	Storage StorageAuthConfig `json:"storage"`
+	Writer  AuthWriterConfig  `json:"writer"`
 }
 
 type GlobalAuth struct {
 	Mode               string              `json:"mode"`
-	StorageConfig      StorageAuthConfig   `json:"storage"`
+//	StorageConfig      StorageAuthConfig   `json:"storage"`
 	GraphicalConfig    GraphicalAuthConfig `json:"graphical"`
 	ProviderConfig     ProviderAuthConfig  `json:"provider"`
 	VerificationKey    []byte              `json:"verification_key"`
@@ -74,13 +74,18 @@ func (c ConsulConfiguration) Address() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }
 
-type StorageAuthConfig struct {
-	Mode           string `json:"mode"`
-	Name           string `json:"name"`
-	CookieDomain   string `json:"cookie_domain"`
-	CookieHttpOnly bool   `json:"cookie_httponly"`
-	CookieSecure   bool   `json:"cookie_secure"`
+type AuthWriterConfig struct {
+	Mode string `json:"mode"`
+	Name string `json:"name"`
 }
+
+//type StorageAuthConfig struct {
+//	Mode           string `json:"mode"`
+//	Name           string `json:"name"`
+//	CookieDomain   string `json:"cookie_domain"`
+//	CookieHttpOnly bool   `json:"cookie_httponly"`
+//	CookieSecure   bool   `json:"cookie_secure"`
+//}
 
 type GraphicalAuthConfig struct {
 	LoginRoute string `json:"login_route"`

@@ -34,13 +34,13 @@
     "burst": 1000
   },
   "consul": {
-    "host": "localhost",
+    "host": "consul.service.consul",
     "port": 8500,
-    "datacenter": "dc1"
+    "datacenter": "dev"
   },
   "redis": "redis:6379",
   "authentication": {
-    "mode": "graphical",
+    "mode": "rest",
     "storage": {
       "mode": "session",
       "name": "COAB_SESSION",

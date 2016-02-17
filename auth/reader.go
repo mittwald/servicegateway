@@ -23,14 +23,16 @@ func (b *BearerTokenReader) TokenFromRequest(req *http.Request) (string, error) 
 	}
 
 	token, err := b.store.GetTokenFromStore(tokenString)
-	if err != nil {
+	if err == NoTokenError {
 		return "", err
+	} else if err != nil {
+		return "", fmt.Errorf("error while loading JWT for token %s: %s", tokenString, err)
 	}
 
 	return token, nil
 }
 
-func (b *BearerTokenReader) tokenStringFromRequest(req *http.Request) (Token, error) {
+func (b *BearerTokenReader) tokenStringFromRequest(req *http.Request) (string, error) {
 	authHeader := req.Header.Get("Authorization")
 
 	if authHeader != "" {
@@ -39,17 +41,17 @@ func (b *BearerTokenReader) tokenStringFromRequest(req *http.Request) (Token, er
 			return "", fmt.Errorf("'%s' authorization is not supported", elements[0])
 		}
 
-		return Token(elements[1]), nil
+		return elements[1], nil
 	}
 
 	jwtHeader := req.Header.Get("X-JWT")
 	if jwtHeader != "" {
-		return Token(jwtHeader), nil
+		return jwtHeader, nil
 	}
 
 	tokenParam := req.URL.Query().Get("access_token")
 	if tokenParam != "" {
-		return Token(tokenParam), nil
+		return tokenParam, nil
 	}
 
 	return "", NoTokenError
