@@ -29,6 +29,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"strings"
 )
 
 type Bucket struct {
@@ -68,6 +69,11 @@ func NewRateLimiter(cfg config.RateLimiting, red *redis.Pool, logger *logging.Lo
 }
 
 func (t *RedisSimpleRateThrottler) identifyClient(req *http.Request) string {
+	auth := req.Header.Get("Authorization")
+	if auth != "" {
+		return strings.Replace(auth, " ", "", -1)
+	}
+
 	addr, _ := net.ResolveTCPAddr("tcp", req.RemoteAddr)
 	return addr.IP.String()
 }

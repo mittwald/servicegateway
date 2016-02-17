@@ -123,7 +123,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 		switch t := err.(type) {
 		case *jwt.ValidationError:
 			if t.Errors&acceptableErrors != 0 {
-				return false, "", err
+				return false, "", nil
 			}
 		}
 		return false, "", err

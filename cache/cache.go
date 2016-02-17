@@ -78,6 +78,7 @@ func (r *ResponseBuffer) Dump(rw http.ResponseWriter) {
 		}
 	}
 
+	rw.WriteHeader(r.status)
 	rw.Write(r.body)
 }
 
@@ -91,8 +92,12 @@ func (c *inMemoryCacheMiddleware) identifierForRequest(req *http.Request) string
 	identifier := req.RequestURI
 
 	if accept := req.Header.Get("Accept"); accept != "" {
-		identifier += accept
+		identifier += "_" + accept
 	}
+
+//	if acceptEncoding := req.Header.Get("Accept-Encoding"); acceptEncoding != "" {
+//		identifier += "_accenc" + acceptEncoding
+//	}
 
 	return identifier
 }
@@ -121,6 +126,10 @@ func (c *inMemoryCacheMiddleware) DecorateHandler(handler http.Handler) http.Han
 
 			handler.ServeHTTP(buf, req)
 			buf.Complete()
+
+			if buf.status >= 400 {
+				useCache = false
+			}
 
 			if useCache {
 				rw.Header().Add("X-Cache", "MISS")

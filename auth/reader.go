@@ -22,7 +22,7 @@ func (b *BearerTokenReader) TokenFromRequest(req *http.Request) (string, error) 
 		return "", err
 	}
 
-	token, err := b.store.GetTokenFromStore(tokenString)
+	token, err := b.store.GetToken(tokenString)
 	if err == NoTokenError {
 		return "", err
 	} else if err != nil {
