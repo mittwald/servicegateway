@@ -34,6 +34,21 @@ type pathBasedDispatcher struct {
 	abstractDispatcher
 }
 
+type PatternClosure struct {
+	targetUrl string
+	parameters [][]string
+	appName string
+	appCfg *config.Application
+	proxy *proxy.ProxyHandler
+}
+
+type PathClosure struct {
+	backendUrl string
+	appName string
+	appCfg *config.Application
+	proxy *proxy.ProxyHandler
+}
+
 func NewPathBasedDispatcher(
 	cfg *config.Configuration,
 	log *logging.Logger,
@@ -50,22 +65,11 @@ func NewPathBasedDispatcher(
 }
 
 func (d *pathBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	for k, v := range d.cfg.Http.SetHeaders {
+		req.Header.Set(k, v)
+	}
+
 	d.mux.ServeHTTP(res, req)
-}
-
-type PatternClosure struct {
-	targetUrl string
-	parameters [][]string
-	appName string
-	appCfg *config.Application
-	proxy *proxy.ProxyHandler
-}
-
-type PathClosure struct {
-	backendUrl string
-	appName string
-	appCfg *config.Application
-	proxy *proxy.ProxyHandler
 }
 
 func (p *PatternClosure) Handle(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
@@ -103,7 +107,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 			"/(.*)": appCfg.Routing.Path + "/$1",
 		}
 
-		rewriter, _ = proxy.NewHostRewriter(backendUrl, "foobar", []string{}, mapping, d.log)
+		rewriter, _ = proxy.NewHostRewriter(backendUrl, "foobar", mapping, d.log)
 
 		closure := new(PathClosure)
 		closure.backendUrl = backendUrl
@@ -132,7 +136,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 			routes[pattern] = closure.Handle
 		}
 
-		rewriter, _ = proxy.NewHostRewriter(backendUrl, "foobar", []string{}, mapping, d.log)
+		rewriter, _ = proxy.NewHostRewriter(backendUrl, "foobar", mapping, d.log)
 	}
 
 	for _, behaviour := range d.behaviours {
@@ -157,8 +161,6 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 				return err
 			}
 		}
-
-		fmt.Printf("register handler for %s -> %x\n", route, handler)
 
 		d.mux.GET(route, safeHandler)
 		d.mux.HEAD(route, safeHandler)

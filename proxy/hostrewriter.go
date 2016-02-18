@@ -25,43 +25,44 @@ type HostRewriter interface {
 
 type mapping struct {
 	regex *regexp.Regexp
-	repl func([]string) string
+	targetPattern string
+	replacements map[int]*regexp.Regexp
 }
 
 type JsonHostRewriter struct {
 	InternalHost string
 	PublicHost string
-	SearchKeys []string
 	Mappings []mapping
 	Logger *logging.Logger
 }
 
-func NewHostRewriter(internalHost, publicHost string, searchKeys []string, urlPatterns map[string]string, logger *logging.Logger) (HostRewriter, error) {
+func (m *mapping) repl(matches []string) string {
+	path := m.targetPattern
+	for k, _ := range m.replacements {
+		path = m.replacements[k].ReplaceAllString(path, matches[k])
+	}
+	return path
+}
+
+func NewHostRewriter(internalHost, publicHost string, urlPatterns map[string]string, logger *logging.Logger) (HostRewriter, error) {
 	mappings := make([]mapping, len(urlPatterns))
 	i := 0
 
 	for sourcePattern, targetPattern := range urlPatterns {
+		fmt.Println(sourcePattern)
 		re := regexp.MustCompile(sourcePattern)
 		replacements := make(map[int]*regexp.Regexp, len(re.SubexpNames()))
 
 		for i, name := range re.SubexpNames() {
 			if name != "" {
-				fmt.Printf("replacement %d: %s\n", i, ":" + name)
 				replacements[i] = regexp.MustCompile(":" + name)
 			}
 		}
 
 		mappings[i] = mapping {
 			regex: re,
-			repl: func(matches []string) string {
-				path := targetPattern
-				fmt.Println(matches)
-				for k, v := range replacements {
-					fmt.Printf("path: %s, pattern %s\n", path, v.String())
-					path = v.ReplaceAllString(path, matches[k])
-				}
-				return path
-			},
+			targetPattern: targetPattern,
+			replacements: replacements,
 		}
 
 		i += 1
@@ -160,8 +161,11 @@ func (j *JsonHostRewriter) rewriteUrl(urlString string, reqUrl *url.URL) (string
 		return urlString, fmt.Errorf("error while parsing url %s: %s", urlString, err)
 	}
 
+	fmt.Printf("rewriting URL %s\n", urlString)
 	for _, mapping := range j.Mappings {
 		matches := mapping.regex.FindStringSubmatch(parsedUrl.Path)
+		fmt.Printf("matches on %s\n", mapping.regex.String())
+		fmt.Println(matches)
 		if matches != nil {
 			parsedUrl.Host = reqUrl.Host
 			parsedUrl.Path = mapping.repl(matches)

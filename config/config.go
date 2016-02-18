@@ -25,6 +25,8 @@ type Configuration struct {
 	RateLimiting   RateLimiting           `json:"rate_limiting"`
 	Authentication GlobalAuth             `json:"authentication"`
 	Consul         ConsulConfiguration    `json:"consul"`
+	Http           HttpConfiguration      `json:"http"`
+	Proxy          ProxyConfiguration     `json:"proxy"`
 	Redis          string                 `json:"redis"`
 }
 
@@ -72,6 +74,14 @@ type ConsulConfiguration struct {
 
 func (c ConsulConfiguration) Address() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+type HttpConfiguration struct {
+	SetHeaders map[string]string `json:"setHeaders"`
+}
+
+type ProxyConfiguration struct {
+	StripHeaders map[string]bool `json:"stripHeaders"`
 }
 
 type AuthWriterConfig struct {

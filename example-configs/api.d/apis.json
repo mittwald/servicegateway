@@ -56,6 +56,16 @@
     "datacenter": "dev"
   },
   "redis": "redis:6379",
+  "http": {
+    "setHeaders": {
+      "Server": "Mittwald-API-Gateway/1.0"
+    }
+  },
+  "proxy": {
+    "stripHeaders": {
+      "Set-Cookie": true
+    }
+  },
   "authentication": {
     "mode": "rest",
     "writer": {

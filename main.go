@@ -110,7 +110,7 @@ func main() {
 		logger.Panic(err)
 	}
 
-	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"))
+	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"), &cfg)
 
 	listenAddress := fmt.Sprintf(":%d", startup.Port)
 	adminListenAddress := fmt.Sprintf("%s:%d", startup.AdminAddress, startup.AdminPort)
@@ -227,10 +227,6 @@ func buildDispatcher(
 		logger.Debug("found KV pair with key '%s'", cfgKVPair.Key)
 
 		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
-//		case "authentication":
-//			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.Authentication); err != nil {
-//				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
-//			}
 		case "rate_limiting":
 			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.RateLimiting); err != nil {
 				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
