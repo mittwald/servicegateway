@@ -40,6 +40,7 @@
       "routing": {
         "type": "pattern",
         "patterns": {
+          "/customers/:customernumber/contractpartner": "/rest/v2/customers/:customernumber/contractpartner",
           "/customers/:customernumber": "/rest/v2/customers/:customernumber"
         }
       }

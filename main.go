@@ -119,6 +119,7 @@ func main() {
 
 	go func() {
 		var lastIndex uint64 = 0
+		var newLastIndex uint64 = 0
 		var err error
 
 		dispChan := make(chan dispatcher.Dispatcher)
@@ -146,7 +147,7 @@ func main() {
 				time.Sleep(30 * time.Second)
 			}
 
-			dispatcher, adminServer, lastIndex, err = buildDispatcher(
+			dispatcher, adminServer, newLastIndex, err = buildDispatcher(
 				&startup,
 				&cfg,
 				consulClient,
@@ -164,6 +165,8 @@ func main() {
 					logger.Panic("error on startup")
 				}
 			} else {
+				lastIndex = newLastIndex
+
 				manners.Close()
 				dispChan <- dispatcher
 				admChan <- adminServer

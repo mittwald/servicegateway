@@ -92,6 +92,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 
 			parameters := re.FindAllStringSubmatch(pattern, -1)
 			var patternHandler http.HandlerFunc = func(rw http.ResponseWriter, req *http.Request) {
+				fmt.Printf("hit handler for %s -> %s\n", pattern, target)
 				targetUrl := backendUrl + target
 				for _, paramName := range parameters {
 					targetUrl = strings.Replace(targetUrl, paramName[0], bone.GetValue(req, paramName[1]), -1)
@@ -129,6 +130,8 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 				return err
 			}
 		}
+
+		fmt.Printf("register handler for %s\n", route)
 
 		d.mux.Get(route, safeHandler)
 		d.mux.Head(route, safeHandler)

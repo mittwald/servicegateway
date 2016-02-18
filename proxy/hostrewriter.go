@@ -11,7 +11,10 @@ import (
 	"github.com/op/go-logging"
 	"regexp"
 	"net/url"
+	"errors"
 )
+
+var UnmappableUrl = errors.New("unmappable URL")
 
 type HostRewriter interface {
 	CanHandle(http.ResponseWriter) bool
@@ -150,11 +153,10 @@ func (j *JsonHostRewriter) Rewrite(body []byte, reqUrl *url.URL) ([]byte, error)
 	return reencoded, nil
 }
 
-func (j *JsonHostRewriter) rewriteUrl(urlString string, reqUrl *url.URL) string {
+func (j *JsonHostRewriter) rewriteUrl(urlString string, reqUrl *url.URL) (string, error) {
 	parsedUrl, err := url.Parse(urlString)
 	if err != nil {
-		j.Logger.Error("error while parsing url %s: %s", urlString, err)
-		return urlString
+		return urlString, fmt.Errorf("error while parsing url %s: %s", urlString, err)
 	}
 
 	for _, mapping := range j.Mappings {
@@ -162,11 +164,11 @@ func (j *JsonHostRewriter) rewriteUrl(urlString string, reqUrl *url.URL) string 
 		if matches != nil {
 			parsedUrl.Host = reqUrl.Host
 			parsedUrl.Path = mapping.repl(matches)
-			return parsedUrl.String()
+			return parsedUrl.String(), nil
 		}
 	}
 
-	return "FOOBAR"
+	return "", UnmappableUrl
 }
 
 func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL) (interface{}, error) {
@@ -175,7 +177,15 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL) (in
 		for key, _ := range typed {
 			if key == "href" {
 				if url, ok := typed["href"].(string); ok {
-					typed["href"] = j.rewriteUrl(url, reqUrl)
+					newUrl, err := j.rewriteUrl(url, reqUrl)
+					if err == UnmappableUrl {
+						delete(typed, "href")
+					} else if err != nil {
+						j.Logger.Error("error while mapping url %s: %s", url, err)
+						delete(typed, "href")
+					} else {
+						typed["href"] = newUrl
+					}
 				}
 			} else {
 				v, err := j.walkJson(typed[key], reqUrl)
