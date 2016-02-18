@@ -140,7 +140,7 @@ func (j *JsonHostRewriter) Rewrite(body []byte, reqUrl *url.URL) ([]byte, error)
 		return nil, err
 	}
 
-	jsonData, err = j.walkJson(jsonData, reqUrl)
+	jsonData, err = j.walkJson(jsonData, reqUrl, false)
 
 	reencoded, err := json.Marshal(jsonData)
 	if err != nil {
@@ -168,7 +168,7 @@ func (j *JsonHostRewriter) rewriteUrl(urlString string, reqUrl *url.URL) (string
 	return "", UnmappableUrl
 }
 
-func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL) (interface{}, error) {
+func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inLinks bool) (interface{}, error) {
 	switch typed := jsonStruct.(type) {
 	case map[string]interface{}:
 		for key, _ := range typed {
@@ -185,7 +185,8 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL) (in
 					}
 				}
 			} else {
-				v, err := j.walkJson(typed[key], reqUrl)
+				l := inLinks || (key == "links" || key == "_links")
+				v, err := j.walkJson(typed[key], reqUrl, l)
 				if err != nil {
 					return nil, err
 				}
@@ -197,7 +198,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL) (in
 
 	case []interface{}:
 		for key, _ := range typed {
-			v, err := j.walkJson(typed[key], reqUrl)
+			v, err := j.walkJson(typed[key], reqUrl, inLinks)
 			if err != nil {
 				return nil, err
 			}
