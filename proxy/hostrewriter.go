@@ -85,7 +85,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 		if j.CanHandle(recorder) {
 			b, err := ioutil.ReadAll(recorder.Body)
 			if err != nil {
-				j.Logger.Error("error while reading response body: %s", err)
+				j.Logger.Errorf("error while reading response body: %s", err)
 				rw.WriteHeader(500)
 				rw.Write([]byte(`{"msg":"internal server error"}`))
 			}
@@ -99,7 +99,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 
 			b, err = j.Rewrite(b, &url)
 			if err != nil {
-				j.Logger.Error("error while rewriting response body: %s", err)
+				j.Logger.Errorf("error while rewriting response body: %s", err)
 				rw.WriteHeader(500)
 				rw.Write([]byte(`{"msg":"internal server error"}`))
 				return
@@ -121,7 +121,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 			_, err := reader.WriteTo(rw)
 
 			if err != nil {
-				j.Logger.Error("error while writing response body: %s", err)
+				j.Logger.Errorf("error while writing response body: %s", err)
 			}
 		}
 	}
@@ -178,7 +178,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 					if err == UnmappableUrl {
 						delete(typed, "href")
 					} else if err != nil {
-						j.Logger.Error("error while mapping url %s: %s", url, err)
+						j.Logger.Errorf("error while mapping url %s: %s", url, err)
 						delete(typed, "href")
 					} else {
 						typed["href"] = newUrl

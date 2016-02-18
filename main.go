@@ -85,7 +85,7 @@ func main() {
 		panic(err)
 	}
 
-	logger.Debug("%s", cfg)
+	logger.Debugf("%s", cfg)
 
 	consulConfig := api.DefaultConfig()
 	consulConfig.Address = cfg.Consul.Address()
@@ -127,14 +127,14 @@ func main() {
 
 		go func() {
 			for disp := range dispChan {
-				logger.Info("starting dispatcher on address %s", listenAddress)
+				logger.Infof("starting dispatcher on address %s", listenAddress)
 				manners.ListenAndServe(listenAddress, disp)
 			}
 		}()
 
 		go func() {
 			for handler := range admChan {
-				logger.Info("starting admin server on address %s", adminListenAddress)
+				logger.Infof("starting admin server on address %s", adminListenAddress)
 				manners.ListenAndServe(adminListenAddress, handler)
 			}
 		}()
@@ -217,14 +217,14 @@ func buildDispatcher(
 		WaitTime:  30 * time.Minute,
 	}
 
-	logger.Info("loading gateway config from KV %s", startup.ConsulBaseKey)
+	logger.Infof("loading gateway config from KV %s", startup.ConsulBaseKey)
 	configs, meta, err = consul.KV().List(startup.ConsulBaseKey, &queryOpts)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
 	for _, cfgKVPair := range configs {
-		logger.Debug("found KV pair with key '%s'", cfgKVPair.Key)
+		logger.Debugf("found KV pair with key '%s'", cfgKVPair.Key)
 
 		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
 		case "rate_limiting":
@@ -257,7 +257,7 @@ func buildDispatcher(
 
 	rlim, err := ratelimit.NewRateLimiter(localCfg.RateLimiting, rpool, logging.MustGetLogger("ratelimiter"))
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("error while configuring rate limiting: %s", err))
+		logger.Fatalf("error while configuring rate limiting: %s", err)
 	}
 
 	cch := cache.NewCache(4096)
@@ -269,14 +269,14 @@ func buildDispatcher(
 	disp.AddBehaviour(dispatcher.NewRatelimitBehaviour(rlim))
 
 	for name, appCfg := range appCfgs {
-		logger.Info("registering application '%s' from Consul", name)
+		logger.Infof("registering application '%s' from Consul", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
 			return nil, nil, meta.LastIndex, err
 		}
 	}
 
 	for name, appCfg := range localCfg.Applications {
-		logger.Info("registering application '%s' from local config", name)
+		logger.Infof("registering application '%s' from local config", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
 			return nil, nil, meta.LastIndex, err
 		}

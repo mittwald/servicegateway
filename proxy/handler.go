@@ -22,7 +22,6 @@ package proxy
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"github.com/mittwald/servicegateway/config"
 	logging "github.com/op/go-logging"
 	"net/http"
@@ -94,7 +93,7 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	proxyRes, err := p.Client.Do(proxyReq)
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok == false || uerr.Err != redirectRequest {
-			p.Logger.Error(fmt.Sprintf("could not proxy request to %s: %s", targetUrl, uerr))
+			p.Logger.Errorf("could not proxy request to %s: %s", targetUrl, uerr)
 			p.UnavailableError(rw, req)
 			return
 		}
@@ -124,6 +123,6 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	defer proxyRes.Body.Close()
 
 	if err != nil {
-		p.Logger.Error("error while writing response body: %s", err)
+		p.Logger.Errorf("error while writing response body: %s", err)
 	}
 }

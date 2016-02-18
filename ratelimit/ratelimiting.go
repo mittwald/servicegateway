@@ -23,7 +23,6 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/mittwald/servicegateway/config"
 	logging "github.com/op/go-logging"
-	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -64,7 +63,7 @@ func NewRateLimiter(cfg config.RateLimiting, red *redis.Pool, logger *logging.Lo
 		t.window = w
 	}
 
-	logger.Info("Initialize rate limiter (burst size %d)", t.burstSize)
+	logger.Infof("Initialize rate limiter (burst size %d)", t.burstSize)
 
 	return t, nil
 }
@@ -136,7 +135,7 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler httprouter.Handle) ht
 		remaining, limit, err := t.takeToken(user)
 
 		if err != nil {
-			t.logger.Error(fmt.Sprintf("Error occurred while handling request from %s: %s", req.RemoteAddr, err))
+			t.logger.Errorf("Error occurred while handling request from %s: %s", req.RemoteAddr, err)
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(503)
 			rw.Write([]byte("{\"msg\":\"service unavailable\"}"))
@@ -147,7 +146,7 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler httprouter.Handle) ht
 		rw.Header().Add("X-RateLimit-Remaining", strconv.Itoa(remaining))
 
 		if remaining <= 0 {
-			t.logger.Notice("Client %s exceeded rate limit", req.RemoteAddr)
+			t.logger.Noticef("Client %s exceeded rate limit", req.RemoteAddr)
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(429)
 			rw.Write([]byte("{\"msg\":\"rate limit exceeded\"}"))

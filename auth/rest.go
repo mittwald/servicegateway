@@ -56,7 +56,7 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *conf
 	return func(res http.ResponseWriter, req *http.Request, p httprouter.Params) {
 		authenticated, token, err := a.authHandler.IsAuthenticated(req)
 		if err != nil {
-			a.logger.Error("authentication error: %s", err)
+			a.logger.Errorf("authentication error: %s", err)
 
 			res.Header().Set("Content-Type", "application/json")
 			res.WriteHeader(503)

@@ -74,8 +74,8 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 	debugJsonString, _ := json.Marshal(redactedAuthRequest)
 
-	h.logger.Info("authenticating user %s", username)
-	h.logger.Debug("authentication request: %s", debugJsonString)
+	h.logger.Infof("authenticating user %s", username)
+	h.logger.Debugf("authentication request: %s", debugJsonString)
 
 	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url+"/authenticate", bytes.NewBuffer(jsonString))
 	req.Header.Set("Accept", "application/jwt")
@@ -91,7 +91,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 		body, _ := ioutil.ReadAll(resp.Body)
 
 		if resp.StatusCode == http.StatusForbidden {
-			h.logger.Warning("invalid credentials for user %s: %s", username, body)
+			h.logger.Warningf("invalid credentials for user %s: %s", username, body)
 			return "", InvalidCredentialsError
 		} else {
 			err := fmt.Errorf("unexpected status code %d for user %s: %s", resp.StatusCode, username, body)
@@ -109,7 +109,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 	if err == NoTokenError {
 		return false, "", nil
 	} else if err != nil {
-		h.logger.Warning("error while reading token from request: %s", err)
+		h.logger.Warningf("error while reading token from request: %s", err)
 		return false, "", err
 	}
 
@@ -129,6 +129,6 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 		return false, "", err
 	}
 
-	h.logger.Warning("could not authenticate request. huh?")
+	h.logger.Warningf("could not authenticate request. huh?")
 	return false, "", nil
 }

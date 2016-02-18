@@ -54,5 +54,5 @@ func NewAuthDecorator(
 	case "rest":
 		return NewRestAuthDecorator(authHandler, tokenStore, logger), nil
 	}
-	return nil, errors.New(fmt.Sprintf("unsupported authentication mode: '%s'", authConfig.Mode))
+	return nil, fmt.Errorf("unsupported authentication mode: '%s'", authConfig.Mode)
 }
