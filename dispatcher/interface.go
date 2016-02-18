@@ -20,11 +20,11 @@ package dispatcher
  */
 
 import (
-	"github.com/go-zoo/bone"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/op/go-logging"
 	"net/http"
+	"github.com/julienschmidt/httprouter"
 )
 
 type Dispatcher interface {
@@ -35,16 +35,16 @@ type Dispatcher interface {
 }
 
 type DispatcherBehaviour interface {
-	Apply(http.Handler, http.Handler, Dispatcher, *config.Application) (http.Handler, http.Handler, error)
+	Apply(httprouter.Handle, httprouter.Handle, Dispatcher, *config.Application) (httprouter.Handle, httprouter.Handle, error)
 }
 
 type RoutingBehaviour interface {
-	AddRoutes(*bone.Mux) error
+	AddRoutes(*httprouter.Router) error
 }
 
 type abstractDispatcher struct {
 	cfg *config.Configuration
-	mux *bone.Mux
+	mux *httprouter.Router
 	prx *proxy.ProxyHandler
 	log *logging.Logger
 

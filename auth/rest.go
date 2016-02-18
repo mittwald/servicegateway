@@ -20,10 +20,10 @@ package auth
  */
 
 import (
-	"github.com/go-zoo/bone"
 	"github.com/mittwald/servicegateway/config"
 	"net/http"
 	"github.com/op/go-logging"
+	"github.com/julienschmidt/httprouter"
 )
 
 type RestAuthDecorator struct {
@@ -40,7 +40,7 @@ func NewRestAuthDecorator(authHandler *AuthenticationHandler, tokenStore TokenSt
 	}
 }
 
-func (a *RestAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Application) http.Handler {
+func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *config.Application) httprouter.Handle {
 	var writer TokenWriter
 
 	switch appCfg.Auth.Writer.Mode {
@@ -53,7 +53,7 @@ func (a *RestAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Ap
 		a.logger.Error("bad token writer: %s", appCfg.Auth.Writer.Mode)
 	}
 
-	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request, p httprouter.Params) {
 		authenticated, token, err := a.authHandler.IsAuthenticated(req)
 		if err != nil {
 			a.logger.Error("authentication error: %s", err)
@@ -67,11 +67,11 @@ func (a *RestAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Ap
 			res.Write([]byte("{\"msg\": \"not authenticated\"}"))
 		} else {
 			writer.WriteTokenToRequest(token, req)
-			orig.ServeHTTP(res, req)
+			orig(res, req, p)
 		}
-	})
+	}
 }
 
-func (a *RestAuthDecorator) RegisterRoutes(mux *bone.Mux) error {
+func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 	return nil
 }

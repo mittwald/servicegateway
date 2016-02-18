@@ -20,12 +20,11 @@ package dispatcher
  */
 
 import (
-	"github.com/go-zoo/bone"
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/cache"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/ratelimit"
-	"net/http"
+	"github.com/julienschmidt/httprouter"
 )
 
 type cachingBehaviour struct {
@@ -44,7 +43,7 @@ func NewCachingBehaviour(c cache.CacheMiddleware) DispatcherBehaviour {
 	return &cachingBehaviour{c}
 }
 
-func (c *cachingBehaviour) Apply(safe http.Handler, unsafe http.Handler, d Dispatcher, app *config.Application) (http.Handler, http.Handler, error) {
+func (c *cachingBehaviour) Apply(safe httprouter.Handle, unsafe httprouter.Handle, d Dispatcher, app *config.Application) (httprouter.Handle, httprouter.Handle, error) {
 	if app.Caching.Enabled {
 		safe = c.cache.DecorateHandler(safe)
 
@@ -59,7 +58,7 @@ func NewAuthenticationBehaviour(a auth.AuthDecorator) DispatcherBehaviour {
 	return &authBehaviour{a}
 }
 
-func (a *authBehaviour) Apply(safe http.Handler, unsafe http.Handler, d Dispatcher, app *config.Application) (http.Handler, http.Handler, error) {
+func (a *authBehaviour) Apply(safe httprouter.Handle, unsafe httprouter.Handle, d Dispatcher, app *config.Application) (httprouter.Handle, httprouter.Handle, error) {
 	if !app.Auth.Disable {
 		safe = a.auth.DecorateHandler(safe, app)
 		unsafe = a.auth.DecorateHandler(unsafe, app)
@@ -67,7 +66,7 @@ func (a *authBehaviour) Apply(safe http.Handler, unsafe http.Handler, d Dispatch
 	return safe, unsafe, nil
 }
 
-func (a *authBehaviour) AddRoutes(mux *bone.Mux) error {
+func (a *authBehaviour) AddRoutes(mux *httprouter.Router) error {
 	return a.auth.RegisterRoutes(mux)
 }
 
@@ -75,7 +74,7 @@ func NewRatelimitBehaviour(rlim ratelimit.RateLimitingMiddleware) DispatcherBeha
 	return &ratelimitBehaviour{rlim}
 }
 
-func (r *ratelimitBehaviour) Apply(safe http.Handler, unsafe http.Handler, d Dispatcher, app *config.Application) (http.Handler, http.Handler, error) {
+func (r *ratelimitBehaviour) Apply(safe httprouter.Handle, unsafe httprouter.Handle, d Dispatcher, app *config.Application) (httprouter.Handle, httprouter.Handle, error) {
 	if app.RateLimiting {
 		safe = r.rlim.DecorateHandler(safe)
 		unsafe = r.rlim.DecorateHandler(unsafe)

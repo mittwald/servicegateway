@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"net/url"
 	"errors"
+	"github.com/julienschmidt/httprouter"
 )
 
 var UnmappableUrl = errors.New("unmappable URL")
@@ -19,7 +20,7 @@ var UnmappableUrl = errors.New("unmappable URL")
 type HostRewriter interface {
 	CanHandle(http.ResponseWriter) bool
 	Rewrite([]byte, *url.URL) ([]byte, error)
-	Decorate(http.Handler) http.Handler
+	Decorate(httprouter.Handle) httprouter.Handle
 }
 
 type mapping struct {
@@ -74,12 +75,12 @@ func NewHostRewriter(internalHost, publicHost string, searchKeys []string, urlPa
 	}, nil
 }
 
-func (j *JsonHostRewriter) Decorate(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle {
+	return func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		req.Header.Del("Accept-Encoding")
 
 		recorder := httptest.NewRecorder()
-		handler.ServeHTTP(recorder, req)
+		handler(recorder, req, params)
 
 		if j.CanHandle(recorder) {
 			b, err := ioutil.ReadAll(recorder.Body)
@@ -127,7 +128,7 @@ func (j *JsonHostRewriter) Decorate(handler http.Handler) http.Handler {
 				fmt.Printf("GUBBEL %s", err)
 			}
 		}
-	})
+	}
 }
 
 func (j *JsonHostRewriter) CanHandle(res http.ResponseWriter) bool {

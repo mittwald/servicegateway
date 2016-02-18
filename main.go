@@ -201,8 +201,8 @@ func buildDispatcher(
 	switch startup.DispatchingMode {
 	case "path":
 		disp, err = dispatcher.NewPathBasedDispatcher(&localCfg, dispLogger, handler)
-	case "host":
-		disp, err = dispatcher.NewHostBasedDispatcher(&localCfg, dispLogger, handler)
+//	case "host":
+//		disp, err = dispatcher.NewHostBasedDispatcher(&localCfg, dispLogger, handler)
 	default:
 		err = fmt.Errorf("unsupported dispatching mode: '%s'", startup.DispatchingMode)
 	}

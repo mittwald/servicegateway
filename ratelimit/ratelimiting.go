@@ -30,6 +30,7 @@ import (
 	"sync"
 	"time"
 	"strings"
+	"github.com/julienschmidt/httprouter"
 )
 
 type Bucket struct {
@@ -39,7 +40,7 @@ type Bucket struct {
 }
 
 type RateLimitingMiddleware interface {
-	DecorateHandler(handler http.Handler) http.Handler
+	DecorateHandler(handler httprouter.Handle) httprouter.Handle
 }
 
 type RedisSimpleRateThrottler struct {
@@ -129,8 +130,8 @@ func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 //	}
 //}
 
-func (t *RedisSimpleRateThrottler) DecorateHandler(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+func (t *RedisSimpleRateThrottler) DecorateHandler(handler httprouter.Handle) httprouter.Handle {
+	return func(rw http.ResponseWriter, req *http.Request, p httprouter.Params) {
 		user := t.identifyClient(req)
 		remaining, limit, err := t.takeToken(user)
 
@@ -151,7 +152,7 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler http.Handler) http.Ha
 			rw.WriteHeader(429)
 			rw.Write([]byte("{\"msg\":\"rate limit exceeded\"}"))
 		} else {
-			handler.ServeHTTP(rw, req)
+			handler(rw, req, p)
 		}
-	})
+	}
 }
