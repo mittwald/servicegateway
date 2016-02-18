@@ -75,7 +75,6 @@ func (s *RedisTokenStore) SetToken(token string, jwt string) (error) {
 		}
 
 		expirationTstamp = int64(expAsFloat)
-		fmt.Printf("expiration timestamp: %d", expirationTstamp)
 	}
 
 	key := "token_" + token

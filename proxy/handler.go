@@ -124,6 +124,6 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	defer proxyRes.Body.Close()
 
 	if err != nil {
-		fmt.Println(err.Error())
+		p.Logger.Error("error while writing response body: %s", err)
 	}
 }

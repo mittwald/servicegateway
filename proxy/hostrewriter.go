@@ -49,7 +49,6 @@ func NewHostRewriter(internalHost, publicHost string, urlPatterns map[string]str
 	i := 0
 
 	for sourcePattern, targetPattern := range urlPatterns {
-		fmt.Println(sourcePattern)
 		re := regexp.MustCompile(sourcePattern)
 		replacements := make(map[int]*regexp.Regexp, len(re.SubexpNames()))
 
@@ -91,9 +90,6 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 				rw.Write([]byte(`{"msg":"internal server error"}`))
 			}
 
-			fmt.Println(b)
-			fmt.Println(string(b))
-
 			url := *req.URL
 			url.Host = req.Host
 
@@ -109,8 +105,6 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 				return
 			}
 
-			fmt.Printf("Rewrote response body, now %d bytes\n", len(b))
-
 			for k, _ := range recorder.Header() {
 				rw.Header()[k] = recorder.Header()[k]
 			}
@@ -125,8 +119,9 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 			rw.WriteHeader(recorder.Code)
 			reader := bufio.NewReader(recorder.Body)
 			_, err := reader.WriteTo(rw)
+
 			if err != nil {
-				fmt.Printf("GUBBEL %s", err)
+				j.Logger.Error("error while writing response body: %s", err)
 			}
 		}
 	}
@@ -161,11 +156,8 @@ func (j *JsonHostRewriter) rewriteUrl(urlString string, reqUrl *url.URL) (string
 		return urlString, fmt.Errorf("error while parsing url %s: %s", urlString, err)
 	}
 
-	fmt.Printf("rewriting URL %s\n", urlString)
 	for _, mapping := range j.Mappings {
 		matches := mapping.regex.FindStringSubmatch(parsedUrl.Path)
-		fmt.Printf("matches on %s\n", mapping.regex.String())
-		fmt.Println(matches)
 		if matches != nil {
 			parsedUrl.Host = reqUrl.Host
 			parsedUrl.Path = mapping.repl(matches)
