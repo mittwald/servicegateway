@@ -66,6 +66,7 @@ func NewPathBasedDispatcher(
 
 func (d *pathBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	for k, v := range d.cfg.Http.SetHeaders {
+		d.log.Debugf("setting header %s -> %s", k, v)
 		req.Header.Set(k, v)
 	}
 
@@ -107,7 +108,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 			"/(?P<path>.*)": appCfg.Routing.Path + "/:path",
 		}
 
-		rewriter, _ = proxy.NewHostRewriter(backendUrl, "foobar", mapping, d.log)
+		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, d.log)
 
 		closure := new(PathClosure)
 		closure.backendUrl = backendUrl
@@ -137,7 +138,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 			routes[pattern] = closure.Handle
 		}
 
-		rewriter, _ = proxy.NewHostRewriter(backendUrl, "foobar", mapping, d.log)
+		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, d.log)
 	}
 
 	for _, behaviour := range d.behaviours {

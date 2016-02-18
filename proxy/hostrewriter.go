@@ -16,6 +16,7 @@ import (
 )
 
 var UnmappableUrl = errors.New("unmappable URL")
+var RemoveElement = errors.New("Obsolete element")
 
 type HostRewriter interface {
 	CanHandle(http.ResponseWriter) bool
@@ -31,7 +32,6 @@ type mapping struct {
 
 type JsonHostRewriter struct {
 	InternalHost string
-	PublicHost string
 	Mappings []mapping
 	Logger *logging.Logger
 }
@@ -44,7 +44,7 @@ func (m *mapping) repl(matches []string) string {
 	return path
 }
 
-func NewHostRewriter(internalHost, publicHost string, urlPatterns map[string]string, logger *logging.Logger) (HostRewriter, error) {
+func NewHostRewriter(internalHost string, urlPatterns map[string]string, logger *logging.Logger) (HostRewriter, error) {
 	mappings := make([]mapping, len(urlPatterns))
 	i := 0
 
@@ -69,7 +69,6 @@ func NewHostRewriter(internalHost, publicHost string, urlPatterns map[string]str
 
 	return &JsonHostRewriter{
 		InternalHost: internalHost,
-		PublicHost: publicHost,
 		Mappings: mappings,
 		Logger: logger,
 	}, nil
@@ -77,6 +76,12 @@ func NewHostRewriter(internalHost, publicHost string, urlPatterns map[string]str
 
 func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle {
 	return func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		if req.Header.Get("X-No-Rewrite") != "" {
+			j.Logger.Noticef("skipping json rewriting due to client request")
+			handler(rw, req, params)
+			return
+		}
+
 		req.Header.Del("Accept-Encoding")
 
 		recorder := httptest.NewRecorder()
@@ -177,6 +182,9 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 					newUrl, err := j.rewriteUrl(url, reqUrl)
 					if err == UnmappableUrl {
 						delete(typed, "href")
+						if inLinks {
+							return nil, RemoveElement
+						}
 					} else if err != nil {
 						j.Logger.Errorf("error while mapping url %s: %s", url, err)
 						delete(typed, "href")
@@ -186,26 +194,38 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 				}
 			} else {
 				l := inLinks || (key == "links" || key == "_links")
-				v, err := j.walkJson(typed[key], reqUrl, l)
-				if err != nil {
-					return nil, err
-				}
 
-				typed[key] = v
+				v, err := j.walkJson(typed[key], reqUrl, l)
+				if err == RemoveElement {
+					delete(typed, key)
+				} else if err != nil {
+					return nil, err
+				} else {
+					typed[key] = v
+				}
 			}
 		}
 		return typed, nil
 
 	case []interface{}:
+		outputList := make([]interface{}, 0, len(typed))
+		removedCount := 0
+
 		for key, _ := range typed {
 			v, err := j.walkJson(typed[key], reqUrl, inLinks)
-			if err != nil {
+			if err == RemoveElement {
+				removedCount += 1
+			} else if err != nil {
 				return nil, err
+			} else {
+				outputList[key - removedCount] = v
 			}
-
-			typed[key] = v
 		}
-		return typed, nil
+
+		if len(outputList) == 0 {
+			return nil, RemoveElement
+		}
+		return outputList, nil
 	}
 
 	return jsonStruct, nil
