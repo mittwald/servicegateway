@@ -96,10 +96,6 @@ func (c *inMemoryCacheMiddleware) identifierForRequest(req *http.Request) string
 		identifier += "_" + accept
 	}
 
-//	if acceptEncoding := req.Header.Get("Accept-Encoding"); acceptEncoding != "" {
-//		identifier += "_accenc" + acceptEncoding
-//	}
-
 	return identifier
 }
 
