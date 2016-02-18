@@ -77,11 +77,11 @@ func (c ConsulConfiguration) Address() string {
 }
 
 type HttpConfiguration struct {
-	SetHeaders map[string]string `json:"setHeaders"`
+	SetHeaders map[string]string `json:"set_headers"`
 }
 
 type ProxyConfiguration struct {
-	StripHeaders map[string]bool `json:"stripHeaders"`
+	StripHeaders map[string]bool `json:"strip_headers"`
 }
 
 type AuthWriterConfig struct {

@@ -57,12 +57,12 @@
   },
   "redis": "redis:6379",
   "http": {
-    "setHeaders": {
+    "set_headers": {
       "Server": "Mittwald-API-Gateway/1.0"
     }
   },
   "proxy": {
-    "stripHeaders": {
+    "strip_headers": {
       "Set-Cookie": true
     }
   },
