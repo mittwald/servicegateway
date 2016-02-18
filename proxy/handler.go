@@ -108,9 +108,6 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 		}
 
 		for _, value := range values {
-			if header == "Location" {
-				value = p.replaceBackendUri(value, req, appCfg)
-			}
 			rw.Header().Add(header, value)
 		}
 	}

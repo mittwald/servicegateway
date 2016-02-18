@@ -21,6 +21,7 @@ var RemoveElement = errors.New("Obsolete element")
 type HostRewriter interface {
 	CanHandle(http.ResponseWriter) bool
 	Rewrite([]byte, *url.URL) ([]byte, error)
+	RewriteUrl(urlString string, reqUrl *url.URL) (string, error)
 	Decorate(httprouter.Handle) httprouter.Handle
 }
 
@@ -82,6 +83,13 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 			return
 		}
 
+		publicUrl := *req.URL
+		publicUrl.Host = req.Host
+
+		if publicUrl.Scheme == "" {
+			publicUrl.Scheme = "http"
+		}
+
 		req.Header.Del("Accept-Encoding")
 
 		recorder := httptest.NewRecorder()
@@ -95,14 +103,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 				rw.Write([]byte(`{"msg":"internal server error"}`))
 			}
 
-			url := *req.URL
-			url.Host = req.Host
-
-			if url.Scheme == "" {
-				url.Scheme = "http"
-			}
-
-			b, err = j.Rewrite(b, &url)
+			b, err = j.Rewrite(b, &publicUrl)
 			if err != nil {
 				j.Logger.Errorf("error while rewriting response body: %s", err)
 				rw.WriteHeader(500)
@@ -110,25 +111,39 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 				return
 			}
 
-			for k, _ := range recorder.Header() {
-				rw.Header()[k] = recorder.Header()[k]
-			}
+			j.copyAndRewriteHeaders(recorder, rw, &publicUrl)
 
 			rw.Header().Set("Content-Length", strconv.Itoa(len(b)))
 			rw.WriteHeader(recorder.Code)
 			rw.Write(b)
 		} else {
-			for k, _ := range recorder.Header() {
-				rw.Header()[k] = recorder.Header()[k]
-			}
+			j.copyAndRewriteHeaders(recorder, rw, &publicUrl)
 			rw.WriteHeader(recorder.Code)
 			reader := bufio.NewReader(recorder.Body)
 			_, err := reader.WriteTo(rw)
 
 			if err != nil {
-				j.Logger.Errorf("error while writing response body: %s", err)
+				j.Logger.Errorf("error while writing response body after rewriting: %s", err)
 			}
 		}
+	}
+}
+
+func (j *JsonHostRewriter) copyAndRewriteHeaders(source http.ResponseWriter, target http.ResponseWriter, publicUrl *url.URL) {
+	for k, values := range source.Header() {
+		if k == "Location" {
+			j.Logger.Debugf("found location header")
+			for i, _ := range values {
+				newUrl, err := j.RewriteUrl(values[i], publicUrl)
+				if err != nil {
+					j.Logger.Errorf("error while mapping URL from location header %s: %s", values[i], err)
+				} else {
+					j.Logger.Debugf("found location header")
+					values[i] = newUrl
+				}
+			}
+		}
+		target.Header()[k] = values
 	}
 }
 
@@ -155,7 +170,7 @@ func (j *JsonHostRewriter) Rewrite(body []byte, reqUrl *url.URL) ([]byte, error)
 	return reencoded, nil
 }
 
-func (j *JsonHostRewriter) rewriteUrl(urlString string, reqUrl *url.URL) (string, error) {
+func (j *JsonHostRewriter) RewriteUrl(urlString string, reqUrl *url.URL) (string, error) {
 	parsedUrl, err := url.Parse(urlString)
 	if err != nil {
 		return urlString, fmt.Errorf("error while parsing url %s: %s", urlString, err)
@@ -179,7 +194,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 		for key, _ := range typed {
 			if key == "href" {
 				if url, ok := typed["href"].(string); ok {
-					newUrl, err := j.rewriteUrl(url, reqUrl)
+					newUrl, err := j.RewriteUrl(url, reqUrl)
 					if err == UnmappableUrl {
 						delete(typed, "href")
 						if inLinks {
@@ -218,7 +233,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 			} else if err != nil {
 				return nil, err
 			} else {
-				outputList[key - removedCount] = v
+				outputList = append(outputList, v)
 			}
 		}
 
