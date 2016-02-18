@@ -27,6 +27,22 @@
         "url": "http://httpbin.org"
       },
       "rate_limiting": true
+    },
+    "customers": {
+      "rate_limiting": true,
+      "caching": {
+        "enabled": true,
+        "ttl": 86400
+      },
+      "backend": {
+        "service": "elwis"
+      },
+      "routing": {
+        "type": "pattern",
+        "patterns": {
+          "/customers/:customernumber": "/rest/v2/customers/:customernumber"
+        }
+      }
     }
   },
   "rate_limiting": {
@@ -41,15 +57,9 @@
   "redis": "redis:6379",
   "authentication": {
     "mode": "rest",
-    "storage": {
-      "mode": "session",
-      "name": "COAB_SESSION",
-      "cookie_domain": "localhost:8080",
-      "cookie_secure": false,
-      "cookie_httponly": true
-    },
-    "graphical": {
-      "login_route": "/login"
+    "writer": {
+      "mode": "header",
+      "name": "X-JWT"
     },
     "provider": {
       "url": "http://identity.service.consul",

@@ -65,7 +65,15 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 		}
 	}
 
+	var rewriter proxy.HostRewriter
+
 	if appCfg.Routing.Type == "path" {
+		mapping := map[string]string{
+			"/(.*)": appCfg.Routing.Path + "/$1",
+		}
+
+		rewriter, _ = proxy.NewHostRewriter(backendUrl, "foobar", []string{}, mapping, d.log)
+
 		var handler http.HandlerFunc = func(rw http.ResponseWriter, req *http.Request) {
 			sanitizedPath := strings.Replace(req.URL.Path, appCfg.Routing.Path, "", 1)
 			proxyUrl := backendUrl + sanitizedPath
@@ -76,7 +84,12 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 		routes[appCfg.Routing.Path+"/*"] = http.HandlerFunc(handler)
 	} else if appCfg.Routing.Type == "pattern" {
 		re := regexp.MustCompile(":([a-zA-Z0-9]+)")
+		mapping := make(map[string]string)
+
 		for pattern, target := range appCfg.Routing.Patterns {
+			targetPattern := "^" + re.ReplaceAllString(target, "(?P<$1>[^/]+?)") + "$"
+			mapping[targetPattern] = pattern
+
 			parameters := re.FindAllStringSubmatch(pattern, -1)
 			var patternHandler http.HandlerFunc = func(rw http.ResponseWriter, req *http.Request) {
 				targetUrl := backendUrl + target
@@ -87,8 +100,11 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 				d.prx.HandleProxyRequest(rw, req, targetUrl, name, &appCfg)
 			}
 
+			fmt.Println(mapping)
 			routes[pattern] = http.HandlerFunc(patternHandler)
 		}
+
+		rewriter, _ = proxy.NewHostRewriter(backendUrl, "foobar", []string{}, mapping, d.log)
 	}
 
 	for _, behaviour := range d.behaviours {
@@ -101,6 +117,8 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 	}
 
 	for route, handler := range routes {
+		handler = rewriter.Decorate(handler)
+
 		safeHandler := handler
 		unsafeHandler := handler
 
