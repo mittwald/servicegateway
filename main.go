@@ -39,6 +39,8 @@ import (
 	"time"
 	"github.com/mittwald/servicegateway/admin"
 	"net/http"
+	"runtime/pprof"
+	"os/signal"
 )
 
 type StartupConfig struct {
@@ -51,6 +53,7 @@ type StartupConfig struct {
 	AdminAddress    string
 	AdminPort       int
 	Debug           bool
+	ProfileCpu      string
 }
 
 func main() {
@@ -64,11 +67,32 @@ func main() {
 	flag.BoolVar(&startup.Debug, "debug", false, "enable to add debug information to each request")
 	flag.StringVar(&startup.ConsulBaseKey, "consul-base", "gateway/ui", "base key name for configuration")
 	flag.StringVar(&startup.UiDir, "ui-dir", "/usr/share/servicegateway", "directory in which UI files can be found")
+
+	flag.StringVar(&startup.ProfileCpu, "cpu-profile", "", "write CPU profile to file")
+
 	flag.Parse()
 
 	logger := logging.MustGetLogger("startup")
 	format := logging.MustStringFormatter("%{color}%{time:15:04:05.000} %{module:12s} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}")
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
+
+	if startup.ProfileCpu != "" {
+        f, err := os.Create(startup.ProfileCpu)
+        if err != nil {
+            logger.Fatal(err)
+        }
+        pprof.StartCPUProfile(f)
+        defer pprof.StopCPUProfile()
+
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		go func(){
+			for _ = range c {
+				pprof.StopCPUProfile()
+				os.Exit(0)
+			}
+		}()
+    }
 
 	logging.SetBackend(logging.NewBackendFormatter(backend, format))
 	logger.Info("Completed startup")
