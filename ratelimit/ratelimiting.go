@@ -30,7 +30,6 @@ import (
 	"time"
 	"strings"
 	"github.com/julienschmidt/httprouter"
-	"math"
 )
 
 type Bucket struct {
