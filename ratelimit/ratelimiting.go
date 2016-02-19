@@ -81,6 +81,7 @@ func (t *RedisSimpleRateThrottler) identifyClient(req *http.Request) string {
 func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 	key := "RL_BUCKET_" + user
 	conn := t.redisPool.Get()
+	defer conn.Close()
 
 	conn.Send("MULTI")
 	conn.Send("SET", key, t.burstSize, "EX", t.window.Seconds(), "NX")
