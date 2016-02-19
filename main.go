@@ -120,9 +120,17 @@ func main() {
 		logger.Panic(err)
 	}
 
-	redisPool := redis.NewPool(func() (redis.Conn, error) {
-		return redis.Dial("tcp", cfg.Redis)
-	}, 8)
+	redisPool := &redis.Pool{
+		MaxIdle: 8,
+		Dial: func() (redis.Conn, error) {
+			conn, err := redis.Dial("tcp", cfg.Redis.Address, redis.DialDatabase(cfg.Redis.Database))
+			if err != nil {
+				return nil, err
+			}
+
+			return conn, nil
+		},
+	}
 
 	tokenVerifier, err := auth.NewJwtVerifier(&cfg.Authentication)
 	if err != nil {

@@ -27,7 +27,7 @@ type Configuration struct {
 	Consul         ConsulConfiguration    `json:"consul"`
 	Http           HttpConfiguration      `json:"http"`
 	Proxy          ProxyConfiguration     `json:"proxy"`
-	Redis          string                 `json:"redis"`
+	Redis          RedisConfiguration     `json:"redis"`
 }
 
 type Application struct {
@@ -49,6 +49,11 @@ type Backend struct {
 	Url     string `json:"url"`
 	Service string `json:"service"`
 	Tag     string `json:"tag"`
+}
+
+type RedisConfiguration struct {
+	Address string `json:"address"`
+	Database int `json:"database"`
 }
 
 type ApplicationAuth struct {

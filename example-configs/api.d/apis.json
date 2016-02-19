@@ -10,7 +10,10 @@
     "port": 8500,
     "datacenter": "dev"
   },
-  "redis": "redis:6379",
+  "redis": {
+    "address": "redis:6379",
+    "database": 0
+  },
   "http": {
     "set_headers": {
       "Server": "Mittwald-API-Gateway/1.0"
