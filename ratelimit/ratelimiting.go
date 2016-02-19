@@ -30,6 +30,7 @@ import (
 	"time"
 	"strings"
 	"github.com/julienschmidt/httprouter"
+	"math"
 )
 
 type Bucket struct {
@@ -141,6 +142,10 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler httprouter.Handle) ht
 			rw.WriteHeader(503)
 			rw.Write([]byte("{\"msg\":\"service unavailable\"}"))
 			return
+		}
+
+		if remaining < 0 {
+			remaining = 0
 		}
 
 		rw.Header().Add("X-RateLimit", strconv.Itoa(limit))
