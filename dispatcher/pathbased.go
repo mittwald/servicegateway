@@ -66,7 +66,6 @@ func NewPathBasedDispatcher(
 
 func (d *pathBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	for k, v := range d.cfg.Http.SetHeaders {
-		d.log.Debugf("setting header %s -> %s", k, v)
 		req.Header.Set(k, v)
 	}
 

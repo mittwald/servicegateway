@@ -125,7 +125,6 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 	h.expLock.RUnlock()
 
 	if ok && (exp == 0 || exp > time.Now().Unix()) {
-		h.logger.Debugf("could verify token %s from cache", token)
 		return true, token, nil
 	} else if !ok {
 		valid, claims, err := h.verifier.VerifyToken(token)

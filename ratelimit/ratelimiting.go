@@ -147,7 +147,6 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler httprouter.Handle) ht
 		rw.Header().Add("X-RateLimit-Remaining", strconv.Itoa(remaining))
 
 		if remaining <= 0 {
-			t.logger.Noticef("Client %s exceeded rate limit", req.RemoteAddr)
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(429)
 			rw.Write([]byte("{\"msg\":\"rate limit exceeded\"}"))
