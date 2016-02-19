@@ -1,50 +1,5 @@
 {
   "applications": {
-    "identity": {
-      "routing": {
-        "path": "/identity",
-        "type": "path"
-      },
-      "auth": {
-        "disable": true
-      },
-      "backend": {
-        "service": "identity"
-      },
-      "rate_limiting": true
-    },
-    "httpbin": {
-      "caching": {
-        "auto_flush": true,
-        "enabled": true,
-        "ttl": 3600
-      },
-      "routing": {
-        "path": "/bin",
-        "type": "path"
-      },
-      "backend": {
-        "url": "http://httpbin.org"
-      },
-      "rate_limiting": true
-    },
-    "customers": {
-      "rate_limiting": true,
-      "caching": {
-        "enabled": true,
-        "ttl": 86400
-      },
-      "backend": {
-        "service": "elwis"
-      },
-      "routing": {
-        "type": "pattern",
-        "patterns": {
-          "/customers/:customernumber": "/rest/v2/customers/:customernumber",
-          "/customers/:customernumber/contractpartner": "/rest/v2/customers/:customernumber/contractpartner"
-        }
-      }
-    }
   },
   "rate_limiting": {
     "window": "15m",
