@@ -23,12 +23,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
 	"github.com/garyburd/redigo/redis"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
 	"io/ioutil"
 	"net/http"
+	"sync"
+	"time"
+	"github.com/dgrijalva/jwt-go"
 )
 
 type AuthenticationHandler struct {
@@ -37,7 +39,10 @@ type AuthenticationHandler struct {
 	tokenReader         TokenReader
 	httpClient          *http.Client
 	logger              *logging.Logger
-	verifier *JwtVerifier
+	verifier            *JwtVerifier
+
+	expCache            map[string]int64
+	expLock             sync.RWMutex
 }
 
 func NewAuthenticationHandler(
@@ -53,7 +58,9 @@ func NewAuthenticationHandler(
 		tokenReader: &BearerTokenReader{store: tokenStore},
 		httpClient:  &http.Client{},
 		logger:      logger,
-		verifier: verifier,
+		verifier:    verifier,
+		expCache:    make(map[string]int64),
+		expLock:     sync.RWMutex{},
 	}
 
 	return &handler, nil
@@ -113,22 +120,57 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 		return false, "", err
 	}
 
-	valid, _, err := h.verifier.VerifyToken(token)
-	if err == nil && valid {
-		return true, token, nil
-	}
+	h.expLock.RLock()
+	exp, ok := h.expCache[token]
+	h.expLock.RUnlock()
 
-	acceptableErrors := jwt.ValidationErrorExpired | jwt.ValidationErrorSignatureInvalid
-	if err != nil {
-		switch t := err.(type) {
-		case *jwt.ValidationError:
-			if t.Errors&acceptableErrors != 0 {
-				return false, "", nil
+	if ok && (exp == 0 || exp > time.Now().Unix()) {
+		h.logger.Debugf("could verify token %s from cache", token)
+		return true, token, nil
+	} else if !ok {
+		valid, claims, err := h.verifier.VerifyToken(token)
+		if err == nil && valid {
+			exp, ok := claims["exp"]
+			if !ok {
+				h.expLock.Lock()
+				h.expCache[token] = 0
+				h.expLock.Unlock()
+			}
+
+			expNum, ok := exp.(float64)
+			if !ok {
+				return false, "", fmt.Errorf("expiration tstamp is not numeric")
+			}
+
+			expNumInt := int64(expNum)
+			if expNumInt > time.Now().Unix() {
+				h.logger.Debugf("JWT for token %s expires at %d", token, expNumInt)
+				h.expLock.Lock()
+				h.expCache[token] = expNumInt
+				h.expLock.Unlock()
+
+				c := time.After(time.Duration((expNumInt - time.Now().Unix())) * time.Second)
+				go func() {
+					<- c
+					h.expLock.Lock()
+					delete(h.expCache, token)
+					h.expLock.Unlock()
+				}()
+
+				return true, token, nil
 			}
 		}
-		return false, "", err
-	}
 
-	h.logger.Warningf("could not authenticate request. huh?")
+		acceptableErrors := jwt.ValidationErrorExpired | jwt.ValidationErrorSignatureInvalid
+		if err != nil {
+			switch t := err.(type) {
+			case *jwt.ValidationError:
+				if t.Errors&acceptableErrors != 0 {
+					return false, "", nil
+				}
+			}
+			return false, "", err
+		}
+	}
 	return false, "", nil
 }
