@@ -90,6 +90,10 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 		}
 	}
 
+	if appCfg.Backend.Username != "" {
+		req.SetBasicAuth(appCfg.Backend.Username, appCfg.Backend.Password)
+	}
+
 	proxyRes, err := p.Client.Do(proxyReq)
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok == false || uerr.Err != redirectRequest {
