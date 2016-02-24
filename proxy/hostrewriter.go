@@ -87,7 +87,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 		publicUrl.Host = req.Host
 
 		if publicUrl.Scheme == "" {
-			publicUrl.Scheme = "http"
+			publicUrl.Scheme = "https"
 		}
 
 		req.Header.Del("Accept-Encoding")
