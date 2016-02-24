@@ -78,10 +78,6 @@ func (p *PatternClosure) Handle(rw http.ResponseWriter, req *http.Request, param
 		targetUrl = strings.Replace(targetUrl, paramName[0], params.ByName(paramName[1]), -1)
 	}
 
-	if p.appCfg.Backend.Username != "" {
-		req.SetBasicAuth(p.appCfg.Backend.Username, p.appCfg.Backend.Password)
-	}
-
 	p.proxy.HandleProxyRequest(rw, req, targetUrl, p.appName, p.appCfg)
 }
 
