@@ -20,8 +20,11 @@
     }
   },
   "proxy": {
-    "strip_headers": {
+    "strip_res_headers": {
       "Set-Cookie": true
+    },
+    "set_req_headers": {
+      "X-Mittwald-Sandbox": "1"
     }
   },
   "authentication": {
