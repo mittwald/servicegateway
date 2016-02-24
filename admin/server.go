@@ -62,7 +62,7 @@ func NewAdminServer(
 
 		jwtBytes, err := ioutil.ReadAll(req.Body)
 		if err != nil {
-			logger.Error("error while loading request body: %s", err)
+			logger.Errorf("error while loading request body: %s", err)
 			writeError(res, "could not read request body")
 			return
 		}
@@ -80,7 +80,7 @@ func NewAdminServer(
 
 		err = tokenStore.SetToken(tokenString, jwt)
 		if err != nil {
-			logger.Error("error while storing token: %s", err)
+			logger.Errorf("error while storing token: %s", err)
 			res.WriteHeader(500)
 			res.Write([]byte(`{"msg":"could not store token"}`))
 			return
@@ -102,7 +102,7 @@ func NewAdminServer(
 
 		jwtBytes, err := ioutil.ReadAll(req.Body)
 		if err != nil {
-			logger.Error("error while loading request body: %s", err)
+			logger.Errorf("error while loading request body: %s", err)
 			writeError(res, "could not read request body")
 			return
 		}
@@ -118,7 +118,7 @@ func NewAdminServer(
 
 		tokenString, err := tokenStore.AddToken(jwt)
 		if err != nil {
-			logger.Error("error while storing token: %s", err)
+			logger.Errorf("error while storing token: %s", err)
 			res.WriteHeader(500)
 			res.Write([]byte(`{"msg":"could not store token"}`))
 			return

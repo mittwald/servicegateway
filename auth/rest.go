@@ -50,7 +50,7 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *conf
 		writer = &AuthorizationTokenWriter{}
 	default:
 		writer = &HeaderTokenWriter{HeaderName: "X-JWT"}
-		a.logger.Error("bad token writer: %s", appCfg.Auth.Writer.Mode)
+		a.logger.Errorf("bad token writer: %s", appCfg.Auth.Writer.Mode)
 	}
 
 	return func(res http.ResponseWriter, req *http.Request, p httprouter.Params) {
