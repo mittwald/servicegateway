@@ -21,17 +21,32 @@ package dispatcher
 
 import (
 	"fmt"
-	"github.com/go-zoo/bone"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/op/go-logging"
 	"net/http"
 	"regexp"
 	"strings"
+	"github.com/julienschmidt/httprouter"
 )
 
 type pathBasedDispatcher struct {
 	abstractDispatcher
+}
+
+type PatternClosure struct {
+	targetUrl string
+	parameters [][]string
+	appName string
+	appCfg *config.Application
+	proxy *proxy.ProxyHandler
+}
+
+type PathClosure struct {
+	backendUrl string
+	appName string
+	appCfg *config.Application
+	proxy *proxy.ProxyHandler
 }
 
 func NewPathBasedDispatcher(
@@ -41,7 +56,7 @@ func NewPathBasedDispatcher(
 ) (*pathBasedDispatcher, error) {
 	dispatcher := new(pathBasedDispatcher)
 	dispatcher.cfg = cfg
-	dispatcher.mux = bone.New()
+	dispatcher.mux = httprouter.New()
 	dispatcher.log = log
 	dispatcher.prx = prx
 	dispatcher.behaviours = make([]DispatcherBehaviour, 0, 8)
@@ -50,11 +65,31 @@ func NewPathBasedDispatcher(
 }
 
 func (d *pathBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	for k, v := range d.cfg.Http.SetHeaders {
+		req.Header.Set(k, v)
+	}
+
 	d.mux.ServeHTTP(res, req)
 }
 
+func (p *PatternClosure) Handle(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
+	targetUrl := p.targetUrl
+	for _, paramName := range p.parameters {
+		targetUrl = strings.Replace(targetUrl, paramName[0], params.ByName(paramName[1]), -1)
+	}
+
+	p.proxy.HandleProxyRequest(rw, req, targetUrl, p.appName, p.appCfg)
+}
+
+func (p *PathClosure) Handle(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
+	sanitizedPath := strings.Replace(req.URL.Path, p.appCfg.Routing.Path, "", 1)
+	proxyUrl := p.backendUrl + sanitizedPath
+
+	p.proxy.HandleProxyRequest(rw, req, proxyUrl, p.appName, p.appCfg)
+}
+
 func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.Application) error {
-	routes := make(map[string]http.Handler)
+	routes := make(map[string]httprouter.Handle)
 
 	backendUrl := appCfg.Backend.Url
 	if backendUrl == "" && appCfg.Backend.Service != "" {
@@ -65,30 +100,44 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 		}
 	}
 
-	if appCfg.Routing.Type == "path" {
-		var handler http.HandlerFunc = func(rw http.ResponseWriter, req *http.Request) {
-			sanitizedPath := strings.Replace(req.URL.Path, appCfg.Routing.Path, "", 1)
-			proxyUrl := backendUrl + sanitizedPath
+	var rewriter proxy.HostRewriter
 
-			d.prx.HandleProxyRequest(rw, req, proxyUrl, name, &appCfg)
+	if appCfg.Routing.Type == "path" {
+		mapping := map[string]string{
+			"/(?P<path>.*)": appCfg.Routing.Path + "/:path",
 		}
 
-		routes[appCfg.Routing.Path+"/*"] = http.HandlerFunc(handler)
+		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, d.log)
+
+		closure := new(PathClosure)
+		closure.backendUrl = backendUrl
+		closure.appName = name
+		closure.appCfg = &appCfg
+		closure.proxy = d.prx
+
+		routes[appCfg.Routing.Path] = closure.Handle
+		routes[appCfg.Routing.Path+"/*path"] = closure.Handle
 	} else if appCfg.Routing.Type == "pattern" {
 		re := regexp.MustCompile(":([a-zA-Z0-9]+)")
+		mapping := make(map[string]string)
+
 		for pattern, target := range appCfg.Routing.Patterns {
+			targetPattern := "^" + re.ReplaceAllString(target, "(?P<$1>[^/]+?)") + "$"
+			mapping[targetPattern] = pattern
+
 			parameters := re.FindAllStringSubmatch(pattern, -1)
-			var patternHandler http.HandlerFunc = func(rw http.ResponseWriter, req *http.Request) {
-				targetUrl := backendUrl + target
-				for _, paramName := range parameters {
-					targetUrl = strings.Replace(targetUrl, paramName[0], bone.GetValue(req, paramName[1]), -1)
-				}
 
-				d.prx.HandleProxyRequest(rw, req, targetUrl, name, &appCfg)
-			}
+			closure := new(PatternClosure)
+			closure.targetUrl = backendUrl + target
+			closure.parameters = parameters
+			closure.appName = name
+			closure.appCfg = &appCfg
+			closure.proxy = d.prx
 
-			routes[pattern] = http.HandlerFunc(patternHandler)
+			routes[pattern] = closure.Handle
 		}
+
+		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, d.log)
 	}
 
 	for _, behaviour := range d.behaviours {
@@ -101,6 +150,8 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 	}
 
 	for route, handler := range routes {
+		handler = rewriter.Decorate(handler)
+
 		safeHandler := handler
 		unsafeHandler := handler
 
@@ -112,12 +163,12 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 			}
 		}
 
-		d.mux.Get(route, safeHandler)
-		d.mux.Head(route, safeHandler)
-		d.mux.Options(route, safeHandler)
-		d.mux.Post(route, unsafeHandler)
-		d.mux.Put(route, unsafeHandler)
-		d.mux.Delete(route, unsafeHandler)
+		d.mux.GET(route, safeHandler)
+		d.mux.HEAD(route, safeHandler)
+		d.mux.OPTIONS(route, safeHandler)
+		d.mux.POST(route, unsafeHandler)
+		d.mux.PUT(route, unsafeHandler)
+		d.mux.DELETE(route, unsafeHandler)
 	}
 
 	return nil

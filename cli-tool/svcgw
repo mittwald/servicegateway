@@ -1,0 +1,67 @@
+#!/usr/bin/env python
+import glob
+import json
+import os
+
+import click
+import consul
+import requests
+
+
+@click.group()
+def app():
+    pass
+
+
+@click.group(name='consul')
+def consul_group():
+    pass
+
+
+@click.command(name='export')
+@click.option('--consul-host', '-h', default='127.0.0.1')
+@click.option('--consul-port', '-p', default=8500)
+@click.option('--base-key', '-k', default='gateway/api/public')
+@click.argument('target_dir', default='.')
+def consul_export_cmd(consul_host, consul_port, base_key, target_dir):
+    client = consul.Consul(host=consul_host,
+                           port=consul_port)
+    index, data = client.kv.get(key=base_key, recurse=True)
+    for d in data:
+        if d["Key"].startswith('%s/applications/' % base_key):
+            name = d["Key"].replace('%s/applications/' % base_key, '')
+            filename = "%s/%s.json" % (target_dir, name)
+            with open(filename, 'w') as outfile:
+                click.echo("Writing file %s" % filename)
+                outfile.write(d["Value"])
+
+
+@click.command(name='import')
+@click.option('--consul-host', '-h', default='127.0.0.1')
+@click.option('--consul-port', '-p', default=8500)
+@click.option('--base-key', '-k', default='gateway/api/public')
+@click.argument('target_dir', default='.')
+def consul_import_cmd(consul_host, consul_port, base_key, target_dir):
+    client = consul.Consul(host=consul_host,
+                           port=consul_port)
+    glob_expr = "%s/*.json" % target_dir
+    files = glob.glob(glob_expr)
+    for f in files:
+        name = os.path.basename(f).replace('.json', '')
+        key = "%s/applications/%s" % (base_key, name)
+        with open(f, 'r') as infile:
+            contents = infile.read()
+        print("saving %s" % key)
+
+        try:
+            json.loads(contents)
+            client.kv.put(key, contents)
+        except Exception as error:
+            click.echo("ERROR while saving %s: %s" % (key, error))
+
+
+consul_group.add_command(consul_export_cmd)
+consul_group.add_command(consul_import_cmd)
+
+app.add_command(consul_group)
+app()

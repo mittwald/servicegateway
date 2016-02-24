@@ -1,4 +1,5 @@
 package config
+import "fmt"
 
 /*
  * Microservice gateway application
@@ -24,7 +25,9 @@ type Configuration struct {
 	RateLimiting   RateLimiting           `json:"rate_limiting"`
 	Authentication GlobalAuth             `json:"authentication"`
 	Consul         ConsulConfiguration    `json:"consul"`
-	Redis          string                 `json:"redis"`
+	Http           HttpConfiguration      `json:"http"`
+	Proxy          ProxyConfiguration     `json:"proxy"`
+	Redis          RedisConfiguration     `json:"redis"`
 }
 
 type Application struct {
@@ -48,14 +51,19 @@ type Backend struct {
 	Tag     string `json:"tag"`
 }
 
+type RedisConfiguration struct {
+	Address string `json:"address"`
+	Database int `json:"database"`
+}
+
 type ApplicationAuth struct {
 	Disable bool              `json:"disable"`
-	Storage StorageAuthConfig `json:"storage"`
+	Writer  AuthWriterConfig  `json:"writer"`
 }
 
 type GlobalAuth struct {
 	Mode               string              `json:"mode"`
-	StorageConfig      StorageAuthConfig   `json:"storage"`
+//	StorageConfig      StorageAuthConfig   `json:"storage"`
 	GraphicalConfig    GraphicalAuthConfig `json:"graphical"`
 	ProviderConfig     ProviderAuthConfig  `json:"provider"`
 	VerificationKey    []byte              `json:"verification_key"`
@@ -64,17 +72,35 @@ type GlobalAuth struct {
 }
 
 type ConsulConfiguration struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+	Host       string `json:"host"`
+	Port       int    `json:"port"`
+	DataCenter string `json:"datacenter"`
 }
 
-type StorageAuthConfig struct {
-	Mode           string `json:"mode"`
-	Name           string `json:"name"`
-	CookieDomain   string `json:"cookie_domain"`
-	CookieHttpOnly bool   `json:"cookie_httponly"`
-	CookieSecure   bool   `json:"cookie_secure"`
+func (c ConsulConfiguration) Address() string {
+	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }
+
+type HttpConfiguration struct {
+	SetHeaders map[string]string `json:"set_headers"`
+}
+
+type ProxyConfiguration struct {
+	StripHeaders map[string]bool `json:"strip_headers"`
+}
+
+type AuthWriterConfig struct {
+	Mode string `json:"mode"`
+	Name string `json:"name"`
+}
+
+//type StorageAuthConfig struct {
+//	Mode           string `json:"mode"`
+//	Name           string `json:"name"`
+//	CookieDomain   string `json:"cookie_domain"`
+//	CookieHttpOnly bool   `json:"cookie_httponly"`
+//	CookieSecure   bool   `json:"cookie_secure"`
+//}
 
 type GraphicalAuthConfig struct {
 	LoginRoute string `json:"login_route"`

@@ -1,54 +1,34 @@
 {
   "applications": {
-    "identity": {
-      "routing": {
-        "path": "/identity",
-        "type": "path"
-      },
-      "auth": {
-        "disable": true
-      },
-      "backend": {
-        "service": "identity"
-      },
-      "rate_limiting": true
-    },
-    "httpbin": {
-      "caching": {
-        "auto_flush": true,
-        "enabled": true,
-        "ttl": 3600
-      },
-      "routing": {
-        "path": "/bin",
-        "type": "path"
-      },
-      "backend": {
-        "url": "http://httpbin.org"
-      },
-      "rate_limiting": true
-    }
   },
   "rate_limiting": {
     "window": "15m",
     "burst": 1000
   },
   "consul": {
-    "host": "localhost",
-    "port": 8500
+    "host": "consul.service.consul",
+    "port": 8500,
+    "datacenter": "dev"
   },
-  "redis": "redis:6379",
+  "redis": {
+    "address": "redis:6379",
+    "database": 0
+  },
+  "http": {
+    "set_headers": {
+      "Server": "Mittwald-API-Gateway/1.0"
+    }
+  },
+  "proxy": {
+    "strip_headers": {
+      "Set-Cookie": true
+    }
+  },
   "authentication": {
-    "mode": "graphical",
-    "storage": {
-      "mode": "session",
-      "name": "COAB_SESSION",
-      "cookie_domain": "localhost:8080",
-      "cookie_secure": false,
-      "cookie_httponly": true
-    },
-    "graphical": {
-      "login_route": "/login"
+    "mode": "rest",
+    "writer": {
+      "mode": "header",
+      "name": "X-JWT"
     },
     "provider": {
       "url": "http://identity.service.consul",

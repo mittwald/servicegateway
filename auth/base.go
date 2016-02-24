@@ -23,17 +23,16 @@ import (
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
-	"github.com/go-zoo/bone"
 	"github.com/mittwald/servicegateway/config"
 	logging "github.com/op/go-logging"
-	"net/http"
+	"github.com/julienschmidt/httprouter"
 )
 
 var InvalidCredentialsError error = errors.New("invalid credentials given")
 
 type AuthDecorator interface {
-	DecorateHandler(http.Handler, *config.Application) http.Handler
-	RegisterRoutes(*bone.Mux) error
+	DecorateHandler(httprouter.Handle, *config.Application) httprouter.Handle
+	RegisterRoutes(*httprouter.Router) error
 }
 
 type AuthenticationRequest struct {
@@ -47,25 +46,13 @@ func NewAuthDecorator(
 	authConfig *config.GlobalAuth,
 	redisPool *redis.Pool,
 	logger *logging.Logger,
+	authHandler *AuthenticationHandler,
+	tokenStore TokenStore,
 	uiDir string,
 ) (AuthDecorator, error) {
-	authHandler, err := NewAuthenticationHandler(authConfig, redisPool, logger)
-	if err != nil {
-		return nil, err
-	}
-
 	switch authConfig.Mode {
-	case "graphical":
-		return &GraphicalAuthDecorator{
-			authHandler,
-			authConfig,
-			logger,
-			uiDir,
-		}, nil
 	case "rest":
-		return &RestAuthDecorator{
-			authHandler,
-		}, nil
+		return NewRestAuthDecorator(authHandler, tokenStore, logger), nil
 	}
-	return nil, errors.New(fmt.Sprintf("unsupported authentication mode: '%s'", authConfig.Mode))
+	return nil, fmt.Errorf("unsupported authentication mode: '%s'", authConfig.Mode)
 }

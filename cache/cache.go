@@ -25,11 +25,12 @@ import (
 	"github.com/bluele/gcache"
 	"io/ioutil"
 	"net/http"
+	"github.com/julienschmidt/httprouter"
 )
 
 type CacheMiddleware interface {
-	DecorateHandler(handler http.Handler) http.Handler
-	DecorateUnsafeHandler(handler http.Handler) http.Handler
+	DecorateHandler(handler httprouter.Handle) httprouter.Handle
+	DecorateUnsafeHandler(handler httprouter.Handle) httprouter.Handle
 }
 
 type inMemoryCacheMiddleware struct {
@@ -78,6 +79,7 @@ func (r *ResponseBuffer) Dump(rw http.ResponseWriter) {
 		}
 	}
 
+	rw.WriteHeader(r.status)
 	rw.Write(r.body)
 }
 
@@ -91,23 +93,23 @@ func (c *inMemoryCacheMiddleware) identifierForRequest(req *http.Request) string
 	identifier := req.RequestURI
 
 	if accept := req.Header.Get("Accept"); accept != "" {
-		identifier += accept
+		identifier += "_" + accept
 	}
 
 	return identifier
 }
 
-func (c *inMemoryCacheMiddleware) DecorateUnsafeHandler(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+func (c *inMemoryCacheMiddleware) DecorateUnsafeHandler(handler httprouter.Handle) httprouter.Handle {
+	return func(rw http.ResponseWriter, req *http.Request, p httprouter.Params) {
 		identifier := c.identifierForRequest(req)
 		c.cache.Remove(identifier)
 		rw.Header().Add("X-Cache", "PURGED")
-		handler.ServeHTTP(rw, req)
-	})
+		handler(rw, req, p)
+	}
 }
 
-func (c *inMemoryCacheMiddleware) DecorateHandler(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+func (c *inMemoryCacheMiddleware) DecorateHandler(handler httprouter.Handle) httprouter.Handle {
+	return func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		identifier := c.identifierForRequest(req)
 
 		useCache := true
@@ -116,11 +118,15 @@ func (c *inMemoryCacheMiddleware) DecorateHandler(handler http.Handler) http.Han
 		}
 
 		entry, err := c.cache.Get(identifier)
-		if useCache == false || err == gcache.NotFoundKeyError {
+		if useCache == false || err == gcache.KeyNotFoundError {
 			buf := NewResponseBuffer()
 
-			handler.ServeHTTP(buf, req)
+			handler(buf, req, params)
 			buf.Complete()
+
+			if buf.status >= 400 {
+				useCache = false
+			}
 
 			if useCache {
 				rw.Header().Add("X-Cache", "MISS")
@@ -144,6 +150,5 @@ func (c *inMemoryCacheMiddleware) DecorateHandler(handler http.Handler) http.Han
 			rw.WriteHeader(500)
 			rw.Write([]byte("{\"msg\":\"internal server error\"}"))
 		}
-
-	})
+	}
 }

@@ -13,7 +13,7 @@ This repository contains a service gateway that can be used both as a single-sig
 
 ## Compilation and installation
 
-For building, you will need a halfway current [Go SDK][go] (tested with 1.4 and 1.5). Then simply `go install`:
+For building, you will need a halfway current [Go SDK][go] (tested with 1.5 and 1.6). Then simply `go install`:
 
 ```shellsession
 > go install github.com/mittwald/servicegateway
@@ -47,7 +47,7 @@ This affects the following configuration items:
 
 1.  Rate-limiting configuration (key `<base-prefix>/ratelimiting`)
 2.  Caching configuration (key `<base-prefix>/caching`)
-3.  Upstream application (keys `<base-prefix>/application/<app-identifier>`)
+3.  Upstream application (keys `<base-prefix>/applications/<app-identifier>`)
 
 Each upstream application is its own key/value pair with the value being a JSON document describing the application.
 
@@ -135,7 +135,7 @@ Applications can be configured by adding new key/value entries into Consul's key
 
 ### Authentication forwarding
 
-The Servicegateway also features a (very opinionated) authentication handling. Currently, authenticaiton is done using [JSON Web Tokens][jwt] that can be sent in a request header, or a cookie. If you do not want to expose the JWT's to your users, the Servicegateway also supports traditional sessions.
+The Servicegateway also features a (very opinionated) authentication handling. Currently, upstream services are expected to authenticate users using [JSON Web Tokens][jwt]. However, the Servicegateway will not expose these JWTs to the end user. Instead, it is built to map JWTs to random and non-informative API tokens; when receiving a request with an API token, the gateway will lookup the respective JWT from a Redis storage and attach it to the request to the upstream service.
 
 #### Basic configuration
 
@@ -179,29 +179,20 @@ In order to make authentication work, you'll need the following:
     }
     ```
 
-#### With graphical login form
+#### Adding new tokens
 
-You can also use the Servicegateway to present a graphical login form to your users (the *graphical* authentication mode). In graphical authentication mode, unauthenticated users will be presented a login form in which they can enter a username and password. Upon submit, these credentials will be submitted to the configured identity provider URL as a JSON document. The response document MUST contain a JWT that will then be stored in a cookie.
+The service gateway implementes an administration API that listens on a different port than the actual gateway (**caution**: the administration port does not provide authentication, do not expose it to the public!); you can use this to pre-configure access tokens for users.
 
-Example configuration:
+```shellsession
+> curl -X POST -H 'Content-Type: application/jwt' -d 'JWT contents...' http://localhost:8081/tokens
+{"token":"DLOD5FCRO6PVSLVWD7QPPGIIBXK7XXFACV7LMKEUZOP6DCADXTSQ===="}
+```
 
-```json
-{
-  "authentication": {
-    "mode": "graphical",
-    "provider": {
-      "url": "https://identity.service.consul/authenticate"
-    },
-    "verification_key_url": "https://identity.service.consul/key",
-    "storage": {
-      "mode": "session",
-      "name": "ACME_SESSION",
-      "cookie_domain": ".services.acme.corp",
-      "cookie_httponly": true,
-      "cookie_secure": true
-    }
-  }
-}
+Using the same admin API, you can also update existing tokens (for example, if they contained an expirable JWT):
+
+```shellsession
+> curl -X PUT -H 'Content-Type: application/jwt' -d 'JWT contents...' http://localhost:81/tokens/DLOD5FCRO6PVSLVWD7QPPGIIBXK7XXFACV7LMKEUZOP6DCADXTSQ%3D%3D%3D%3D
+{"token":"DLOD5FCRO6PVSLVWD7QPPGIIBXK7XXFACV7LMKEUZOP6DCADXTSQ===="}
 ```
 
 [consul]: https://consul.io

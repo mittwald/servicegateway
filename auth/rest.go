@@ -20,19 +20,44 @@ package auth
  */
 
 import (
-	"github.com/go-zoo/bone"
 	"github.com/mittwald/servicegateway/config"
 	"net/http"
+	"github.com/op/go-logging"
+	"github.com/julienschmidt/httprouter"
 )
 
 type RestAuthDecorator struct {
 	authHandler *AuthenticationHandler
+	tokenStore TokenStore
+	logger *logging.Logger
 }
 
-func (a *RestAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Application) http.Handler {
-	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		authenticated, _, err := a.authHandler.IsAuthenticated(req)
+func NewRestAuthDecorator(authHandler *AuthenticationHandler, tokenStore TokenStore, logger *logging.Logger) *RestAuthDecorator {
+	return &RestAuthDecorator{
+		authHandler: authHandler,
+		tokenStore: tokenStore,
+		logger: logger,
+	}
+}
+
+func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *config.Application) httprouter.Handle {
+	var writer TokenWriter
+
+	switch appCfg.Auth.Writer.Mode {
+	case "header":
+		writer = &HeaderTokenWriter{HeaderName: appCfg.Auth.Writer.Name}
+	case "authorization":
+		writer = &AuthorizationTokenWriter{}
+	default:
+		writer = &HeaderTokenWriter{HeaderName: "X-JWT"}
+		a.logger.Errorf("bad token writer: %s", appCfg.Auth.Writer.Mode)
+	}
+
+	return func(res http.ResponseWriter, req *http.Request, p httprouter.Params) {
+		authenticated, token, err := a.authHandler.IsAuthenticated(req)
 		if err != nil {
+			a.logger.Errorf("authentication error: %s", err)
+
 			res.Header().Set("Content-Type", "application/json")
 			res.WriteHeader(503)
 			res.Write([]byte("{\"msg\": \"service unavailable\"}"))
@@ -41,11 +66,12 @@ func (a *RestAuthDecorator) DecorateHandler(orig http.Handler, appCfg *config.Ap
 			res.WriteHeader(403)
 			res.Write([]byte("{\"msg\": \"not authenticated\"}"))
 		} else {
-			orig.ServeHTTP(res, req)
+			writer.WriteTokenToRequest(token, req)
+			orig(res, req, p)
 		}
-	})
+	}
 }
 
-func (a *RestAuthDecorator) RegisterRoutes(mux *bone.Mux) error {
+func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 	return nil
 }
