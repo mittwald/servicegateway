@@ -34,10 +34,10 @@ var redirectRequest error = errors.New("redirect")
 type ProxyHandler struct {
 	Client *http.Client
 	Logger *logging.Logger
-	Options *config.Configuration
+	Config *config.Configuration
 }
 
-func NewProxyHandler(logger *logging.Logger, options *config.Configuration) *ProxyHandler {
+func NewProxyHandler(logger *logging.Logger, config *config.Configuration) *ProxyHandler {
 	transport := &http.Transport{}
 	client := &http.Client{
 		Transport: transport,
@@ -49,7 +49,7 @@ func NewProxyHandler(logger *logging.Logger, options *config.Configuration) *Pro
 	return &ProxyHandler{
 		Client: client,
 		Logger: logger,
-		Options: options,
+		Config: config,
 	}
 }
 
@@ -90,6 +90,10 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 		}
 	}
 
+	for header, value := range p.Config.Proxy.SetRequestHeaders {
+		proxyReq.Header.Set(header, value)
+	}
+
 	if appCfg.Backend.Username != "" {
 		req.SetBasicAuth(appCfg.Backend.Username, appCfg.Backend.Password)
 	}
@@ -103,11 +107,11 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 		}
 	}
 	for header, values := range proxyRes.Header {
-		if _, ok := p.Options.Proxy.StripHeaders[header]; ok {
+		if _, ok := p.Config.Proxy.StripResponseHeaders[header]; ok {
 			continue
 		}
 
-		if _, ok := p.Options.Http.SetHeaders[header]; ok {
+		if _, ok := p.Config.Http.SetHeaders[header]; ok {
 			continue
 		}
 
