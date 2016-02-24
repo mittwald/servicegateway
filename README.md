@@ -152,32 +152,19 @@ In order to make authentication work, you'll need the following:
      }
      ```
 
-2.  Configure where to look for tokens in the client requests. Currently, the token can be included in a custom header or a cookie.
+2.  Configure how to add mapped JWTs to the upstream service requests. Currently, the token can be included in a custom header or an `Authorization` header.
 
      ```json
      {
        "authentication": {
          "mode": "rest",
-         "storage": {
+         "writer": {
            "mode": "header",
            "name": "X-Jwt"
          }
        }
      }
      ```
-
-3.  Configure an authentication provider that you'll redirect users to that are not authenticated.
-
-    ```json
-    {
-      "authentication": {
-        "mode": "rest",
-        "provider": {
-          "url": "https://identity.service.consul/authenticate"
-        }
-      }
-    }
-    ```
 
 #### Adding new tokens
 
