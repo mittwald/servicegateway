@@ -88,7 +88,8 @@ type HttpConfiguration struct {
 }
 
 type ProxyConfiguration struct {
-	StripHeaders map[string]bool `json:"strip_headers"`
+	StripResponseHeaders map[string]bool `json:"strip_res_headers"`
+	SetRequestHeaders map[string]string `json:"set_req_headers"`
 }
 
 type AuthWriterConfig struct {
