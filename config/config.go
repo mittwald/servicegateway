@@ -46,9 +46,11 @@ type Routing struct {
 }
 
 type Backend struct {
-	Url     string `json:"url"`
-	Service string `json:"service"`
-	Tag     string `json:"tag"`
+	Url      string `json:"url"`
+	Service  string `json:"service"`
+	Tag      string `json:"tag"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type RedisConfiguration struct {
