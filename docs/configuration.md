@@ -21,6 +21,8 @@ Property  | Type | Description
 `url` **(required if `service` is not set)** | `string` | The backend URL
 `service` **(required if `url` is not set)** | `string` | The service name (must be registered with this ID as a service in Consul)
 `tag`     | `string` | A service tag as registered in Consul (only when the `service` property is set)
+`username` | `string` | A username to use for HTTP basic authentication at the upstream service
+`password` | `string` | A password to use for HTTP basic authentication (only required when `username` is also set)
 `path`    | `string` | An URL path to prepend for upstream requests (and to strip from upstream responses) -- only when the `service` property is set
 
 ### Routing configuration
