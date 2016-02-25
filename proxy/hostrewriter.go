@@ -152,7 +152,6 @@ func (j *JsonHostRewriter) CanHandle(res http.ResponseWriter) bool {
 }
 
 func (j *JsonHostRewriter) Rewrite(body []byte, reqUrl *url.URL) ([]byte, error) {
-	//jsonData := new(interface{})
 	var jsonData interface{}
 	err := json.Unmarshal(body, &jsonData)
 
