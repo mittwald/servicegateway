@@ -95,7 +95,7 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	}
 
 	if appCfg.Backend.Username != "" {
-		req.SetBasicAuth(appCfg.Backend.Username, appCfg.Backend.Password)
+		proxyReq.SetBasicAuth(appCfg.Backend.Username, appCfg.Backend.Password)
 	}
 
 	proxyRes, err := p.Client.Do(proxyReq)
@@ -111,7 +111,8 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 			continue
 		}
 
-		if _, ok := p.Config.Http.SetHeaders[header]; ok {
+		if value, ok := p.Config.Http.SetHeaders[header]; ok {
+			rw.Header().Set(header, value)
 			continue
 		}
 
