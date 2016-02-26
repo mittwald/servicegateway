@@ -86,7 +86,9 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 		publicUrl := *req.URL
 		publicUrl.Host = req.Host
 
-		if publicUrl.Scheme == "" {
+		if req.Header.Get("X-Forwarded-Proto") != "" {
+			publicUrl.Scheme = req.Header.Get("X-Forwarded-Proto")
+		} else if publicUrl.Scheme == "" {
 			publicUrl.Scheme = "https"
 		}
 
