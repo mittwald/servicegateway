@@ -111,14 +111,13 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 			continue
 		}
 
-		if value, ok := p.Config.Http.SetHeaders[header]; ok {
-			rw.Header().Set(header, value)
-			continue
-		}
-
 		for _, value := range values {
 			rw.Header().Add(header, value)
 		}
+	}
+
+	for header, value := range p.Config.Proxy.SetResponseHeaders {
+		rw.Header().Set(header, value)
 	}
 
 	rw.WriteHeader(proxyRes.StatusCode)
