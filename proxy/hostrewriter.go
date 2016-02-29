@@ -181,6 +181,7 @@ func (j *JsonHostRewriter) RewriteUrl(urlString string, reqUrl *url.URL) (string
 		matches := mapping.regex.FindStringSubmatch(parsedUrl.Path)
 		if matches != nil {
 			parsedUrl.Host = reqUrl.Host
+			parsedUrl.Scheme = reqUrl.Scheme
 			parsedUrl.Path = mapping.repl(matches)
 			return parsedUrl.String(), nil
 		}
