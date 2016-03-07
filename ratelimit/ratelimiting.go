@@ -45,7 +45,6 @@ type RateLimitingMiddleware interface {
 type RedisSimpleRateThrottler struct {
 	burstSize         int64
 	window            time.Duration
-	requestsPerSecond int64
 	redisPool         *redis.Pool
 	logger            *logging.Logger
 }
@@ -53,7 +52,6 @@ type RedisSimpleRateThrottler struct {
 func NewRateLimiter(cfg config.RateLimiting, red *redis.Pool, logger *logging.Logger) (RateLimitingMiddleware, error) {
 	t := new(RedisSimpleRateThrottler)
 	t.burstSize = int64(cfg.Burst)
-	t.requestsPerSecond = int64(cfg.RequestsPerSecond)
 	t.redisPool = red
 	t.logger = logger
 
