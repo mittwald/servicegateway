@@ -65,9 +65,9 @@ func NewPathBasedDispatcher(
 }
 
 func (d *pathBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	for k, v := range d.cfg.Http.SetHeaders {
-		req.Header.Set(k, v)
-	}
+//	for k, v := range d.cfg.Proxy.SetResponseHeaders {
+//		res.Header.Set(k, v)
+//	}
 
 	d.mux.ServeHTTP(res, req)
 }

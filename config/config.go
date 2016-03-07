@@ -25,7 +25,6 @@ type Configuration struct {
 	RateLimiting   RateLimiting           `json:"rate_limiting"`
 	Authentication GlobalAuth             `json:"authentication"`
 	Consul         ConsulConfiguration    `json:"consul"`
-	Http           HttpConfiguration      `json:"http"`
 	Proxy          ProxyConfiguration     `json:"proxy"`
 	Redis          RedisConfiguration     `json:"redis"`
 }
@@ -65,8 +64,6 @@ type ApplicationAuth struct {
 
 type GlobalAuth struct {
 	Mode               string              `json:"mode"`
-//	StorageConfig      StorageAuthConfig   `json:"storage"`
-	GraphicalConfig    GraphicalAuthConfig `json:"graphical"`
 	ProviderConfig     ProviderAuthConfig  `json:"provider"`
 	VerificationKey    []byte              `json:"verification_key"`
 	VerificationKeyUrl string              `json:"verification_key_url"`
@@ -83,30 +80,15 @@ func (c ConsulConfiguration) Address() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }
 
-type HttpConfiguration struct {
-	SetHeaders map[string]string `json:"set_headers"`
-}
-
 type ProxyConfiguration struct {
 	StripResponseHeaders map[string]bool `json:"strip_res_headers"`
+	SetResponseHeaders map[string]string `json:"set_res_headers"`
 	SetRequestHeaders map[string]string `json:"set_req_headers"`
 }
 
 type AuthWriterConfig struct {
 	Mode string `json:"mode"`
 	Name string `json:"name"`
-}
-
-//type StorageAuthConfig struct {
-//	Mode           string `json:"mode"`
-//	Name           string `json:"name"`
-//	CookieDomain   string `json:"cookie_domain"`
-//	CookieHttpOnly bool   `json:"cookie_httponly"`
-//	CookieSecure   bool   `json:"cookie_secure"`
-//}
-
-type GraphicalAuthConfig struct {
-	LoginRoute string `json:"login_route"`
 }
 
 type ProviderAuthConfig struct {
@@ -123,5 +105,4 @@ type Caching struct {
 type RateLimiting struct {
 	Burst             int    `json:"burst"`
 	Window            string `json:"window"`
-	RequestsPerSecond int    `json:"requests_per_second"`
 }

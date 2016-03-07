@@ -16,14 +16,14 @@ Property                 | Type
 
 A backend configuration must consist of **either** a `url` property or a `service` property. They are mutually exclusive.
 
-Property  | Type | Description
---------- | ---- | -----------
+Property   | Type     | Description
+---------- | -------- | -----------
 `url` **(required if `service` is not set)** | `string` | The backend URL
 `service` **(required if `url` is not set)** | `string` | The service name (must be registered with this ID as a service in Consul)
-`tag`     | `string` | A service tag as registered in Consul (only when the `service` property is set)
+`tag`      | `string` | A service tag as registered in Consul (only when the `service` property is set)
 `username` | `string` | A username to use for HTTP basic authentication at the upstream service
 `password` | `string` | A password to use for HTTP basic authentication (only required when `username` is also set)
-`path`    | `string` | An URL path to prepend for upstream requests (and to strip from upstream responses) -- only when the `service` property is set
+`path`     | `string` | An URL path to prepend for upstream requests (and to strip from upstream responses) -- only when the `service` property is set
 
 ### Routing configuration
 
@@ -44,20 +44,17 @@ Property     | Type   | Description
 
 ### Application authentication configuration
 
-Property     | Type   | Description
------------- | ------ | --------------------------------------------------------
-`disable`    | `bool` | Set to `true` to disable authentication for this upstream service
-`storage`    | [Authentication storage configuration](#Authentication storage configuration) | How the authentication token should be stored in requests made to the upstream service. See [authentication forwarding](#Authentication forwarding) for more information.
+Property  | Type   | Description
+--------- | ------ | --------------------------------------------------------
+`disable` | `bool` | Set to `true` to disable authentication for this upstream service
+`writer`  | [Authentication writer configuration](#Authentication writer configuration) | How the authentication token should be written in requests made to the upstream service. See [authentication forwarding](#Authentication forwarding) for more information.
 
-### Authentication storage configuration
+### Authentication writer configuration
 
 Property     | Type     | Description
 ------------ | -------- | ------------------------------------------------------
-`mode` **(required)** | `string` | One of `header`, `cookie` or `session`
-`name` **(required)** | `string` | Name of the header or cookie (depending on `mode`)
-`cookie_domain`       | `string` | Domain value for the set cookie. If unspecified, the current host name will be used (which might be a bad idea if you use [hostname-based dispatching](#Routing and dispatching))
-`cookie_httponly`     | `bool`   | Make this cookie an HTTP-only cookie
-`cookie_secure`       | `bool`   | Enforce HTTPS for this cookie
+`mode` **(required)** | `string` | One of `header` or `authorization`
+`name` **(required)** | `string` | Name of the header (depending on `mode`)
 
 ## Static configuration
 
@@ -69,7 +66,8 @@ Property         | Type   | Description
 `rate_limiting`  | [Rate-limiting configuration](#Rate-limiting configuration)
 `authentication` **(required)** | [Authentication configuration](#Authentication configuration)
 `consul` **(required)** | [Consul configuration](#Consul configuration)
-`redis` **(required)**  | `string` | Address (hostname and port) of the Redis server used for rate limiting and caching
+`redis` **(required)**  | [Redis backend configuration](#Redis backend configuration) | Address (hostname and port) of the Redis server used for rate limiting and caching
+`proxy` | [HTTP proxy configuration](#HTTP proxy configuration) | HTTP proxy configuration
 
 ### Rate-limiting configuration
 
@@ -82,8 +80,7 @@ Property                | Type   | Description
 
 Property         | Type     | Description
 ---------------- | -------- | --------------------------------------------------
-`mode` **(required)** | `string` | Either `rest` or `graphical`
-`storage` **(required)** | [Authentication storage configuration](#Authentication storage configuration) | How the authentication token is expected to be stored in client requests. See [authentication forwarding](#Authentication forwarding) for more information.
+`mode` **(required)** | `string` | Currently, only `mapping` is supported
 `provider` **(required)** | [Authentication provider configuration](#Authentication provider configuration)
 `verification_key` **(required if `verification_key_url` is not set)** | `string` | The secret key used to authenticate JWTs of incoming requests
 `verification_key_url` **(required if `verification_key` is not set)** | `string` | The URL of the secret key used to authenticate JWTs of incoming requests
@@ -93,8 +90,7 @@ Property         | Type     | Description
 
 Property         | Type     | Description
 ---------------- | -------- | --------------------------------------------------
-`url` **(required)** | `string` | The URL of the authentication endpoint
-`parameters`     | arbitrary JSON | Only of interest when you're using the `graphical` authentication mode and using the built-in login form. This option contains a base JSON document with the parameters that will be used as authentication request. After submitting the built-in login form, a `username` and `password` parameter will be added to this parameter set
+`url` **(required)** | `string` | The URL of the authentication endpoint. Currently, not used.
 
 ### Consul configuration
 
@@ -102,3 +98,11 @@ Property         | Type     | Description
 ---------------- | -------- | --------------------------------------------------
 `host`           | `string` | The Consul host name
 `port`           | `int`    | The port of Consul's REST API (typically `8500`)
+
+### HTTP proxy configuration
+
+Property            | Type                | Description
+------------------- | ------------------- | --------------------------------------------------
+`strip_res_headers` | `map[string]bool`   | Headers to strip from upstream response
+`set_res_headers`   | `map[string]string` | Headers that should be added to the HTTP response
+`set_req_headers`   | `map[string]string` | Headers to add to the upstream request
