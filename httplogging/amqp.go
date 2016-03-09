@@ -99,7 +99,7 @@ func (c *AmqpLoggingBehaviour) match(req *http.Request) bool {
 	}
 }
 
-func (c *AmqpLoggingBehaviour) NotifyRequest(req *http.Request, jwt string) {
+func (c *AmqpLoggingBehaviour) OnAuthenticatedRequest(req *http.Request, jwt string) {
 	if c.match(req) {
 		go func(req *http.Request, jwt string) {
 			_, claims, _ := c.verifier.VerifyToken(jwt)

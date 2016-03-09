@@ -38,7 +38,7 @@ type AuthDecorator interface {
 }
 
 type AuthRequestListener interface {
-	NotifyRequest(req *http.Request, jwt string)
+	OnAuthenticatedRequest(req *http.Request, jwt string)
 }
 
 type AuthenticationRequest struct {
