@@ -1,5 +1,22 @@
 {
   "applications": {
+    "customers": {
+      "backend": {
+        "password": "N87rCfo1psubE7SzMBMndUr74Va4my2u",
+        "service": "elwis",
+        "username": "coabfrontend"
+      },
+      "routing": {
+        "patterns": {
+          "/v1/accounts/:accountIdentifier": "/rest/v2/accounts/:accountIdentifier",
+          "/v1/customers/:customernumber": "/rest/v2/customers/:customernumber",
+          "/v1/customers/:customernumber/accounts": "/rest/v2/accounts/customers/:customernumber/accounts",
+          "/v1/customers/:customernumber/contactperson": "/rest/v2/customers/:customernumber/contactperson",
+          "/v1/customers/:customernumber/contractpartner": "/rest/v2/customers/:customernumber/contractpartner"
+        },
+        "type": "pattern"
+      }
+    }
   },
   "rate_limiting": {
     "window": "15m",
@@ -46,5 +63,16 @@
     "verification_key": null,
     "verification_key_url": "http://identity.service.consul/key",
     "key_cache_ttl": "5m"
-  }
+  },
+  "logging": [
+    {
+      "type": "apache",
+      "filename": "./access.log"
+    },
+    {
+      "type": "amqp",
+      "uri": "amqp://servicegateway:password@rabbitmq/",
+      "exchange": "audit_log"
+    }
+  ]
 }

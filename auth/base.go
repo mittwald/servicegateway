@@ -26,6 +26,7 @@ import (
 	"github.com/mittwald/servicegateway/config"
 	logging "github.com/op/go-logging"
 	"github.com/julienschmidt/httprouter"
+	"net/http"
 )
 
 var InvalidCredentialsError error = errors.New("invalid credentials given")
@@ -33,6 +34,11 @@ var InvalidCredentialsError error = errors.New("invalid credentials given")
 type AuthDecorator interface {
 	DecorateHandler(httprouter.Handle, *config.Application) httprouter.Handle
 	RegisterRoutes(*httprouter.Router) error
+	RegisterRequestListener(AuthRequestListener)
+}
+
+type AuthRequestListener interface {
+	NotifyRequest(req *http.Request, jwt string)
 }
 
 type AuthenticationRequest struct {
