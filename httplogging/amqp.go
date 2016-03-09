@@ -88,6 +88,7 @@ type AuditLogMessage struct {
 	Auth AuditLogAuth `json:"auth"`
 	Action string `json:"action"`
 	Timestamp time.Time `json:"timestamp"`
+	Data map[string]string `json:"data"`
 }
 
 func (c *AmqpLoggingBehaviour) match(req *http.Request) bool {
@@ -120,13 +121,16 @@ func (c *AmqpLoggingBehaviour) NotifyRequest(req *http.Request, jwt string) {
 					Sudo: sudo,
 					Ip: req.RemoteAddr,
 				},
-				Action: "api." + strings.ToLower(req.Method) + "." + req.URL.String(),
+				Action: "api.request." + strings.ToLower(req.Method),
 				Timestamp: time.Now(),
+				Data: map[string]string {
+					"url": req.URL.String(),
+				},
 			}
 
 			jsonbytes, _ := json.Marshal(&entry)
 
-			key := "servicegateway.request." + strings.ToLower(req.Method)
+			key := "api.request." + strings.ToLower(req.Method)
 			msg := amqp.Publishing{
 				DeliveryMode: amqp.Persistent,
 				Timestamp: time.Now(),
@@ -141,20 +145,4 @@ func (c *AmqpLoggingBehaviour) NotifyRequest(req *http.Request, jwt string) {
 
 func (c *AmqpLoggingBehaviour) Wrap(wrapped http.Handler) (http.Handler, error) {
 	return wrapped, nil
-//	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-//		if req.Method == "POST" || req.Method == "PUT" || req.Method == "DELETE" {
-//			go func() {
-//				key := "servicegateway.request." + req.Method
-//				msg := amqp.Publishing{
-//					DeliveryMode: amqp.Persistent,
-//					Timestamp: time.Now(),
-//					ContentType: "application/json",
-//				}
-//
-//				c.channel.Publish(c.Config.Exchange, key, true, false, msg)
-//			}()
-//		}
-//
-//		wrapped.ServeHTTP(res, req)
-//	}), nil
 }
