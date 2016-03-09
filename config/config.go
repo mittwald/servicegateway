@@ -27,6 +27,7 @@ type Configuration struct {
 	Consul         ConsulConfiguration    `json:"consul"`
 	Proxy          ProxyConfiguration     `json:"proxy"`
 	Redis          RedisConfiguration     `json:"redis"`
+	Logging        []LoggingConfiguration `json:"logging"`
 }
 
 type Application struct {
@@ -105,4 +106,20 @@ type Caching struct {
 type RateLimiting struct {
 	Burst             int    `json:"burst"`
 	Window            string `json:"window"`
+}
+
+type AmqpLoggingConfiguration struct {
+	Uri string `json:"uri"`
+	Exchange string `json:"exchange"`
+	UnsafeOnly bool `json:"unsafe_only"`
+}
+
+type ApacheLoggingConfiguration struct {
+	Filename string `json:"filename"`
+}
+
+type LoggingConfiguration struct {
+	Type string `json:"type"`
+	AmqpLoggingConfiguration
+	ApacheLoggingConfiguration
 }

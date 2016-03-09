@@ -30,6 +30,7 @@ type RestAuthDecorator struct {
 	authHandler *AuthenticationHandler
 	tokenStore TokenStore
 	logger *logging.Logger
+	listeners []AuthRequestListener
 }
 
 func NewRestAuthDecorator(authHandler *AuthenticationHandler, tokenStore TokenStore, logger *logging.Logger) *RestAuthDecorator {
@@ -37,7 +38,12 @@ func NewRestAuthDecorator(authHandler *AuthenticationHandler, tokenStore TokenSt
 		authHandler: authHandler,
 		tokenStore: tokenStore,
 		logger: logger,
+		listeners: make([]AuthRequestListener, 0),
 	}
+}
+
+func (a *RestAuthDecorator) RegisterRequestListener(listener AuthRequestListener) {
+	a.listeners = append(a.listeners, listener)
 }
 
 func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *config.Application) httprouter.Handle {
@@ -67,6 +73,11 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *conf
 			res.Write([]byte("{\"msg\": \"not authenticated\"}"))
 		} else {
 			writer.WriteTokenToRequest(token, req)
+
+			for i, _ := range a.listeners {
+				a.listeners[i].OnAuthenticatedRequest(req, token)
+			}
+
 			orig(res, req, p)
 		}
 	}

@@ -41,6 +41,7 @@ import (
 	"net/http"
 	"runtime/pprof"
 	"os/signal"
+	"github.com/mittwald/servicegateway/httplogging"
 )
 
 type StartupConfig struct {
@@ -77,22 +78,22 @@ func main() {
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 
 	if startup.ProfileCpu != "" {
-        f, err := os.Create(startup.ProfileCpu)
-        if err != nil {
-            logger.Fatal(err)
-        }
-        pprof.StartCPUProfile(f)
-        defer pprof.StopCPUProfile()
+		f, err := os.Create(startup.ProfileCpu)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
-		go func(){
+		go func() {
 			for _ = range c {
 				pprof.StopCPUProfile()
 				os.Exit(0)
 			}
 		}()
-    }
+	}
 
 	logging.SetBackend(logging.NewBackendFormatter(backend, format))
 	logger.Info("Completed startup")
@@ -154,7 +155,7 @@ func main() {
 		var newLastIndex uint64 = 0
 		var err error
 
-		dispChan := make(chan dispatcher.Dispatcher)
+		dispChan := make(chan http.Handler)
 		admChan := make(chan http.Handler)
 
 		go func() {
@@ -172,7 +173,7 @@ func main() {
 		}()
 
 		for {
-			var dispatcher dispatcher.Dispatcher
+			var dispatcher http.Handler
 			var adminServer http.Handler
 
 			if lastIndex > 0 {
@@ -211,16 +212,16 @@ func main() {
 }
 
 func buildDispatcher(
-	startup *StartupConfig,
-	cfg *config.Configuration,
-	consul *api.Client,
-	handler *proxy.ProxyHandler,
-	rpool *redis.Pool,
-	logger *logging.Logger,
-	tokenStore auth.TokenStore,
-	tokenVerifier *auth.JwtVerifier,
-	lastIndex uint64,
-) (dispatcher.Dispatcher, http.Handler, uint64, error) {
+startup *StartupConfig,
+cfg *config.Configuration,
+consul *api.Client,
+handler *proxy.ProxyHandler,
+rpool *redis.Pool,
+logger *logging.Logger,
+tokenStore auth.TokenStore,
+tokenVerifier *auth.JwtVerifier,
+lastIndex uint64,
+) (http.Handler, http.Handler, uint64, error) {
 	var disp dispatcher.Dispatcher
 	var err error
 	var meta *api.QueryMeta
@@ -233,8 +234,8 @@ func buildDispatcher(
 	switch startup.DispatchingMode {
 	case "path":
 		disp, err = dispatcher.NewPathBasedDispatcher(&localCfg, dispLogger, handler)
-//	case "host":
-//		disp, err = dispatcher.NewHostBasedDispatcher(&localCfg, dispLogger, handler)
+	//	case "host":
+	//		disp, err = dispatcher.NewHostBasedDispatcher(&localCfg, dispLogger, handler)
 	default:
 		err = fmt.Errorf("unsupported dispatching mode: '%s'", startup.DispatchingMode)
 	}
@@ -258,7 +259,7 @@ func buildDispatcher(
 	for _, cfgKVPair := range configs {
 		logger.Debugf("found KV pair with key '%s'", cfgKVPair.Key)
 
-		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
+		switch strings.TrimPrefix(startup.ConsulBaseKey + "/", cfgKVPair.Key) {
 		case "rate_limiting":
 			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.RateLimiting); err != nil {
 				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
@@ -272,7 +273,7 @@ func buildDispatcher(
 				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
 			}
 
-			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase+"/")
+			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase + "/")
 			appCfgs[name] = appCfg
 		}
 	}
@@ -328,5 +329,28 @@ func buildDispatcher(
 		return nil, nil, meta.LastIndex, err
 	}
 
-	return disp, admin, meta.LastIndex, nil
+	var server http.Handler = disp
+
+	for _, loggingConfig := range localCfg.Logging {
+		loggingLogger, err := logging.GetLogger("logger-" + loggingConfig.Type)
+		if err != nil {
+			return nil, nil, meta.LastIndex, err
+		}
+
+		httpLogger, err := httplogging.LoggerFromConfig(&loggingConfig, loggingLogger, tokenVerifier)
+		if err != nil {
+			return nil, nil, meta.LastIndex, err
+		}
+
+		if listener, ok := httpLogger.(auth.AuthRequestListener); ok {
+			authDecorator.RegisterRequestListener(listener)
+		}
+
+		server, err = httpLogger.Wrap(server)
+		if err != nil {
+			return nil, nil, meta.LastIndex, err
+		}
+	}
+
+	return server, admin, meta.LastIndex, nil
 }
