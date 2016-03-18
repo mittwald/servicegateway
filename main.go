@@ -23,25 +23,26 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"os/signal"
+	"runtime/pprof"
+	"strings"
+	"time"
+
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/consul/api"
 	"github.com/mailgun/manners"
+	"github.com/mittwald/servicegateway/admin"
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/cache"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/dispatcher"
+	"github.com/mittwald/servicegateway/httplogging"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/mittwald/servicegateway/ratelimit"
 	logging "github.com/op/go-logging"
-	"io/ioutil"
-	"os"
-	"strings"
-	"time"
-	"github.com/mittwald/servicegateway/admin"
-	"net/http"
-	"runtime/pprof"
-	"os/signal"
-	"github.com/mittwald/servicegateway/httplogging"
 )
 
 type StartupConfig struct {
@@ -266,7 +267,7 @@ func buildDispatcher(
 	for _, cfgKVPair := range configs {
 		logger.Debugf("found KV pair with key '%s'", cfgKVPair.Key)
 
-		switch strings.TrimPrefix(startup.ConsulBaseKey + "/", cfgKVPair.Key) {
+		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
 		case "rate_limiting":
 			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.RateLimiting); err != nil {
 				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
@@ -280,7 +281,7 @@ func buildDispatcher(
 				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
 			}
 
-			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase + "/")
+			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase+"/")
 			appCfgs[name] = appCfg
 		}
 	}

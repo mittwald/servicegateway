@@ -20,25 +20,26 @@ package auth
  */
 
 import (
-	"github.com/mittwald/servicegateway/config"
 	"net/http"
-	"github.com/op/go-logging"
+
 	"github.com/julienschmidt/httprouter"
+	"github.com/mittwald/servicegateway/config"
+	"github.com/op/go-logging"
 )
 
 type RestAuthDecorator struct {
 	authHandler *AuthenticationHandler
-	tokenStore TokenStore
-	logger *logging.Logger
-	listeners []AuthRequestListener
+	tokenStore  TokenStore
+	logger      *logging.Logger
+	listeners   []AuthRequestListener
 }
 
 func NewRestAuthDecorator(authHandler *AuthenticationHandler, tokenStore TokenStore, logger *logging.Logger) *RestAuthDecorator {
 	return &RestAuthDecorator{
 		authHandler: authHandler,
-		tokenStore: tokenStore,
-		logger: logger,
-		listeners: make([]AuthRequestListener, 0),
+		tokenStore:  tokenStore,
+		logger:      logger,
+		listeners:   make([]AuthRequestListener, 0),
 	}
 }
 
