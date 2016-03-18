@@ -143,6 +143,11 @@ func main() {
 		logger.Panic(err)
 	}
 
+	httpLoggers, err := buildLoggers(&cfg, tokenVerifier)
+	if err != nil {
+		logger.Panic(err)
+	}
+
 	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"), &cfg)
 
 	listenAddress := fmt.Sprintf(":%d", startup.Port)
@@ -189,6 +194,7 @@ func main() {
 				logger,
 				tokenStore,
 				tokenVerifier,
+				httpLoggers,
 				lastIndex,
 			)
 
@@ -212,15 +218,16 @@ func main() {
 }
 
 func buildDispatcher(
-startup *StartupConfig,
-cfg *config.Configuration,
-consul *api.Client,
-handler *proxy.ProxyHandler,
-rpool *redis.Pool,
-logger *logging.Logger,
-tokenStore auth.TokenStore,
-tokenVerifier *auth.JwtVerifier,
-lastIndex uint64,
+	startup *StartupConfig,
+	cfg *config.Configuration,
+	consul *api.Client,
+	handler *proxy.ProxyHandler,
+	rpool *redis.Pool,
+	logger *logging.Logger,
+	tokenStore auth.TokenStore,
+	tokenVerifier *auth.JwtVerifier,
+	httpLoggers []httplogging.HttpLogger,
+	lastIndex uint64,
 ) (http.Handler, http.Handler, uint64, error) {
 	var disp dispatcher.Dispatcher
 	var err error
@@ -331,17 +338,7 @@ lastIndex uint64,
 
 	var server http.Handler = disp
 
-	for _, loggingConfig := range localCfg.Logging {
-		loggingLogger, err := logging.GetLogger("logger-" + loggingConfig.Type)
-		if err != nil {
-			return nil, nil, meta.LastIndex, err
-		}
-
-		httpLogger, err := httplogging.LoggerFromConfig(&loggingConfig, loggingLogger, tokenVerifier)
-		if err != nil {
-			return nil, nil, meta.LastIndex, err
-		}
-
+	for _, httpLogger := range httpLoggers {
 		if listener, ok := httpLogger.(auth.AuthRequestListener); ok {
 			authDecorator.RegisterRequestListener(listener)
 		}
@@ -353,4 +350,21 @@ lastIndex uint64,
 	}
 
 	return server, admin, meta.LastIndex, nil
+}
+
+func buildLoggers(cfg *config.Configuration, tok *auth.JwtVerifier) ([]httplogging.HttpLogger, error) {
+	loggers := make([]httplogging.HttpLogger, len(cfg.Logging))
+	for i, loggingConfig := range cfg.Logging {
+		loggingLogger, err := logging.GetLogger("logger-" + loggingConfig.Type)
+		if err != nil {
+			return nil, err
+		}
+
+		httpLogger, err := httplogging.LoggerFromConfig(&loggingConfig, loggingLogger, tok)
+		if err != nil {
+			return nil, err
+		}
+		loggers[i] = httpLogger
+	}
+	return loggers, nil
 }
