@@ -55,6 +55,8 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *conf
 		writer = &HeaderTokenWriter{HeaderName: appCfg.Auth.Writer.Name}
 	case "authorization":
 		writer = &AuthorizationTokenWriter{}
+	case "":
+		writer = &HeaderTokenWriter{HeaderName: "X-JWT"}
 	default:
 		writer = &HeaderTokenWriter{HeaderName: "X-JWT"}
 		a.logger.Errorf("bad token writer: %s", appCfg.Auth.Writer.Mode)
