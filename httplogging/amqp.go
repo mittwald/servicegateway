@@ -1,32 +1,34 @@
 package httplogging
+
 import (
-	"net/http"
-	"github.com/mittwald/servicegateway/config"
-	"github.com/streadway/amqp"
-	"github.com/op/go-logging"
-	"time"
-	"fmt"
-	"strings"
-	"github.com/mittwald/servicegateway/auth"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/mittwald/servicegateway/auth"
+	"github.com/mittwald/servicegateway/config"
+	"github.com/op/go-logging"
+	"github.com/streadway/amqp"
 )
 
 type AmqpLoggingBehaviour struct {
-	Config *config.LoggingConfiguration
+	Config     *config.LoggingConfiguration
 	OnlyUnsafe bool
 
-	logger *logging.Logger
+	logger     *logging.Logger
 	connection *amqp.Connection
-	channel *amqp.Channel
-	verifier *auth.JwtVerifier
+	channel    *amqp.Channel
+	verifier   *auth.JwtVerifier
 }
 
 func NewAmqpLoggingBehaviour(cfg *config.LoggingConfiguration, logger *logging.Logger, tokenVerifier *auth.JwtVerifier) (*AmqpLoggingBehaviour, error) {
 	c := &AmqpLoggingBehaviour{
-		Config: cfg,
+		Config:     cfg,
 		OnlyUnsafe: cfg.UnsafeOnly,
-		logger: logger,
-		verifier: tokenVerifier,
+		logger:     logger,
+		verifier:   tokenVerifier,
 	}
 
 	err := c.connect()
@@ -38,14 +40,18 @@ func NewAmqpLoggingBehaviour(cfg *config.LoggingConfiguration, logger *logging.L
 }
 
 func (c *AmqpLoggingBehaviour) connect() error {
+	c.logger.Infof("opening connection to AMQP server: %s", c.Config.Uri)
+
 	conn, err := amqp.Dial(c.Config.Uri)
 	if err != nil {
 		return fmt.Errorf("error while dialing RabbitMQ: %s", err)
 	}
 
+	c.logger.Infof("opened connection to AMQP server: %s", c.Config.Uri)
+
 	closed := make(chan *amqp.Error)
 	go func() {
-		err := <- closed
+		err := <-closed
 
 		c.logger.Errorf("connection to AMQP server was closed: %s", err)
 		c.logger.Noticef("reconnecting after 5 seconds")
@@ -53,7 +59,7 @@ func (c *AmqpLoggingBehaviour) connect() error {
 		timer := time.NewTimer(5 * time.Second)
 
 		go func() {
-			<- timer.C
+			<-timer.C
 
 			c.logger.Errorf("reconnecting after connection error")
 			c.connect()
@@ -79,16 +85,16 @@ func (c *AmqpLoggingBehaviour) connect() error {
 }
 
 type AuditLogAuth struct {
-	Sub string `json:"sub"`
+	Sub  string `json:"sub"`
 	Sudo string `json:"sudo,omitempty"`
-	Ip string `json:"ip"`
+	Ip   string `json:"ip"`
 }
 
 type AuditLogMessage struct {
-	Auth AuditLogAuth `json:"auth"`
-	Action string `json:"action"`
-	Timestamp time.Time `json:"timestamp"`
-	Data map[string]string `json:"data"`
+	Auth      AuditLogAuth      `json:"auth"`
+	Action    string            `json:"action"`
+	Timestamp time.Time         `json:"timestamp"`
+	Data      map[string]string `json:"data"`
 }
 
 func (c *AmqpLoggingBehaviour) match(req *http.Request) bool {
@@ -117,13 +123,13 @@ func (c *AmqpLoggingBehaviour) OnAuthenticatedRequest(req *http.Request, jwt str
 
 			entry := AuditLogMessage{
 				Auth: AuditLogAuth{
-					Sub: sub,
+					Sub:  sub,
 					Sudo: sudo,
-					Ip: req.RemoteAddr,
+					Ip:   req.RemoteAddr,
 				},
-				Action: "api.request." + strings.ToLower(req.Method),
+				Action:    "api.request." + strings.ToLower(req.Method),
 				Timestamp: time.Now(),
-				Data: map[string]string {
+				Data: map[string]string{
 					"url": req.URL.String(),
 				},
 			}
@@ -133,9 +139,9 @@ func (c *AmqpLoggingBehaviour) OnAuthenticatedRequest(req *http.Request, jwt str
 			key := "api.request." + strings.ToLower(req.Method)
 			msg := amqp.Publishing{
 				DeliveryMode: amqp.Persistent,
-				Timestamp: time.Now(),
-				ContentType: "application/json",
-				Body: jsonbytes,
+				Timestamp:    time.Now(),
+				ContentType:  "application/json",
+				Body:         jsonbytes,
 			}
 
 			c.channel.Publish(c.Config.Exchange, key, true, false, msg)

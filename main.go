@@ -23,25 +23,26 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"os/signal"
+	"runtime/pprof"
+	"strings"
+	"time"
+
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/consul/api"
 	"github.com/mailgun/manners"
+	"github.com/mittwald/servicegateway/admin"
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/cache"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/dispatcher"
+	"github.com/mittwald/servicegateway/httplogging"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/mittwald/servicegateway/ratelimit"
 	logging "github.com/op/go-logging"
-	"io/ioutil"
-	"os"
-	"strings"
-	"time"
-	"github.com/mittwald/servicegateway/admin"
-	"net/http"
-	"runtime/pprof"
-	"os/signal"
-	"github.com/mittwald/servicegateway/httplogging"
 )
 
 type StartupConfig struct {
@@ -143,6 +144,11 @@ func main() {
 		logger.Panic(err)
 	}
 
+	httpLoggers, err := buildLoggers(&cfg, tokenVerifier)
+	if err != nil {
+		logger.Panic(err)
+	}
+
 	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"), &cfg)
 
 	listenAddress := fmt.Sprintf(":%d", startup.Port)
@@ -189,6 +195,7 @@ func main() {
 				logger,
 				tokenStore,
 				tokenVerifier,
+				httpLoggers,
 				lastIndex,
 			)
 
@@ -212,15 +219,16 @@ func main() {
 }
 
 func buildDispatcher(
-startup *StartupConfig,
-cfg *config.Configuration,
-consul *api.Client,
-handler *proxy.ProxyHandler,
-rpool *redis.Pool,
-logger *logging.Logger,
-tokenStore auth.TokenStore,
-tokenVerifier *auth.JwtVerifier,
-lastIndex uint64,
+	startup *StartupConfig,
+	cfg *config.Configuration,
+	consul *api.Client,
+	handler *proxy.ProxyHandler,
+	rpool *redis.Pool,
+	logger *logging.Logger,
+	tokenStore auth.TokenStore,
+	tokenVerifier *auth.JwtVerifier,
+	httpLoggers []httplogging.HttpLogger,
+	lastIndex uint64,
 ) (http.Handler, http.Handler, uint64, error) {
 	var disp dispatcher.Dispatcher
 	var err error
@@ -259,7 +267,7 @@ lastIndex uint64,
 	for _, cfgKVPair := range configs {
 		logger.Debugf("found KV pair with key '%s'", cfgKVPair.Key)
 
-		switch strings.TrimPrefix(startup.ConsulBaseKey + "/", cfgKVPair.Key) {
+		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
 		case "rate_limiting":
 			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.RateLimiting); err != nil {
 				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
@@ -273,7 +281,7 @@ lastIndex uint64,
 				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
 			}
 
-			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase + "/")
+			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase+"/")
 			appCfgs[name] = appCfg
 		}
 	}
@@ -331,17 +339,7 @@ lastIndex uint64,
 
 	var server http.Handler = disp
 
-	for _, loggingConfig := range localCfg.Logging {
-		loggingLogger, err := logging.GetLogger("logger-" + loggingConfig.Type)
-		if err != nil {
-			return nil, nil, meta.LastIndex, err
-		}
-
-		httpLogger, err := httplogging.LoggerFromConfig(&loggingConfig, loggingLogger, tokenVerifier)
-		if err != nil {
-			return nil, nil, meta.LastIndex, err
-		}
-
+	for _, httpLogger := range httpLoggers {
 		if listener, ok := httpLogger.(auth.AuthRequestListener); ok {
 			authDecorator.RegisterRequestListener(listener)
 		}
@@ -353,4 +351,21 @@ lastIndex uint64,
 	}
 
 	return server, admin, meta.LastIndex, nil
+}
+
+func buildLoggers(cfg *config.Configuration, tok *auth.JwtVerifier) ([]httplogging.HttpLogger, error) {
+	loggers := make([]httplogging.HttpLogger, len(cfg.Logging))
+	for i, loggingConfig := range cfg.Logging {
+		loggingLogger, err := logging.GetLogger("logger-" + loggingConfig.Type)
+		if err != nil {
+			return nil, err
+		}
+
+		httpLogger, err := httplogging.LoggerFromConfig(&loggingConfig, loggingLogger, tok)
+		if err != nil {
+			return nil, err
+		}
+		loggers[i] = httpLogger
+	}
+	return loggers, nil
 }
