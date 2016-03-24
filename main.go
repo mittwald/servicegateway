@@ -31,9 +31,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/braintree/manners"
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/consul/api"
-	"github.com/mailgun/manners"
 	"github.com/mittwald/servicegateway/admin"
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/cache"
@@ -161,32 +161,34 @@ func main() {
 		var newLastIndex uint64 = 0
 		var err error
 
-		dispChan := make(chan http.Handler)
-		admChan := make(chan http.Handler)
+		proxyServerChan := make(chan *manners.GracefulServer)
+		adminServerChan := make(chan *manners.GracefulServer)
 
 		go func() {
-			for disp := range dispChan {
+			for server := range proxyServerChan {
 				logger.Infof("starting dispatcher on address %s", listenAddress)
-				manners.ListenAndServe(listenAddress, disp)
+				server.ListenAndServe()
 			}
 		}()
 
 		go func() {
-			for handler := range admChan {
+			for server := range adminServerChan {
 				logger.Infof("starting admin server on address %s", adminListenAddress)
-				manners.ListenAndServe(adminListenAddress, handler)
+				server.ListenAndServe()
 			}
 		}()
+
+		var proxyServer, adminServer *manners.GracefulServer
 
 		for {
 			var dispatcher http.Handler
-			var adminServer http.Handler
+			var adminHandler http.Handler
 
 			if lastIndex > 0 {
 				time.Sleep(30 * time.Second)
 			}
 
-			dispatcher, adminServer, newLastIndex, err = buildDispatcher(
+			dispatcher, adminHandler, newLastIndex, err = buildDispatcher(
 				&startup,
 				&cfg,
 				consulClient,
@@ -207,9 +209,23 @@ func main() {
 			} else {
 				lastIndex = newLastIndex
 
-				manners.Close()
-				dispChan <- dispatcher
-				admChan <- adminServer
+				if proxyServer != nil {
+					logger.Debug("Closing proxy server")
+					proxyServer.Close()
+				}
+
+				if adminServer != nil {
+					logger.Debug("Closing admin server")
+					adminServer.Close()
+				}
+
+				proxyServer = manners.NewWithServer(&http.Server{Addr: listenAddress, Handler: dispatcher})
+				adminServer = manners.NewWithServer(&http.Server{Addr: adminListenAddress, Handler: adminHandler})
+
+				logger.Debug("Starting new servers")
+
+				proxyServerChan <- proxyServer
+				adminServerChan <- adminServer
 			}
 		}
 	}()
