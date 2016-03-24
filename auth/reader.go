@@ -1,9 +1,10 @@
 package auth
+
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
-	"fmt"
-	"errors"
 )
 
 var NoTokenError error = errors.New("No authentication token found in request")
@@ -42,6 +43,11 @@ func (b *BearerTokenReader) tokenStringFromRequest(req *http.Request) (string, e
 		}
 
 		return elements[1], nil
+	}
+
+	cookie, err := req.Cookie("ACCESSTOKEN")
+	if err == nil {
+		return cookie.Value, nil
 	}
 
 	jwtHeader := req.Header.Get("X-JWT")
