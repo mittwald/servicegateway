@@ -90,23 +90,34 @@ func (p *PathClosure) Handle(rw http.ResponseWriter, req *http.Request, params h
 }
 
 func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner httprouter.Handle) httprouter.Handle {
-	allow := ""
-	cached := false
-	recorder := httptest.NewRecorder()
-
 	return func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		if !cached {
-			inner(recorder, req, params)
+		recorder := httptest.NewRecorder()
 
-			allow = recorder.Header().Get("Allow")
-			if allow == "" {
-				allow = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+		inner(recorder, req, params)
+
+		allow := recorder.Header().Get("Allow")
+		if allow == "" {
+			allow = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+		}
+
+		if d.cfg.Proxy.OptionsConfiguration.CORS {
+			recorder.Header().Set("Access-Control-Allow-Methods", allow)
+
+			if recorder.Header().Get("Access-Control-Allow-Origin") == "" {
+				recorder.Header().Set("Access-Control-Allow-Origin", "*")
 			}
 
-			rw.Header().Set("X-Cache", "MISS")
-			cached = true
-		} else {
-			rw.Header().Set("X-Cache", "HIT")
+			if recorder.Header().Get("Access-Control-Allow-Credentials") == "" {
+				recorder.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
+
+			if recorder.Header().Get("Access-Control-Allow-Headers") == "" {
+				recorder.Header().Set("Access-Control-Allow-Headers", "X-Requested-With, Authorization")
+			}
+
+			if recorder.Header().Get("Access-Control-Max-Age") == "" {
+				recorder.Header().Set("Access-Control-Max-Age", "86400")
+			}
 		}
 
 		for key, values := range recorder.Header() {
@@ -116,13 +127,7 @@ func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner
 		}
 
 		rw.Header().Set("Allow", allow)
-
-		if d.cfg.Proxy.OptionsConfiguration.CORS {
-			rw.Header().Set("Access-Control-Allow-Origin", "*")
-			rw.Header().Set("Access-Control-Allow-Credentials", "true")
-			rw.Header().Set("Access-Control-Allow-Methods", allow)
-			rw.Header().Set("Access-Control-Allow-Headers", "X-Requested-With")
-		}
+		rw.WriteHeader(recorder.Code)
 	}
 }
 
