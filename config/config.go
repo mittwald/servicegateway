@@ -70,8 +70,9 @@ func (c ConsulConfiguration) Address() string {
 
 type ProxyConfiguration struct {
 	StripResponseHeaders map[string]bool `json:"strip_res_headers"`
-	SetResponseHeaders map[string]string `json:"set_res_headers"`
-	SetRequestHeaders map[string]string `json:"set_req_headers"`
+	SetResponseHeaders   map[string]string `json:"set_res_headers"`
+	SetRequestHeaders    map[string]string `json:"set_req_headers"`
+	OptionsConfiguration OptionsConfiguration `json:"options"`
 }
 
 type Caching struct {
@@ -83,4 +84,9 @@ type Caching struct {
 type RateLimiting struct {
 	Burst             int    `json:"burst"`
 	Window            string `json:"window"`
+}
+
+type OptionsConfiguration struct {
+	Enabled	bool `json:"enabled"`
+	CORS	bool `json:"cors"`
 }

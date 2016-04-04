@@ -40,6 +40,10 @@
     },
     "set_res_headers": {
       "Server": "Mittwald-API-Gateway/1.0"
+    },
+    "options": {
+      "enabled": true,
+      "cors": true
     }
   },
   "authentication": {
