@@ -28,6 +28,7 @@ import (
 	"regexp"
 	"strings"
 	"github.com/julienschmidt/httprouter"
+	"net/http/httptest"
 )
 
 type pathBasedDispatcher struct {
@@ -86,6 +87,43 @@ func (p *PathClosure) Handle(rw http.ResponseWriter, req *http.Request, params h
 	proxyUrl := p.backendUrl + sanitizedPath
 
 	p.proxy.HandleProxyRequest(rw, req, proxyUrl, p.appName, p.appCfg)
+}
+
+func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner httprouter.Handle) httprouter.Handle {
+	allow := ""
+	cached := false
+	recorder := httptest.NewRecorder()
+
+	return func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		if !cached {
+			inner(recorder, req, params)
+
+			allow = recorder.Header().Get("Allow")
+			if allow == "" {
+				allow = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+			}
+
+			rw.Header().Set("X-Cache", "MISS")
+			cached = true
+		} else {
+			rw.Header().Set("X-Cache", "HIT")
+		}
+
+		for key, values := range recorder.Header() {
+			for _, value := range values {
+				rw.Header().Add(key, value)
+			}
+		}
+
+		rw.Header().Set("Allow", allow)
+
+		if d.cfg.Proxy.OptionsConfiguration.CORS {
+			rw.Header().Set("Access-Control-Allow-Origin", "*")
+			rw.Header().Set("Access-Control-Allow-Credentials", "true")
+			rw.Header().Set("Access-Control-Allow-Methods", allow)
+			rw.Header().Set("Access-Control-Allow-Headers", "X-Requested-With")
+		}
+	}
 }
 
 func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.Application) error {
@@ -166,10 +204,17 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 
 		d.mux.GET(route, safeHandler)
 		d.mux.HEAD(route, safeHandler)
-		d.mux.OPTIONS(route, safeHandler)
 		d.mux.POST(route, unsafeHandler)
 		d.mux.PUT(route, unsafeHandler)
 		d.mux.DELETE(route, unsafeHandler)
+
+		// Register a dedicated OPTIONS handler if it was enabled.
+		// If no OPTIONS handler was enabled, simply proxy OPTIONS request through to the backend servers.
+		if d.cfg.Proxy.OptionsConfiguration.Enabled {
+			d.mux.OPTIONS(route, d.buildOptionsHandler(&appCfg, safeHandler))
+		} else {
+			d.mux.OPTIONS(route, safeHandler)
+		}
 	}
 
 	return nil
