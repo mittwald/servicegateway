@@ -105,12 +105,14 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 				rw.Write([]byte(`{"msg":"internal server error"}`))
 			}
 
-			b, err = j.Rewrite(b, &publicUrl)
-			if err != nil {
-				j.Logger.Errorf("error while rewriting response body: %s", err)
-				rw.WriteHeader(500)
-				rw.Write([]byte(`{"msg":"internal server error"}`))
-				return
+			if req.Method != "HEAD" {
+				b, err = j.Rewrite(b, &publicUrl)
+				if err != nil {
+					j.Logger.Errorf("error while rewriting response body: %s", err)
+					rw.WriteHeader(500)
+					rw.Write([]byte(`{"msg":"internal server error"}`))
+					return
+				}
 			}
 
 			j.copyAndRewriteHeaders(recorder, rw, &publicUrl)
