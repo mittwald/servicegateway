@@ -58,19 +58,6 @@ type RedisConfiguration struct {
 	Database int `json:"database"`
 }
 
-type ApplicationAuth struct {
-	Disable bool              `json:"disable"`
-	Writer  AuthWriterConfig  `json:"writer"`
-}
-
-type GlobalAuth struct {
-	Mode               string              `json:"mode"`
-	ProviderConfig     ProviderAuthConfig  `json:"provider"`
-	VerificationKey    []byte              `json:"verification_key"`
-	VerificationKeyUrl string              `json:"verification_key_url"`
-	KeyCacheTtl        string              `json:"key_cache_ttl"`
-}
-
 type ConsulConfiguration struct {
 	Host       string `json:"host"`
 	Port       int    `json:"port"`
@@ -87,16 +74,6 @@ type ProxyConfiguration struct {
 	SetRequestHeaders map[string]string `json:"set_req_headers"`
 }
 
-type AuthWriterConfig struct {
-	Mode string `json:"mode"`
-	Name string `json:"name"`
-}
-
-type ProviderAuthConfig struct {
-	Url        string                 `json:"url"`
-	Parameters map[string]interface{} `json:"parameters"`
-}
-
 type Caching struct {
 	Enabled   bool `json:"enabled"`
 	Ttl       int  `json:"ttl"`
@@ -106,20 +83,4 @@ type Caching struct {
 type RateLimiting struct {
 	Burst             int    `json:"burst"`
 	Window            string `json:"window"`
-}
-
-type AmqpLoggingConfiguration struct {
-	Uri string `json:"uri"`
-	Exchange string `json:"exchange"`
-	UnsafeOnly bool `json:"unsafe_only"`
-}
-
-type ApacheLoggingConfiguration struct {
-	Filename string `json:"filename"`
-}
-
-type LoggingConfiguration struct {
-	Type string `json:"type"`
-	AmqpLoggingConfiguration
-	ApacheLoggingConfiguration
 }
