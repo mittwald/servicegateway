@@ -31,17 +31,15 @@
     "address": "redis:6379",
     "database": 0
   },
-  "http": {
-    "set_headers": {
-      "Server": "Mittwald-API-Gateway/1.0"
-    }
-  },
   "proxy": {
     "strip_res_headers": {
       "Set-Cookie": true
     },
     "set_req_headers": {
       "X-Mittwald-Sandbox": "1"
+    },
+    "set_res_headers": {
+      "Server": "Mittwald-API-Gateway/1.0"
     }
   },
   "authentication": {
