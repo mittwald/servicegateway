@@ -103,8 +103,9 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 	var rewriter proxy.HostRewriter
 
 	if appCfg.Routing.Type == "path" {
+		path := strings.TrimRight(appCfg.Routing.Path, "/")
 		mapping := map[string]string{
-			"/(?P<path>.*)": appCfg.Routing.Path + "/:path",
+			"/(?P<path>.*)": path + "/:path",
 		}
 
 		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, d.log)
@@ -115,8 +116,8 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 		closure.appCfg = &appCfg
 		closure.proxy = d.prx
 
-		routes[appCfg.Routing.Path] = closure.Handle
-		routes[appCfg.Routing.Path+"/*path"] = closure.Handle
+		routes[path] = closure.Handle
+		routes[path+"/*path"] = closure.Handle
 	} else if appCfg.Routing.Type == "pattern" {
 		re := regexp.MustCompile(":([a-zA-Z0-9]+)")
 		mapping := make(map[string]string)
