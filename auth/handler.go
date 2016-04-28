@@ -134,6 +134,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 				h.expLock.Lock()
 				h.expCache[token] = 0
 				h.expLock.Unlock()
+				return true, token, nil
 			}
 
 			expNum, ok := exp.(float64)
