@@ -3,6 +3,6 @@ go:
   - 1.6
 
 script:
-  - go vet ./...
-  - go test ./...
+  - go vet $(go list ./... | grep -v vendor)
+  - go test $(go list ./... | grep -v vendor)
   - go build
