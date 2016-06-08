@@ -54,6 +54,7 @@
     },
     "provider": {
       "url": "http://identity.service.consul",
+      "allow_authentication": true,
       "parameter_format": "json",
       "parameters": {
         "ttl": 86400,
