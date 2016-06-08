@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 func writeError(res http.ResponseWriter, msg string) {
@@ -78,7 +79,7 @@ func NewAdminServer(
 
 		tokenString := bone.GetValue(req, "token")
 
-		err = tokenStore.SetToken(tokenString, jwt)
+		exp, err := tokenStore.SetToken(tokenString, jwt)
 		if err != nil {
 			logger.Errorf("error while storing token: %s", err)
 			res.WriteHeader(500)
@@ -87,7 +88,12 @@ func NewAdminServer(
 		}
 
 		res.WriteHeader(200)
-		res.Write([]byte(fmt.Sprintf(`{"token":"%s"}`, tokenString)))
+
+		if exp != 0 {
+			res.Write([]byte(fmt.Sprintf(`{"token":"%s","expires":"%s"}`, tokenString, time.Unix(exp, 0).Format(time.RFC3339))))
+		} else {
+			res.Write([]byte(fmt.Sprintf(`{"token":"%s"}`, tokenString)))
+		}
 		return
 	}))
 
@@ -116,7 +122,7 @@ func NewAdminServer(
 			return
 		}
 
-		tokenString, err := tokenStore.AddToken(jwt)
+		tokenString, exp, err := tokenStore.AddToken(jwt)
 		if err != nil {
 			logger.Errorf("error while storing token: %s", err)
 			res.WriteHeader(500)
@@ -125,7 +131,11 @@ func NewAdminServer(
 		}
 
 		res.WriteHeader(200)
-		res.Write([]byte(fmt.Sprintf(`{"token":"%s"}`, tokenString)))
+		if exp != 0 {
+			res.Write([]byte(fmt.Sprintf(`{"token":"%s","expires":"%s"}`, tokenString, time.Unix(exp, 0).Format(time.RFC3339))))
+		} else {
+			res.Write([]byte(fmt.Sprintf(`{"token":"%s"}`, tokenString)))
+		}
 		return
 	}))
 

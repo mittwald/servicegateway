@@ -14,8 +14,8 @@ type MappedToken struct {
 }
 
 type TokenStore interface {
-	AddToken(string) (string, error)
-	SetToken(string, string) error
+	AddToken(string) (string, int64, error)
+	SetToken(string, string) (int64, error)
 	GetToken(string) (string, error)
 	GetAllTokens() (<-chan MappedToken, error)
 }
@@ -23,6 +23,11 @@ type TokenStore interface {
 type CacheDecorator struct {
 	wrapped    TokenStore
 	localCache *lru.Cache
+}
+
+type CacheRecord struct {
+	token string
+	exp   int64
 }
 
 type RedisTokenStore struct {
@@ -55,23 +60,23 @@ func NewTokenStore(redisPool *redis.Pool, verifier *JwtVerifier, options TokenSt
 	}, nil
 }
 
-func (s *RedisTokenStore) SetToken(token string, jwt string) (error) {
+func (s *RedisTokenStore) SetToken(token string, jwt string) (int64, error) {
 	var expirationTstamp int64
 
 	valid, claims, err := s.verifier.VerifyToken(jwt)
 	if !valid {
-		return fmt.Errorf("JWT is invalid")
+		return 0, fmt.Errorf("JWT is invalid")
 	}
 
 	if err != nil {
-		return fmt.Errorf("bad JWT: %s", err)
+		return 0, fmt.Errorf("bad JWT: %s", err)
 	}
 
 	exp, ok := claims["exp"]
 	if ok {
 		expAsFloat, ok := exp.(float64)
 		if !ok {
-			return fmt.Errorf("token contained non-number exp time")
+			return 0, fmt.Errorf("token contained non-number exp time")
 		}
 
 		expirationTstamp = int64(expAsFloat)
@@ -84,35 +89,35 @@ func (s *RedisTokenStore) SetToken(token string, jwt string) (error) {
 
 	_, err = conn.Do("HMSET", key, "jwt", jwt, "token", token)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if expirationTstamp > 0 {
 		_, err = conn.Do("EXPIREAT", key, expirationTstamp)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	}
 
-	return nil
+	return expirationTstamp, nil
 }
 
-func (s *RedisTokenStore) AddToken(jwt string) (string, error) {
+func (s *RedisTokenStore) AddToken(jwt string) (string, int64, error) {
 	randomBytes := make([]byte, 32)
 
 	_, err := rand.Read(randomBytes)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	tokenStr := base32.StdEncoding.EncodeToString(randomBytes)
 
-	err = s.SetToken(tokenStr, jwt)
+	exp, err := s.SetToken(tokenStr, jwt)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
-	return tokenStr, nil
+	return tokenStr, exp, nil
 }
 
 func (s *RedisTokenStore) GetToken(token string) (string, error) {
@@ -160,24 +165,24 @@ func (s *RedisTokenStore) GetAllTokens() (<-chan MappedToken, error) {
 	return c, nil
 }
 
-func (s *CacheDecorator) SetToken(token, jwt string) error {
-	err := s.wrapped.SetToken(token, jwt)
+func (s *CacheDecorator) SetToken(token, jwt string) (int64, error) {
+	exp, err := s.wrapped.SetToken(token, jwt)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	s.localCache.Add(token, jwt)
-	return nil
+	s.localCache.Add(token, &CacheRecord{token: jwt, exp: exp})
+	return exp, nil
 }
 
-func (s *CacheDecorator) AddToken(jwt string) (string, error) {
-	token, err := s.wrapped.AddToken(jwt)
+func (s *CacheDecorator) AddToken(jwt string) (string, int64, error) {
+	token, exp, err := s.wrapped.AddToken(jwt)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
-	s.localCache.Add(token, jwt)
-	return token, nil
+	s.localCache.Add(token, &CacheRecord{token: jwt, exp: exp})
+	return token, exp, nil
 }
 
 func (s *CacheDecorator) GetToken(token string) (string, error) {
@@ -186,6 +191,8 @@ func (s *CacheDecorator) GetToken(token string) (string, error) {
 		switch t := jwt.(type) {
 		case string:
 			return t, nil
+		case *CacheRecord:
+			return t.token, nil
 		default:
 			return "", fmt.Errorf("invalid data type for token %s", token)
 		}

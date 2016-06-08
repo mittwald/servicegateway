@@ -6,8 +6,9 @@ type AuthWriterConfig struct {
 }
 
 type ProviderAuthConfig struct {
-	Url        string                 `json:"url"`
-	Parameters map[string]interface{} `json:"parameters"`
+	Url                 string                 `json:"url"`
+	Parameters          map[string]interface{} `json:"parameters"`
+	AllowAuthentication bool `json:"allow_authentication"`
 }
 
 type ApplicationAuth struct {
