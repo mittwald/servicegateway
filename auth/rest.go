@@ -25,6 +25,9 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
+	"io/ioutil"
+	"encoding/json"
+	"time"
 )
 
 type RestAuthDecorator struct {
@@ -32,6 +35,16 @@ type RestAuthDecorator struct {
 	tokenStore  TokenStore
 	logger      *logging.Logger
 	listeners   []AuthRequestListener
+}
+
+type ExternalAuthenticationRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type ExternalAuthenticationResponse struct {
+	Token string `json:"token"`
+	Expires string `json:"expires,omitempty"`
 }
 
 func NewRestAuthDecorator(authHandler *AuthenticationHandler, tokenStore TokenStore, logger *logging.Logger) *RestAuthDecorator {
@@ -91,5 +104,61 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *conf
 }
 
 func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
+	if !a.authHandler.config.ProviderConfig.AllowAuthentication {
+		return nil
+	}
+
+	handleError := func(err error, rw http.ResponseWriter) {
+		a.logger.Errorf("error while handling authentication request: %s", err)
+		rw.Header().Set("Content-Type", "application/json;charset=utf8")
+		rw.WriteHeader(500)
+		rw.Write([]byte(`{"msg":"internal server error"}`))
+	}
+
+	mux.POST("/authenticate", func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		var authRequest ExternalAuthenticationRequest
+
+		requestBody, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			handleError(err, rw)
+			return
+		}
+
+		if err := json.Unmarshal(requestBody, &authRequest); err != nil {
+			handleError(err, rw)
+			return
+		}
+
+		jwt, err := a.authHandler.Authenticate(authRequest.Username, authRequest.Password)
+		if err == InvalidCredentialsError {
+			rw.Header().Set("Content-Type", "application/json;charset=utf8")
+			rw.WriteHeader(403)
+			rw.Write([]byte(`{"msg":"invalid credentials"}`))
+			return
+		} else if err != nil {
+			handleError(err, rw)
+			return
+		}
+
+		token, exp, err := a.tokenStore.AddToken(jwt)
+		if err != nil {
+			handleError(err, rw)
+			return
+		}
+
+		response := ExternalAuthenticationResponse{
+			Token: token,
+			Expires: time.Unix(exp, 0).Format(time.RFC3339),
+		}
+		jsonResponse, err := json.Marshal(&response)
+		if err != nil {
+			handleError(err, rw)
+			return
+		}
+
+		rw.Header().Set("Content-Type", "application/json;charset=utf8")
+		rw.Write(jsonResponse)
+	})
+
 	return nil
 }
