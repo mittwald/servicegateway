@@ -1,7 +1,8 @@
 GOFILES=$(wildcard **/*.go)
+GOVERSION=1.6
 
 servicegateway: ${GOFILES}
-	go build -tags netgo
+	docker run --rm -v $(PWD):/go/src/github.com/mittwald/servicegateway -w /go/src/github.com/mittwald/servicegateway golang:$(GOVERSION) go build -tags netgo
 
 build-static:
 	$(MAKE) -C static

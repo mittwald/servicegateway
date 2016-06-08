@@ -1,0 +1,68 @@
+{
+	"ImportPath": "github.com/mittwald/servicegateway",
+	"GoVersion": "go1.6",
+	"GodepVersion": "v60",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/bluele/gcache",
+			"Rev": "1e0f672176a0d8f3709552241eb6516c6a503ed3"
+		},
+		{
+			"ImportPath": "github.com/braintree/manners",
+			"Comment": "0.4.0-13-g213a497",
+			"Rev": "213a497c0285defc24f640dbdb8a30f7d7080310"
+		},
+		{
+			"ImportPath": "github.com/dgrijalva/jwt-go",
+			"Comment": "v2.4.0-11-gf219341",
+			"Rev": "f2193411bd642f7db03249fd79d5292c9b34916a"
+		},
+		{
+			"ImportPath": "github.com/garyburd/redigo/internal",
+			"Rev": "836b6e58b3358112c8291565d01c35b8764070d7"
+		},
+		{
+			"ImportPath": "github.com/garyburd/redigo/redis",
+			"Rev": "836b6e58b3358112c8291565d01c35b8764070d7"
+		},
+		{
+			"ImportPath": "github.com/go-zoo/bone",
+			"Comment": "v1.1-14-g6671f8b",
+			"Rev": "6671f8b59444aa7b605234ec7a1b331cecee5326"
+		},
+		{
+			"ImportPath": "github.com/gorilla/handlers",
+			"Rev": "ee54c7b44cab12289237fb8631314790076e728b"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/consul/api",
+			"Comment": "v0.5.2-313-gde08067",
+			"Rev": "de080672fee9e6104572eeea89eccdca135bb918"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/golang-lru",
+			"Rev": "a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/golang-lru/simplelru",
+			"Rev": "a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4"
+		},
+		{
+			"ImportPath": "github.com/julienschmidt/httprouter",
+			"Comment": "v1.1-28-g153d9c9",
+			"Rev": "153d9c9fa8b6a5995c6a300cca099e1f3408733f"
+		},
+		{
+			"ImportPath": "github.com/op/go-logging",
+			"Comment": "v1-5-gd2e44aa",
+			"Rev": "d2e44aa77b7195c0ef782189985dd8550e22e4de"
+		},
+		{
+			"ImportPath": "github.com/streadway/amqp",
+			"Rev": "b4f3ceab0337f013208d31348b578d83c0064744"
+		}
+	]
+}
