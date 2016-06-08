@@ -55,6 +55,7 @@
     "provider": {
       "url": "http://identity.service.consul",
       "allow_authentication": true,
+      "authentication_uri": "/v1/authenticate",
       "parameter_format": "json",
       "parameters": {
         "ttl": 86400,
