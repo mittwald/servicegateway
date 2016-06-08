@@ -108,6 +108,11 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		return nil
 	}
 
+	uri := a.authHandler.config.ProviderConfig.AuthenticationUri
+	if uri == "" {
+		uri = "/authenciate"
+	}
+
 	handleError := func(err error, rw http.ResponseWriter) {
 		a.logger.Errorf("error while handling authentication request: %s", err)
 		rw.Header().Set("Content-Type", "application/json;charset=utf8")
@@ -115,7 +120,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		rw.Write([]byte(`{"msg":"internal server error"}`))
 	}
 
-	mux.POST("/authenticate", func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
+	mux.POST(uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		var authRequest ExternalAuthenticationRequest
 
 		requestBody, err := ioutil.ReadAll(req.Body)
