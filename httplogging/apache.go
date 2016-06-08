@@ -10,7 +10,7 @@ type ApacheLoggingBehaviour struct {
 }
 
 func (c *ApacheLoggingBehaviour) Wrap(wrapped http.Handler) (http.Handler, error) {
-	writer, err := os.OpenFile(c.Filename, os.O_CREATE|os.O_WRONLY, 0644)
+	writer, err := os.OpenFile(c.Filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return nil, err
 	}
