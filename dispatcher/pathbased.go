@@ -184,15 +184,6 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, d.log)
 	}
 
-	for _, behaviour := range d.behaviours {
-		switch t := behaviour.(type) {
-		case RoutingBehaviour:
-			if err := t.AddRoutes(d.mux); err != nil {
-				return err
-			}
-		}
-	}
-
 	for route, handler := range routes {
 		handler = rewriter.Decorate(handler)
 
@@ -226,5 +217,14 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 }
 
 func (d *pathBasedDispatcher) Initialize() error {
+	for _, behaviour := range d.behaviours {
+		switch t := behaviour.(type) {
+		case RoutingBehaviour:
+			if err := t.AddRoutes(d.mux); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
