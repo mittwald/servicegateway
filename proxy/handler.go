@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"net"
 )
 
 var redirectRequest error = errors.New("redirect")
@@ -81,13 +82,21 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	proxyReq.Header.Set("Host", req.Host)
-	proxyReq.Header.Set("X-Forwarded-For", req.RemoteAddr)
-
 	for header, values := range req.Header {
 		for _, value := range values {
 			proxyReq.Header.Add(header, value)
 		}
+	}
+
+	proxyReq.Header.Set("Host", req.Host)
+
+	forwardedFor := req.Header.Get("X-Forwarded-For")
+	ip, _, _ := net.SplitHostPort(req.RemoteAddr)
+
+	if forwardedFor != "" {
+		proxyReq.Header.Set("X-Forwarded-For", forwardedFor + ", " + ip)
+	} else {
+		proxyReq.Header.Set("X-Forwarded-For", ip)
 	}
 
 	for header, value := range p.Config.Proxy.SetRequestHeaders {
