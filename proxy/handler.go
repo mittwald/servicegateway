@@ -82,7 +82,13 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	}
 
 	proxyReq.Header.Set("Host", req.Host)
-	proxyReq.Header.Set("X-Forwarded-For", req.RemoteAddr)
+
+	forwardedFor := req.Header.Get("X-Forwarded-For")
+	if forwardedFor != "" {
+		proxyReq.Header.Set("X-Forwarded-For", forwardedFor + ", " + req.RemoteAddr)
+	} else {
+		proxyReq.Header.Set("X-Forwarded-For", req.RemoteAddr)
+	}
 
 	for header, values := range req.Header {
 		for _, value := range values {
