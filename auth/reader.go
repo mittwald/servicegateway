@@ -42,7 +42,9 @@ func (b *BearerTokenReader) tokenStringFromRequest(req *http.Request) (string, e
 			return "", fmt.Errorf("'%s' authorization is not supported", elements[0])
 		}
 
-		return elements[1], nil
+		if len(elements) == 2 {
+			return elements[1], nil
+		}
 	}
 
 	cookie, err := req.Cookie("ACCESSTOKEN")
