@@ -40,6 +40,7 @@ import (
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/dispatcher"
 	"github.com/mittwald/servicegateway/httplogging"
+	"github.com/mittwald/servicegateway/monitoring"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/mittwald/servicegateway/ratelimit"
 	logging "github.com/op/go-logging"
@@ -124,6 +125,21 @@ func main() {
 	consulClient, err := api.NewClient(consulConfig)
 	if err != nil {
 		logger.Panic(err)
+	}
+
+	monitoringController, err := monitoring.NewMonitoringController(
+		startup.MonitorAddress,
+		startup.MonitorPort,
+		consulClient,
+		logging.MustGetLogger("monitoring"),
+	)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	err = monitoringController.Start()
+	if err != nil {
+		logger.Fatal(err)
 	}
 
 	redisPool := &redis.Pool{
