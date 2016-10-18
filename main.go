@@ -142,6 +142,11 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	metrics := monitoringController.Metrics()
+	if err != nil {
+		logger.Fatal(err)
+	}
+
 	redisPool := &redis.Pool{
 		MaxIdle: 8,
 		Dial: func() (redis.Conn, error) {
@@ -169,12 +174,33 @@ func main() {
 		logger.Panic(err)
 	}
 
-	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"), &cfg)
+	handler := proxy.NewProxyHandler(logging.MustGetLogger("proxy"), &cfg, metrics)
 
 	listenAddress := fmt.Sprintf(":%d", startup.Port)
 	adminListenAddress := fmt.Sprintf("%s:%d", startup.AdminAddress, startup.AdminPort)
 
 	done := make(chan bool)
+	serverShutdown := make(chan bool)
+	serverShutdownComplete := make(chan bool)
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for _ = range c {
+			logger.Notice("received interrupt signal")
+			monitoringController.Shutdown <- true
+			serverShutdown <- true
+		}
+	}()
+
+	go func() {
+		<-monitoringController.ShutdownComplete
+		<-serverShutdownComplete
+
+		logger.Notice("everything has shut down. exiting process.")
+
+		done<- true
+	}()
 
 	go func() {
 		var lastIndex uint64 = 0
@@ -200,12 +226,34 @@ func main() {
 
 		var proxyServer, adminServer *manners.GracefulServer
 
+		shutdownServers := func() {
+			if proxyServer != nil {
+				logger.Debug("Closing proxy server")
+				proxyServer.Close()
+			}
+
+			if adminServer != nil {
+				logger.Debug("Closing admin server")
+				adminServer.Close()
+			}
+		}
+
+		updateTicker := time.NewTicker(30 * time.Second)
+
 		for {
 			var dispatcher http.Handler
 			var adminHandler http.Handler
 
 			if lastIndex > 0 {
-				time.Sleep(30 * time.Second)
+				select {
+				case <-updateTicker.C:
+					break
+				case <-serverShutdown:
+					logger.Noticef("received server shutdown request. stopping creating new servers")
+					shutdownServers()
+					serverShutdownComplete <- true
+					return
+				}
 			}
 
 			dispatcher, adminHandler, newLastIndex, err = buildDispatcher(
@@ -229,15 +277,7 @@ func main() {
 			} else {
 				lastIndex = newLastIndex
 
-				if proxyServer != nil {
-					logger.Debug("Closing proxy server")
-					proxyServer.Close()
-				}
-
-				if adminServer != nil {
-					logger.Debug("Closing admin server")
-					adminServer.Close()
-				}
+				shutdownServers()
 
 				proxyServer = manners.NewWithServer(&http.Server{Addr: listenAddress, Handler: dispatcher})
 				adminServer = manners.NewWithServer(&http.Server{Addr: adminListenAddress, Handler: adminHandler})
@@ -278,8 +318,6 @@ func buildDispatcher(
 	switch startup.DispatchingMode {
 	case "path":
 		disp, err = dispatcher.NewPathBasedDispatcher(&localCfg, dispLogger, handler)
-	//	case "host":
-	//		disp, err = dispatcher.NewHostBasedDispatcher(&localCfg, dispLogger, handler)
 	default:
 		err = fmt.Errorf("unsupported dispatching mode: '%s'", startup.DispatchingMode)
 	}

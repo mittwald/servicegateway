@@ -28,17 +28,22 @@ import (
 	"net/url"
 	"strings"
 	"net"
+	"github.com/mittwald/servicegateway/monitoring"
+	"github.com/prometheus/client_golang/prometheus"
+	"time"
 )
 
 var redirectRequest error = errors.New("redirect")
 
 type ProxyHandler struct {
-	Client *http.Client
-	Logger *logging.Logger
-	Config *config.Configuration
+	Client  *http.Client
+	Logger  *logging.Logger
+	Config  *config.Configuration
+
+	metrics *monitoring.PromMetrics
 }
 
-func NewProxyHandler(logger *logging.Logger, config *config.Configuration) *ProxyHandler {
+func NewProxyHandler(logger *logging.Logger, config *config.Configuration, metrics *monitoring.PromMetrics) *ProxyHandler {
 	transport := &http.Transport{}
 	client := &http.Client{
 		Transport: transport,
@@ -51,6 +56,7 @@ func NewProxyHandler(logger *logging.Logger, config *config.Configuration) *Prox
 		Client: client,
 		Logger: logger,
 		Config: config,
+		metrics: metrics,
 	}
 }
 
@@ -69,16 +75,22 @@ func (p *ProxyHandler) replaceBackendUri(value string, req *http.Request, appCfg
 	return strings.Replace(value, appCfg.Backend.Url, publicUrl, -1)
 }
 
-func (p *ProxyHandler) UnavailableError(rw http.ResponseWriter, req *http.Request) {
+func (p *ProxyHandler) UnavailableError(rw http.ResponseWriter, req *http.Request, appName string) {
+	p.metrics.Errors.With(prometheus.Labels{"application": appName, "reason": "upstream_unavailable"}).Inc()
+
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(503)
 	rw.Write([]byte("{\"msg\": \"service unavailable\", \"reason\": \"no can do; sorry.\"}"))
 }
 
 func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Request, targetUrl string, appName string, appCfg *config.Application) {
+	var totalStart, upstreamStart time.Time
+
+	totalStart = time.Now()
+
 	proxyReq, err := http.NewRequest(req.Method, targetUrl, req.Body)
 	if err != nil {
-		p.UnavailableError(rw, req)
+		p.UnavailableError(rw, req, appName)
 		return
 	}
 
@@ -109,14 +121,19 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 
 	proxyReq.URL.RawQuery = req.URL.RawQuery
 
+	upstreamStart = time.Now()
+
 	proxyRes, err := p.Client.Do(proxyReq)
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok == false || uerr.Err != redirectRequest {
 			p.Logger.Errorf("could not proxy request to %s: %s", targetUrl, uerr)
-			p.UnavailableError(rw, req)
+			p.UnavailableError(rw, req, appName)
 			return
 		}
 	}
+
+	p.metrics.UpstreamResponseTimes.With(prometheus.Labels{"application": appName}).Observe(time.Now().Sub(upstreamStart).Seconds())
+
 	for header, values := range proxyRes.Header {
 		if _, ok := p.Config.Proxy.StripResponseHeaders[header]; ok {
 			continue
@@ -137,6 +154,7 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	_, err = reader.WriteTo(rw)
 
 	defer proxyRes.Body.Close()
+	p.metrics.TotalResponseTimes.With(prometheus.Labels{"application": appName}).Observe(time.Now().Sub(totalStart).Seconds())
 
 	if err != nil {
 		p.Logger.Errorf("error while writing response body: %s", err)
