@@ -54,6 +54,8 @@ type StartupConfig struct {
 	Port            int
 	AdminAddress    string
 	AdminPort       int
+	MonitorAddress  string
+	MonitorPort     int
 	Debug           bool
 	ProfileCpu      string
 }
@@ -66,6 +68,8 @@ func main() {
 	flag.IntVar(&startup.Port, "port", 8080, "HTTP port to listen on")
 	flag.StringVar(&startup.AdminAddress, "admin-addr", "127.0.0.1", "Address to listen on (administration port)")
 	flag.IntVar(&startup.AdminPort, "admin-port", 8081, "HTTP port to listen on (administration port)")
+	flag.StringVar(&startup.MonitorAddress, "monitor-addr", "0.0.0.0", "Address to listen on (monitoring port)")
+	flag.IntVar(&startup.MonitorPort, "monitor-port", 8082, "HTTP port to listen on (monitoring port)")
 	flag.BoolVar(&startup.Debug, "debug", false, "enable to add debug information to each request")
 	flag.StringVar(&startup.ConsulBaseKey, "consul-base", "gateway/ui", "base key name for configuration")
 	flag.StringVar(&startup.UiDir, "ui-dir", "/usr/share/servicegateway", "directory in which UI files can be found")
