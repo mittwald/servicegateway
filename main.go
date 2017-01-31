@@ -203,8 +203,8 @@ func main() {
 	}()
 
 	go func() {
-		var lastIndex uint64 = 0
-		var newLastIndex uint64 = 0
+		var lastIndex uint64
+		var newLastIndex uint64
 		var err error
 
 		proxyServerChan := make(chan *manners.GracefulServer)
