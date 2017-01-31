@@ -100,9 +100,8 @@ type AuditLogMessage struct {
 func (c *AmqpLoggingBehaviour) match(req *http.Request) bool {
 	if c.OnlyUnsafe {
 		return req.Method == "POST" || req.Method == "PATCH" || req.Method == "PUT" || req.Method == "DELETE"
-	} else {
-		return true
 	}
+	return true
 }
 
 func (c *AmqpLoggingBehaviour) OnAuthenticatedRequest(req *http.Request, jwt string) {
