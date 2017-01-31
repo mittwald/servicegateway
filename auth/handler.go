@@ -31,6 +31,7 @@ import (
 	"sync"
 	"time"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/robertkrimen/otto"
 )
 
 type AuthenticationHandler struct {
@@ -40,16 +41,19 @@ type AuthenticationHandler struct {
 	httpClient          *http.Client
 	logger              *logging.Logger
 	verifier            *JwtVerifier
+	paramMapFunc        *otto.Script
 
 	expCache            map[string]int64
 	expLock             sync.RWMutex
+
+	jsVM *otto.Otto
 }
 
 func NewAuthenticationHandler(
 	cfg *config.GlobalAuth,
 	redisPool *redis.Pool,
 	tokenStore TokenStore,
-    verifier *JwtVerifier,
+	verifier *JwtVerifier,
 	logger *logging.Logger,
 ) (*AuthenticationHandler, error) {
 	handler := AuthenticationHandler{
@@ -63,6 +67,28 @@ func NewAuthenticationHandler(
 		expLock:     sync.RWMutex{},
 	}
 
+	if cfg.ProviderConfig.PreAuthenticationHook != "" {
+		handler.jsVM = otto.New()
+		handler.jsVM.Set("log", func(call otto.FunctionCall) otto.Value {
+			format := call.Argument(0).String();
+			args := call.ArgumentList[1:]
+			values := make([]interface{}, len(args))
+
+			for i := range args {
+				values[i], _ = args[i].Export()
+			}
+
+			logger.Debugf(format, values...)
+			return otto.UndefinedValue()
+		})
+
+		script, err := handler.jsVM.Compile(cfg.ProviderConfig.PreAuthenticationHook, nil)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse JS hook %s: %s", cfg.ProviderConfig.PreAuthenticationHook, err.Error())
+		}
+		handler.paramMapFunc = script
+	}
+
 	return &handler, nil
 }
 
@@ -71,20 +97,72 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	authRequest["username"] = username
 	authRequest["password"] = password
 
+	requestURL := h.config.ProviderConfig.Url+"/authenticate"
+
+	if h.paramMapFunc != nil {
+		_, err := h.jsVM.Run(h.paramMapFunc)
+		if err != nil {
+			return "", err
+		}
+
+		export, _ := h.jsVM.Get("exports")
+		if !export.IsFunction() {
+			return "", fmt.Errorf("hook script must export a function!")
+		}
+
+		hookResult, err := export.Call(otto.UndefinedValue(), username, password)
+		if err != nil {
+			return "", fmt.Errorf("error while calling hook function: %s", err.Error())
+		}
+
+		hookResultBool, _ := hookResult.ToBoolean()
+		if !hookResultBool {
+			return "", InvalidCredentialsError
+		}
+
+		if !hookResult.IsObject() {
+			return "", fmt.Errorf("hook function must return object. is: %s", hookResult.Class())
+		}
+
+		body, err := hookResult.Object().Get("body")
+		exportedAuthRequest, _ := body.Export()
+		newAuthRequest, ok := exportedAuthRequest.(map[string]interface{})
+
+		if ok {
+			for k := range newAuthRequest {
+				if ottoValue, ok := newAuthRequest[k].(otto.Value); ok {
+					newAuthRequest[k], _ = ottoValue.Export()
+				}
+			}
+
+			authRequest = newAuthRequest
+			h.logger.Debugf("hook mapped authentication request to: %s", authRequest)
+		}
+
+
+		url, err := hookResult.Object().Get("url")
+		if url.IsString() {
+			requestURL = url.String()
+			h.logger.Debugf("hook set request URL to: %s", url)
+		}
+	}
+
 	jsonString, err := json.Marshal(authRequest)
 	if err != nil {
 		return "", err
 	}
 
 	redactedAuthRequest := authRequest
-	redactedAuthRequest["password"] = "*REDACTED*"
+	if _, ok := redactedAuthRequest["password"]; ok {
+		redactedAuthRequest["password"] = "*REDACTED*"
+	}
 
 	debugJsonString, _ := json.Marshal(redactedAuthRequest)
 
 	h.logger.Infof("authenticating user %s", username)
 	h.logger.Debugf("authentication request: %s", debugJsonString)
 
-	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url+"/authenticate", bytes.NewBuffer(jsonString))
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonString))
 	req.Header.Set("Accept", "application/jwt")
 	req.Header.Set("Content-Type", "application/json")
 

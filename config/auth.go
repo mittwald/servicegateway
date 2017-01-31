@@ -6,10 +6,11 @@ type AuthWriterConfig struct {
 }
 
 type ProviderAuthConfig struct {
-	Url                 string                 `json:"url"`
-	Parameters          map[string]interface{} `json:"parameters"`
-	AllowAuthentication bool                   `json:"allow_authentication"`
-	AuthenticationUri   string                 `json:"authentication_uri"`
+	Url                   string                 `json:"url"`
+	Parameters            map[string]interface{} `json:"parameters"`
+	PreAuthenticationHook string                 `json:"hook_pre_authentication"`
+	AllowAuthentication   bool                   `json:"allow_authentication"`
+	AuthenticationUri     string                 `json:"authentication_uri"`
 }
 
 type ApplicationAuth struct {

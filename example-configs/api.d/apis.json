@@ -57,6 +57,7 @@
       "allow_authentication": true,
       "authentication_uri": "/v1/authenticate",
       "parameter_format": "json",
+      "hook_pre_authentication": "./example-configs/api.d/auth_param_map.js",
       "parameters": {
         "ttl": 86400,
         "providers": [
