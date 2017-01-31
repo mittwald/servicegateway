@@ -108,7 +108,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		return nil
 	}
 
-	uri := a.authHandler.config.ProviderConfig.AuthenticationUri
+	uri := a.authHandler.config.ProviderConfig.AuthenticationURI
 	if uri == "" {
 		uri = "/authenciate"
 	}

@@ -9,7 +9,7 @@ type ProviderAuthConfig struct {
 	URL                 string                 `json:"url"`
 	Parameters          map[string]interface{} `json:"parameters"`
 	AllowAuthentication bool                   `json:"allow_authentication"`
-	AuthenticationUri   string                 `json:"authentication_uri"`
+	AuthenticationURI   string                 `json:"authentication_uri"`
 }
 
 type ApplicationAuth struct {
