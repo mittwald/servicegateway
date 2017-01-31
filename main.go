@@ -238,23 +238,17 @@ func main() {
 			}
 		}
 
-		updateTicker := time.NewTicker(30 * time.Second)
+		go func() {
+			<- serverShutdown
+
+			logger.Noticef("received server shutdown request. stopping creating new servers")
+			shutdownServers()
+			serverShutdownComplete <- true
+		}()
 
 		for {
 			var dispatcher http.Handler
 			var adminHandler http.Handler
-
-			if lastIndex > 0 {
-				select {
-				case <-updateTicker.C:
-					break
-				case <-serverShutdown:
-					logger.Noticef("received server shutdown request. stopping creating new servers")
-					shutdownServers()
-					serverShutdownComplete <- true
-					return
-				}
-			}
 
 			dispatcher, adminHandler, newLastIndex, err = buildDispatcher(
 				&startup,
