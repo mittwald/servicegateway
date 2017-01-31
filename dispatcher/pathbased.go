@@ -134,7 +134,7 @@ func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner
 func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.Application) error {
 	routes := make(map[string]httprouter.Handle)
 
-	backendUrl := appCfg.Backend.Url
+	backendUrl := appCfg.Backend.URL
 	if backendUrl == "" && appCfg.Backend.Service != "" {
 		if appCfg.Backend.Tag != "" {
 			backendUrl = fmt.Sprintf("http://%s.%s.service.consul", appCfg.Backend.Tag, appCfg.Backend.Service)

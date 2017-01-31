@@ -72,7 +72,7 @@ func (p *ProxyHandler) replaceBackendUri(value string, req *http.Request, appCfg
 		publicUrl = publicUrl + appCfg.Routing.Path
 	}
 
-	return strings.Replace(value, appCfg.Backend.Url, publicUrl, -1)
+	return strings.Replace(value, appCfg.Backend.URL, publicUrl, -1)
 }
 
 func (p *ProxyHandler) UnavailableError(rw http.ResponseWriter, req *http.Request, appName string) {
