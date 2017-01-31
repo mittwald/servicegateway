@@ -19,7 +19,7 @@ func writeError(res http.ResponseWriter, msg string) {
 
 func NewAdminServer(
 	tokenStore auth.TokenStore,
-	tokenVerifier *auth.JwtVerifier,
+	tokenVerifier *auth.JWTVerifier,
 	authHandler *auth.AuthenticationHandler,
 	logger *logging.Logger,
 ) (http.Handler, error) {

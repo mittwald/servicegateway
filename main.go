@@ -302,7 +302,7 @@ func buildDispatcher(
 	rpool *redis.Pool,
 	logger *logging.Logger,
 	tokenStore auth.TokenStore,
-	tokenVerifier *auth.JwtVerifier,
+	tokenVerifier *auth.JWTVerifier,
 	httpLoggers []httplogging.HttpLogger,
 	lastIndex uint64,
 ) (http.Handler, http.Handler, uint64, error) {
@@ -427,7 +427,7 @@ func buildDispatcher(
 	return server, admin, meta.LastIndex, nil
 }
 
-func buildLoggers(cfg *config.Configuration, tok *auth.JwtVerifier) ([]httplogging.HttpLogger, error) {
+func buildLoggers(cfg *config.Configuration, tok *auth.JWTVerifier) ([]httplogging.HttpLogger, error) {
 	loggers := make([]httplogging.HttpLogger, len(cfg.Logging))
 	for i, loggingConfig := range cfg.Logging {
 		loggingLogger, err := logging.GetLogger("logger-" + loggingConfig.Type)

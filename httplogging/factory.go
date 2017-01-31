@@ -12,7 +12,7 @@ type HttpLogger interface {
 	Wrap(http.Handler) (http.Handler, error)
 }
 
-func LoggerFromConfig(config *config.LoggingConfiguration, logger *logging.Logger, verifier *auth.JwtVerifier) (HttpLogger, error) {
+func LoggerFromConfig(config *config.LoggingConfiguration, logger *logging.Logger, verifier *auth.JWTVerifier) (HttpLogger, error) {
 	switch config.Type {
 	case "amqp":
 		return NewAmqpLoggingBehaviour(config, logger, verifier)

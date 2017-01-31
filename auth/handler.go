@@ -39,7 +39,7 @@ type AuthenticationHandler struct {
 	tokenReader TokenReader
 	httpClient  *http.Client
 	logger      *logging.Logger
-	verifier    *JwtVerifier
+	verifier    *JWTVerifier
 
 	expCache map[string]int64
 	expLock  sync.RWMutex
@@ -49,7 +49,7 @@ func NewAuthenticationHandler(
 	cfg *config.GlobalAuth,
 	redisPool *redis.Pool,
 	tokenStore TokenStore,
-	verifier *JwtVerifier,
+	verifier *JWTVerifier,
 	logger *logging.Logger,
 ) (*AuthenticationHandler, error) {
 	handler := AuthenticationHandler{

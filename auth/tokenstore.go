@@ -32,14 +32,14 @@ type CacheRecord struct {
 
 type RedisTokenStore struct {
 	redisPool *redis.Pool
-	verifier  *JwtVerifier
+	verifier  *JWTVerifier
 }
 
 type TokenStoreOptions struct {
 	LocalCacheBucketSize int
 }
 
-func NewTokenStore(redisPool *redis.Pool, verifier *JwtVerifier, options TokenStoreOptions) (TokenStore, error) {
+func NewTokenStore(redisPool *redis.Pool, verifier *JWTVerifier, options TokenStoreOptions) (TokenStore, error) {
 	bucketSize := 128
 
 	if options.LocalCacheBucketSize != 0 {

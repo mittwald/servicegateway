@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type JwtVerifier struct {
+type JWTVerifier struct {
 	config              *config.GlobalAuth
 	cacheTtl            time.Duration
 	cachedKey           []byte
@@ -18,19 +18,19 @@ type JwtVerifier struct {
 	cachedKeyLock       sync.Mutex
 }
 
-func NewJwtVerifier(cfg *config.GlobalAuth) (*JwtVerifier, error) {
+func NewJwtVerifier(cfg *config.GlobalAuth) (*JWTVerifier, error) {
 	cacheTtl, err := time.ParseDuration(cfg.KeyCacheTtl)
 	if err != nil {
 		return nil, err
 	}
 
-	return &JwtVerifier{
+	return &JWTVerifier{
 		config:   cfg,
 		cacheTtl: cacheTtl,
 	}, nil
 }
 
-func (h *JwtVerifier) GetVerificationKey() ([]byte, error) {
+func (h *JWTVerifier) GetVerificationKey() ([]byte, error) {
 	if h.config.VerificationKey != nil && len(h.config.VerificationKey) > 0 {
 		return h.config.VerificationKey, nil
 	}
@@ -63,7 +63,7 @@ func (h *JwtVerifier) GetVerificationKey() ([]byte, error) {
 	return h.cachedKey, nil
 }
 
-func (h *JwtVerifier) VerifyToken(token string) (bool, map[string]interface{}, error) {
+func (h *JWTVerifier) VerifyToken(token string) (bool, map[string]interface{}, error) {
 	key, err := h.GetVerificationKey()
 	if err != nil {
 		return false, nil, err

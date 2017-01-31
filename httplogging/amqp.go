@@ -20,10 +20,10 @@ type AmqpLoggingBehaviour struct {
 	logger     *logging.Logger
 	connection *amqp.Connection
 	channel    *amqp.Channel
-	verifier   *auth.JwtVerifier
+	verifier   *auth.JWTVerifier
 }
 
-func NewAmqpLoggingBehaviour(cfg *config.LoggingConfiguration, logger *logging.Logger, tokenVerifier *auth.JwtVerifier) (*AmqpLoggingBehaviour, error) {
+func NewAmqpLoggingBehaviour(cfg *config.LoggingConfiguration, logger *logging.Logger, tokenVerifier *auth.JWTVerifier) (*AmqpLoggingBehaviour, error) {
 	c := &AmqpLoggingBehaviour{
 		Config:     cfg,
 		OnlyUnsafe: cfg.UnsafeOnly,
