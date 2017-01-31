@@ -94,7 +94,7 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *conf
 		} else {
 			writer.WriteTokenToRequest(token, req)
 
-			for i, _ := range a.listeners {
+			for i := range a.listeners {
 				a.listeners[i].OnAuthenticatedRequest(req, token)
 			}
 
