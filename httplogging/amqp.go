@@ -87,7 +87,7 @@ func (c *AmqpLoggingBehaviour) connect() error {
 type AuditLogAuth struct {
 	Sub  string `json:"sub"`
 	Sudo string `json:"sudo,omitempty"`
-	Ip   string `json:"ip"`
+	IP   string `json:"ip"`
 }
 
 type AuditLogMessage struct {
@@ -125,7 +125,7 @@ func (c *AmqpLoggingBehaviour) OnAuthenticatedRequest(req *http.Request, jwt str
 				Auth: AuditLogAuth{
 					Sub:  sub,
 					Sudo: sudo,
-					Ip:   req.RemoteAddr,
+					IP:   req.RemoteAddr,
 				},
 				Action:    "api.request." + strings.ToLower(req.Method),
 				Timestamp: time.Now(),
