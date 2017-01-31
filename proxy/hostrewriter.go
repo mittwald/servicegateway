@@ -66,7 +66,7 @@ func NewHostRewriter(internalHost string, urlPatterns map[string]string, logger 
 			replacements:  replacements,
 		}
 
-		i += 1
+		i++
 	}
 
 	return &JSONHostRewriter{
