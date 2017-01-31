@@ -234,7 +234,7 @@ func (j *JSONHostRewriter) walkJSON(jsonStruct interface{}, reqURL *url.URL, inL
 		for key, _ := range typed {
 			v, err := j.walkJSON(typed[key], reqURL, inLinks)
 			if err == RemoveElement {
-				removedCount += 1
+				removedCount++
 			} else if err != nil {
 				return nil, err
 			} else {
