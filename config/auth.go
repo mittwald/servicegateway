@@ -21,6 +21,6 @@ type GlobalAuth struct {
 	Mode               string             `json:"mode"`
 	ProviderConfig     ProviderAuthConfig `json:"provider"`
 	VerificationKey    []byte             `json:"verification_key"`
-	VerificationKeyUrl string             `json:"verification_key_url"`
+	VerificationKeyURL string             `json:"verification_key_url"`
 	KeyCacheTTL        string             `json:"key_cache_ttl"`
 }

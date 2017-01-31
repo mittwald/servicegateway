@@ -46,15 +46,15 @@ func (h *JWTVerifier) GetVerificationKey() ([]byte, error) {
 		return h.cachedKey, nil
 	}
 
-	resp, err := http.Get(h.config.VerificationKeyUrl)
+	resp, err := http.Get(h.config.VerificationKeyURL)
 	if err != nil {
-		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
+		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyURL, err)
 	}
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
+		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyURL, err)
 	}
 
 	h.cachedKey = body
