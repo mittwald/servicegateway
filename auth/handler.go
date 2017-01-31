@@ -35,18 +35,18 @@ import (
 )
 
 type AuthenticationHandler struct {
-	config              *config.GlobalAuth
-	storage             TokenStore
-	tokenReader         TokenReader
-	httpClient          *http.Client
-	logger              *logging.Logger
-	verifier            *JwtVerifier
-	paramMapFunc        *otto.Script
+	config      *config.GlobalAuth
+	storage     TokenStore
+	tokenReader TokenReader
+	httpClient  *http.Client
+	logger      *logging.Logger
+	verifier    *JwtVerifier
+	hookPreAuth *otto.Script
 
-	expCache            map[string]int64
-	expLock             sync.RWMutex
+	expCache    map[string]int64
+	expLock     sync.RWMutex
 
-	jsVM *otto.Otto
+	jsVM        *otto.Otto
 }
 
 func NewAuthenticationHandler(
@@ -86,7 +86,7 @@ func NewAuthenticationHandler(
 		if err != nil {
 			return nil, fmt.Errorf("could not parse JS hook %s: %s", cfg.ProviderConfig.PreAuthenticationHook, err.Error())
 		}
-		handler.paramMapFunc = script
+		handler.hookPreAuth = script
 	}
 
 	return &handler, nil
@@ -99,8 +99,8 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 	requestURL := h.config.ProviderConfig.Url+"/authenticate"
 
-	if h.paramMapFunc != nil {
-		_, err := h.jsVM.Run(h.paramMapFunc)
+	if h.hookPreAuth != nil {
+		_, err := h.jsVM.Run(h.hookPreAuth)
 		if err != nil {
 			return "", err
 		}
