@@ -303,7 +303,7 @@ func buildDispatcher(
 	logger *logging.Logger,
 	tokenStore auth.TokenStore,
 	tokenVerifier *auth.JWTVerifier,
-	httpLoggers []httplogging.HttpLogger,
+	httpLoggers []httplogging.HTTPLogger,
 	lastIndex uint64,
 ) (http.Handler, http.Handler, uint64, error) {
 	var disp dispatcher.Dispatcher
@@ -427,8 +427,8 @@ func buildDispatcher(
 	return server, admin, meta.LastIndex, nil
 }
 
-func buildLoggers(cfg *config.Configuration, tok *auth.JWTVerifier) ([]httplogging.HttpLogger, error) {
-	loggers := make([]httplogging.HttpLogger, len(cfg.Logging))
+func buildLoggers(cfg *config.Configuration, tok *auth.JWTVerifier) ([]httplogging.HTTPLogger, error) {
+	loggers := make([]httplogging.HTTPLogger, len(cfg.Logging))
 	for i, loggingConfig := range cfg.Logging {
 		loggingLogger, err := logging.GetLogger("logger-" + loggingConfig.Type)
 		if err != nil {
