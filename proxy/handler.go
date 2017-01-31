@@ -83,12 +83,12 @@ func (p *ProxyHandler) UnavailableError(rw http.ResponseWriter, req *http.Reques
 	rw.Write([]byte("{\"msg\": \"service unavailable\", \"reason\": \"no can do; sorry.\"}"))
 }
 
-func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Request, targetUrl string, appName string, appCfg *config.Application) {
+func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Request, targetURL string, appName string, appCfg *config.Application) {
 	var totalStart, upstreamStart time.Time
 
 	totalStart = time.Now()
 
-	proxyReq, err := http.NewRequest(req.Method, targetUrl, req.Body)
+	proxyReq, err := http.NewRequest(req.Method, targetURL, req.Body)
 	if err != nil {
 		p.UnavailableError(rw, req, appName)
 		return
@@ -126,7 +126,7 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	proxyRes, err := p.Client.Do(proxyReq)
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok == false || uerr.Err != redirectRequest {
-			p.Logger.Errorf("could not proxy request to %s: %s", targetUrl, uerr)
+			p.Logger.Errorf("could not proxy request to %s: %s", targetURL, uerr)
 			p.UnavailableError(rw, req, appName)
 			return
 		}
