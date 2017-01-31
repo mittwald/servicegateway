@@ -199,7 +199,7 @@ func main() {
 
 		logger.Notice("everything has shut down. exiting process.")
 
-		done<- true
+		done <- true
 	}()
 
 	go func() {

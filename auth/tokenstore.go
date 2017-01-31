@@ -2,10 +2,10 @@ package auth
 
 import (
 	"crypto/rand"
+	"encoding/base32"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/golang-lru"
-	"encoding/base32"
 )
 
 type MappedToken struct {
@@ -54,7 +54,7 @@ func NewTokenStore(redisPool *redis.Pool, verifier *JwtVerifier, options TokenSt
 	return &CacheDecorator{
 		wrapped: &RedisTokenStore{
 			redisPool: redisPool,
-			verifier: verifier,
+			verifier:  verifier,
 		},
 		localCache: cache,
 	}, nil

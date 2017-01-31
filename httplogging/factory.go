@@ -1,10 +1,11 @@
 package httplogging
+
 import (
-	"github.com/mittwald/servicegateway/config"
 	"fmt"
-	"net/http"
-	"github.com/op/go-logging"
 	"github.com/mittwald/servicegateway/auth"
+	"github.com/mittwald/servicegateway/config"
+	"github.com/op/go-logging"
+	"net/http"
 )
 
 type HttpLogger interface {

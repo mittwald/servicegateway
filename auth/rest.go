@@ -22,11 +22,11 @@ package auth
 import (
 	"net/http"
 
+	"encoding/json"
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
 	"io/ioutil"
-	"encoding/json"
 	"time"
 )
 
@@ -43,7 +43,7 @@ type ExternalAuthenticationRequest struct {
 }
 
 type ExternalAuthenticationResponse struct {
-	Token string `json:"token"`
+	Token   string `json:"token"`
 	Expires string `json:"expires,omitempty"`
 }
 
@@ -152,7 +152,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		}
 
 		response := ExternalAuthenticationResponse{
-			Token: token,
+			Token:   token,
 			Expires: time.Unix(exp, 0).Format(time.RFC3339),
 		}
 		jsonResponse, err := json.Marshal(&response)

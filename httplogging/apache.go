@@ -1,7 +1,8 @@
 package httplogging
+
 import (
-	"net/http"
 	"github.com/gorilla/handlers"
+	"net/http"
 	"os"
 )
 

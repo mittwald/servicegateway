@@ -23,9 +23,9 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/bluele/gcache"
+	"github.com/julienschmidt/httprouter"
 	"io/ioutil"
 	"net/http"
-	"github.com/julienschmidt/httprouter"
 )
 
 type CacheMiddleware interface {

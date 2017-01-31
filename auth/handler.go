@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/garyburd/redigo/redis"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
@@ -30,26 +31,25 @@ import (
 	"net/http"
 	"sync"
 	"time"
-	"github.com/dgrijalva/jwt-go"
 )
 
 type AuthenticationHandler struct {
-	config              *config.GlobalAuth
-	storage             TokenStore
-	tokenReader         TokenReader
-	httpClient          *http.Client
-	logger              *logging.Logger
-	verifier            *JwtVerifier
+	config      *config.GlobalAuth
+	storage     TokenStore
+	tokenReader TokenReader
+	httpClient  *http.Client
+	logger      *logging.Logger
+	verifier    *JwtVerifier
 
-	expCache            map[string]int64
-	expLock             sync.RWMutex
+	expCache map[string]int64
+	expLock  sync.RWMutex
 }
 
 func NewAuthenticationHandler(
 	cfg *config.GlobalAuth,
 	redisPool *redis.Pool,
 	tokenStore TokenStore,
-    verifier *JwtVerifier,
+	verifier *JwtVerifier,
 	logger *logging.Logger,
 ) (*AuthenticationHandler, error) {
 	handler := AuthenticationHandler{
@@ -151,7 +151,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 
 				c := time.After(time.Duration((expNumInt - time.Now().Unix())) * time.Second)
 				go func() {
-					<- c
+					<-c
 					h.expLock.Lock()
 					delete(h.expCache, token)
 					h.expLock.Unlock()

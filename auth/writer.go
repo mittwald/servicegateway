@@ -1,4 +1,5 @@
 package auth
+
 import "net/http"
 
 type TokenWriter interface {
@@ -9,7 +10,7 @@ type HeaderTokenWriter struct {
 	HeaderName string
 }
 
-type AuthorizationTokenWriter struct {}
+type AuthorizationTokenWriter struct{}
 
 func (h *HeaderTokenWriter) WriteTokenToRequest(jwt string, req *http.Request) error {
 	req.Header.Set(h.HeaderName, jwt)
@@ -17,6 +18,6 @@ func (h *HeaderTokenWriter) WriteTokenToRequest(jwt string, req *http.Request) e
 }
 
 func (a *AuthorizationTokenWriter) WriteTokenToRequest(jwt string, req *http.Request) error {
-	req.Header.Set("Authorization", "Bearer " + jwt)
+	req.Header.Set("Authorization", "Bearer "+jwt)
 	return nil
 }

@@ -23,22 +23,22 @@ import (
 	"bufio"
 	"errors"
 	"github.com/mittwald/servicegateway/config"
+	"github.com/mittwald/servicegateway/monitoring"
 	logging "github.com/op/go-logging"
+	"github.com/prometheus/client_golang/prometheus"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
-	"net"
-	"github.com/mittwald/servicegateway/monitoring"
-	"github.com/prometheus/client_golang/prometheus"
 	"time"
 )
 
 var redirectRequest error = errors.New("redirect")
 
 type ProxyHandler struct {
-	Client  *http.Client
-	Logger  *logging.Logger
-	Config  *config.Configuration
+	Client *http.Client
+	Logger *logging.Logger
+	Config *config.Configuration
 
 	metrics *monitoring.PromMetrics
 }
@@ -53,9 +53,9 @@ func NewProxyHandler(logger *logging.Logger, config *config.Configuration, metri
 	}
 
 	return &ProxyHandler{
-		Client: client,
-		Logger: logger,
-		Config: config,
+		Client:  client,
+		Logger:  logger,
+		Config:  config,
 		metrics: metrics,
 	}
 }
@@ -106,7 +106,7 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	ip, _, _ := net.SplitHostPort(req.RemoteAddr)
 
 	if forwardedFor != "" {
-		proxyReq.Header.Set("X-Forwarded-For", forwardedFor + ", " + ip)
+		proxyReq.Header.Set("X-Forwarded-For", forwardedFor+", "+ip)
 	} else {
 		proxyReq.Header.Set("X-Forwarded-For", ip)
 	}

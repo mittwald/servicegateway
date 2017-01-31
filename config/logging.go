@@ -1,9 +1,9 @@
 package config
 
 type AmqpLoggingConfiguration struct {
-	Uri string `json:"uri"`
-	Exchange string `json:"exchange"`
-	UnsafeOnly bool `json:"unsafe_only"`
+	Uri        string `json:"uri"`
+	Exchange   string `json:"exchange"`
+	UnsafeOnly bool   `json:"unsafe_only"`
 }
 
 type ApacheLoggingConfiguration struct {

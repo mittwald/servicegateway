@@ -13,14 +13,14 @@ type ProviderAuthConfig struct {
 }
 
 type ApplicationAuth struct {
-	Disable bool              `json:"disable"`
-	Writer  AuthWriterConfig  `json:"writer"`
+	Disable bool             `json:"disable"`
+	Writer  AuthWriterConfig `json:"writer"`
 }
 
 type GlobalAuth struct {
-	Mode               string              `json:"mode"`
-	ProviderConfig     ProviderAuthConfig  `json:"provider"`
-	VerificationKey    []byte              `json:"verification_key"`
-	VerificationKeyUrl string              `json:"verification_key_url"`
-	KeyCacheTtl        string              `json:"key_cache_ttl"`
+	Mode               string             `json:"mode"`
+	ProviderConfig     ProviderAuthConfig `json:"provider"`
+	VerificationKey    []byte             `json:"verification_key"`
+	VerificationKeyUrl string             `json:"verification_key_url"`
+	KeyCacheTtl        string             `json:"key_cache_ttl"`
 }

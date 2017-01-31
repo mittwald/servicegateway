@@ -23,9 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
+	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	logging "github.com/op/go-logging"
-	"github.com/julienschmidt/httprouter"
 	"net/http"
 )
 

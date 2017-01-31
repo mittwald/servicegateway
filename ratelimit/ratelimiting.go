@@ -21,15 +21,15 @@ package ratelimit
 
 import (
 	"github.com/garyburd/redigo/redis"
+	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	logging "github.com/op/go-logging"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
-	"strings"
-	"github.com/julienschmidt/httprouter"
 )
 
 type Bucket struct {
@@ -43,10 +43,10 @@ type RateLimitingMiddleware interface {
 }
 
 type RedisSimpleRateThrottler struct {
-	burstSize         int64
-	window            time.Duration
-	redisPool         *redis.Pool
-	logger            *logging.Logger
+	burstSize int64
+	window    time.Duration
+	redisPool *redis.Pool
+	logger    *logging.Logger
 }
 
 func NewRateLimiter(cfg config.RateLimiting, red *redis.Pool, logger *logging.Logger) (RateLimitingMiddleware, error) {

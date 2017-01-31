@@ -21,14 +21,14 @@ package dispatcher
 
 import (
 	"fmt"
+	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/op/go-logging"
 	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"strings"
-	"github.com/julienschmidt/httprouter"
-	"net/http/httptest"
 )
 
 type pathBasedDispatcher struct {
@@ -36,18 +36,18 @@ type pathBasedDispatcher struct {
 }
 
 type PatternClosure struct {
-	targetUrl string
+	targetUrl  string
 	parameters [][]string
-	appName string
-	appCfg *config.Application
-	proxy *proxy.ProxyHandler
+	appName    string
+	appCfg     *config.Application
+	proxy      *proxy.ProxyHandler
 }
 
 type PathClosure struct {
 	backendUrl string
-	appName string
-	appCfg *config.Application
-	proxy *proxy.ProxyHandler
+	appName    string
+	appCfg     *config.Application
+	proxy      *proxy.ProxyHandler
 }
 
 func NewPathBasedDispatcher(
@@ -66,9 +66,9 @@ func NewPathBasedDispatcher(
 }
 
 func (d *pathBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-//	for k, v := range d.cfg.Proxy.SetResponseHeaders {
-//		res.Header.Set(k, v)
-//	}
+	//	for k, v := range d.cfg.Proxy.SetResponseHeaders {
+	//		res.Header.Set(k, v)
+	//	}
 
 	d.mux.ServeHTTP(res, req)
 }
