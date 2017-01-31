@@ -40,14 +40,14 @@ func NewAmqpLoggingBehaviour(cfg *config.LoggingConfiguration, logger *logging.L
 }
 
 func (c *AmqpLoggingBehaviour) connect() error {
-	c.logger.Infof("opening connection to AMQP server: %s", c.Config.Uri)
+	c.logger.Infof("opening connection to AMQP server: %s", c.Config.URI)
 
-	conn, err := amqp.Dial(c.Config.Uri)
+	conn, err := amqp.Dial(c.Config.URI)
 	if err != nil {
 		return fmt.Errorf("error while dialing RabbitMQ: %s", err)
 	}
 
-	c.logger.Infof("opened connection to AMQP server: %s", c.Config.Uri)
+	c.logger.Infof("opened connection to AMQP server: %s", c.Config.URI)
 
 	closed := make(chan *amqp.Error)
 	go func() {
