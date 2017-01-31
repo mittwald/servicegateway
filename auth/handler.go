@@ -100,11 +100,11 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 		if resp.StatusCode == http.StatusForbidden {
 			h.logger.Warningf("invalid credentials for user %s: %s", username, body)
 			return "", ErrInvalidCredentials
-		} else {
-			err := fmt.Errorf("unexpected status code %d for user %s: %s", resp.StatusCode, username, body)
-			h.logger.Error(err.Error())
-			return "", err
 		}
+
+		err := fmt.Errorf("unexpected status code %d for user %s: %s", resp.StatusCode, username, body)
+		h.logger.Error(err.Error())
+		return "", err
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
