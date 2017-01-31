@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var NoTokenError error = errors.New("No authentication token found in request")
+var ErrNoToken error = errors.New("No authentication token found in request")
 
 type TokenReader interface {
 	TokenFromRequest(*http.Request) (string, error)
@@ -24,7 +24,7 @@ func (b *BearerTokenReader) TokenFromRequest(req *http.Request) (string, error) 
 	}
 
 	token, err := b.store.GetToken(tokenString)
-	if err == NoTokenError {
+	if err == ErrNoToken {
 		return "", err
 	} else if err != nil {
 		return "", fmt.Errorf("error while loading JWT for token %s: %s", tokenString, err)
@@ -62,5 +62,5 @@ func (b *BearerTokenReader) tokenStringFromRequest(req *http.Request) (string, e
 		return tokenParam, nil
 	}
 
-	return "", NoTokenError
+	return "", ErrNoToken
 }

@@ -128,7 +128,7 @@ func (s *RedisTokenStore) GetToken(token string) (string, error) {
 
 	jwt, err := redis.String(conn.Do("HGET", key, "jwt"))
 	if err == redis.ErrNil {
-		return "", NoTokenError
+		return "", ErrNoToken
 	} else if err != nil {
 		return "", err
 	}

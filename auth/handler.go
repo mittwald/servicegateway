@@ -113,7 +113,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string, error) {
 	token, err := h.tokenReader.TokenFromRequest(req)
-	if err == NoTokenError {
+	if err == ErrNoToken {
 		return false, "", nil
 	} else if err != nil {
 		h.logger.Warningf("error while reading token from request: %s", err)
