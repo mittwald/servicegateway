@@ -12,21 +12,21 @@ import (
 
 type JWTVerifier struct {
 	config              *config.GlobalAuth
-	cacheTtl            time.Duration
+	cacheTTL            time.Duration
 	cachedKey           []byte
 	cachedKeyExpiration time.Time
 	cachedKeyLock       sync.Mutex
 }
 
 func NewJwtVerifier(cfg *config.GlobalAuth) (*JWTVerifier, error) {
-	cacheTtl, err := time.ParseDuration(cfg.KeyCacheTtl)
+	cacheTTL, err := time.ParseDuration(cfg.KeyCacheTtl)
 	if err != nil {
 		return nil, err
 	}
 
 	return &JWTVerifier{
 		config:   cfg,
-		cacheTtl: cacheTtl,
+		cacheTTL: cacheTTL,
 	}, nil
 }
 
@@ -58,7 +58,7 @@ func (h *JWTVerifier) GetVerificationKey() ([]byte, error) {
 	}
 
 	h.cachedKey = body
-	h.cachedKeyExpiration = time.Now().Add(h.cacheTtl)
+	h.cachedKeyExpiration = time.Now().Add(h.cacheTTL)
 
 	return h.cachedKey, nil
 }
