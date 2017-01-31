@@ -135,7 +135,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		}
 
 		jwt, err := a.authHandler.Authenticate(authRequest.Username, authRequest.Password)
-		if err == InvalidCredentialsError {
+		if err == ErrInvalidCredentials {
 			rw.Header().Set("Content-Type", "application/json;charset=utf8")
 			rw.WriteHeader(403)
 			rw.Write([]byte(`{"msg":"invalid credentials"}`))
