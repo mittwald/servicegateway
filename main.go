@@ -58,7 +58,7 @@ type StartupConfig struct {
 	MonitorAddress  string
 	MonitorPort     int
 	Debug           bool
-	ProfileCpu      string
+	ProfileCPU      string
 }
 
 func main() {
@@ -75,7 +75,7 @@ func main() {
 	flag.StringVar(&startup.ConsulBaseKey, "consul-base", "gateway/ui", "base key name for configuration")
 	flag.StringVar(&startup.UiDir, "ui-dir", "/usr/share/servicegateway", "directory in which UI files can be found")
 
-	flag.StringVar(&startup.ProfileCpu, "cpu-profile", "", "write CPU profile to file")
+	flag.StringVar(&startup.ProfileCPU, "cpu-profile", "", "write CPU profile to file")
 
 	flag.Parse()
 
@@ -83,8 +83,8 @@ func main() {
 	format := logging.MustStringFormatter("%{color}%{time:15:04:05.000} %{module:12s} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}")
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 
-	if startup.ProfileCpu != "" {
-		f, err := os.Create(startup.ProfileCpu)
+	if startup.ProfileCPU != "" {
+		f, err := os.Create(startup.ProfileCPU)
 		if err != nil {
 			logger.Fatal(err)
 		}
