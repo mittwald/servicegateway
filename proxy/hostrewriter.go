@@ -138,7 +138,7 @@ func (j *JSONHostRewriter) copyAndRewriteHeaders(source http.ResponseWriter, tar
 	for k, values := range source.Header() {
 		if k == "Location" {
 			j.Logger.Debugf("found location header")
-			for i, _ := range values {
+			for i := range values {
 				newURL, err := j.RewriteURL(values[i], publicURL)
 				if err != nil {
 					j.Logger.Errorf("error while mapping URL from location header %s: %s", values[i], err)
