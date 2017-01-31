@@ -19,7 +19,7 @@ type JWTVerifier struct {
 }
 
 func NewJwtVerifier(cfg *config.GlobalAuth) (*JWTVerifier, error) {
-	cacheTTL, err := time.ParseDuration(cfg.KeyCacheTtl)
+	cacheTTL, err := time.ParseDuration(cfg.KeyCacheTTL)
 	if err != nil {
 		return nil, err
 	}
