@@ -43,7 +43,7 @@ func NewAdminServer(
 
 		res.Write([]byte{'['})
 		for v := range tokenStream {
-			enc.Encode(TokenJson{
+			enc.Encode(TokenJSON{
 				Jwt:   v.Jwt,
 				Token: v.Token,
 				Href:  fmt.Sprintf("%s://%s/tokens/%s", scheme, req.Host, url.QueryEscape(v.Token)),
