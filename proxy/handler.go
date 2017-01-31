@@ -60,19 +60,19 @@ func NewProxyHandler(logger *logging.Logger, config *config.Configuration, metri
 	}
 }
 
-func (p *ProxyHandler) replaceBackendUri(value string, req *http.Request, appCfg *config.Application) string {
+func (p *ProxyHandler) replaceBackendURI(value string, req *http.Request, appCfg *config.Application) string {
 	proto := "http"
 	if req.TLS != nil {
 		proto = "https"
 	}
 
-	publicUrl := proto + "://" + req.Host
+	publicURL := proto + "://" + req.Host
 
 	if appCfg.Routing.Type == "path" {
-		publicUrl = publicUrl + appCfg.Routing.Path
+		publicURL = publicURL + appCfg.Routing.Path
 	}
 
-	return strings.Replace(value, appCfg.Backend.URL, publicUrl, -1)
+	return strings.Replace(value, appCfg.Backend.URL, publicURL, -1)
 }
 
 func (p *ProxyHandler) UnavailableError(rw http.ResponseWriter, req *http.Request, appName string) {
