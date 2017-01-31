@@ -41,12 +41,18 @@ type AuthenticationHandler struct {
 	httpClient  *http.Client
 	logger      *logging.Logger
 	verifier    *JwtVerifier
+
 	hookPreAuth *otto.Script
 
 	expCache    map[string]int64
 	expLock     sync.RWMutex
 
 	jsVM        *otto.Otto
+}
+
+type JWTResponse struct {
+	JWT string
+	AllowedApplications []string
 }
 
 func NewAuthenticationHandler(
@@ -92,7 +98,9 @@ func NewAuthenticationHandler(
 	return &handler, nil
 }
 
-func (h *AuthenticationHandler) Authenticate(username string, password string) (string, error) {
+func (h *AuthenticationHandler) Authenticate(username string, password string) (*JWTResponse, error) {
+	response := JWTResponse{}
+
 	authRequest := h.config.ProviderConfig.Parameters
 	authRequest["username"] = username
 	authRequest["password"] = password
@@ -102,29 +110,31 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	if h.hookPreAuth != nil {
 		_, err := h.jsVM.Run(h.hookPreAuth)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		export, _ := h.jsVM.Get("exports")
 		if !export.IsFunction() {
-			return "", fmt.Errorf("hook script must export a function!")
+			return nil, fmt.Errorf("hook script must export a function!")
 		}
 
 		hookResult, err := export.Call(otto.UndefinedValue(), username, password)
 		if err != nil {
-			return "", fmt.Errorf("error while calling hook function: %s", err.Error())
+			return nil, fmt.Errorf("error while calling hook function: %s", err.Error())
 		}
 
 		hookResultBool, _ := hookResult.ToBoolean()
 		if !hookResultBool {
-			return "", InvalidCredentialsError
+			return nil, InvalidCredentialsError
 		}
 
 		if !hookResult.IsObject() {
-			return "", fmt.Errorf("hook function must return object. is: %s", hookResult.Class())
+			return nil, fmt.Errorf("hook function must return object. is: %s", hookResult.Class())
 		}
 
-		body, err := hookResult.Object().Get("body")
+		hookResultObj := hookResult.Object()
+
+		body, err := hookResultObj.Get("body")
 		exportedAuthRequest, _ := body.Export()
 		newAuthRequest, ok := exportedAuthRequest.(map[string]interface{})
 
@@ -139,17 +149,25 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 			h.logger.Debugf("hook mapped authentication request to: %s", authRequest)
 		}
 
-
-		url, err := hookResult.Object().Get("url")
+		url, err := hookResultObj.Get("url")
 		if url.IsString() {
 			requestURL = url.String()
 			h.logger.Debugf("hook set request URL to: %s", url)
+		}
+
+		allowedApps, err := hookResultObj.Get("allowedApplications")
+		if allowedApps.IsDefined() {
+			exported, _ := allowedApps.Export()
+			if l, ok := exported.([]string); ok {
+				response.AllowedApplications = l
+				h.logger.Debugf("token will be restricted to apps: %s", l)
+			}
 		}
 	}
 
 	jsonString, err := json.Marshal(authRequest)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	redactedAuthRequest := authRequest
@@ -168,7 +186,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 	resp, err := h.httpClient.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -177,61 +195,64 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 		if resp.StatusCode == http.StatusForbidden {
 			h.logger.Warningf("invalid credentials for user %s: %s", username, body)
-			return "", InvalidCredentialsError
+			return nil, InvalidCredentialsError
 		} else {
 			err := fmt.Errorf("unexpected status code %d for user %s: %s", resp.StatusCode, username, body)
 			h.logger.Error(err.Error())
-			return "", err
+			return nil, err
 		}
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
-	return string(body), nil
+
+	response.JWT = string(body)
+
+	return &response, nil
 }
 
-func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string, error) {
+func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTResponse, error) {
 	token, err := h.tokenReader.TokenFromRequest(req)
 	if err == NoTokenError {
-		return false, "", nil
+		return false, nil, nil
 	} else if err != nil {
 		h.logger.Warningf("error while reading token from request: %s", err)
-		return false, "", err
+		return false, nil, err
 	}
 
 	h.expLock.RLock()
-	exp, ok := h.expCache[token]
+	exp, ok := h.expCache[token.JWT]
 	h.expLock.RUnlock()
 
 	if ok && (exp == 0 || exp > time.Now().Unix()) {
 		return true, token, nil
 	} else if !ok {
-		valid, claims, err := h.verifier.VerifyToken(token)
+		valid, claims, err := h.verifier.VerifyToken(token.JWT)
 		if err == nil && valid {
 			exp, ok := claims["exp"]
 			if !ok {
 				h.expLock.Lock()
-				h.expCache[token] = 0
+				h.expCache[token.JWT] = 0
 				h.expLock.Unlock()
 				return true, token, nil
 			}
 
 			expNum, ok := exp.(float64)
 			if !ok {
-				return false, "", fmt.Errorf("expiration tstamp is not numeric")
+				return false, nil, fmt.Errorf("expiration tstamp is not numeric")
 			}
 
 			expNumInt := int64(expNum)
 			if expNumInt > time.Now().Unix() {
 				h.logger.Debugf("JWT for token %s expires at %d", token, expNumInt)
 				h.expLock.Lock()
-				h.expCache[token] = expNumInt
+				h.expCache[token.JWT] = expNumInt
 				h.expLock.Unlock()
 
 				c := time.After(time.Duration((expNumInt - time.Now().Unix())) * time.Second)
 				go func() {
 					<- c
 					h.expLock.Lock()
-					delete(h.expCache, token)
+					delete(h.expCache, token.JWT)
 					h.expLock.Unlock()
 				}()
 
@@ -244,11 +265,11 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, string
 			switch t := err.(type) {
 			case *jwt.ValidationError:
 				if t.Errors&acceptableErrors != 0 {
-					return false, "", nil
+					return false, nil, nil
 				}
 			}
-			return false, "", err
+			return false, nil, err
 		}
 	}
-	return false, "", nil
+	return false, nil, nil
 }

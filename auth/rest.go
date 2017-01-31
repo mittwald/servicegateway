@@ -60,7 +60,7 @@ func (a *RestAuthDecorator) RegisterRequestListener(listener AuthRequestListener
 	a.listeners = append(a.listeners, listener)
 }
 
-func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *config.Application) httprouter.Handle {
+func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName string, appCfg *config.Application) httprouter.Handle {
 	var writer TokenWriter
 
 	switch appCfg.Auth.Writer.Mode {
@@ -87,19 +87,38 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appCfg *conf
 			res.Header().Set("Content-Type", "application/json")
 			res.WriteHeader(503)
 			res.Write([]byte("{\"msg\": \"service unavailable\"}"))
-		} else if !authenticated {
-			res.Header().Set("Content-Type", "application/json")
-			res.WriteHeader(403)
-			res.Write([]byte("{\"msg\": \"not authenticated\"}"))
-		} else {
-			writer.WriteTokenToRequest(token, req)
+			return
+		}
+
+		if !authenticated {
+			goto invalid
+		}
+
+		if token.AllowedApplications != nil && len(token.AllowedApplications) > 0 {
+			for i := range token.AllowedApplications {
+				if token.AllowedApplications[i] == appName {
+					goto valid
+				}
+			}
+
+			a.logger.Warningf("token is not whitelisted for app %s. whitelisted apps: %s", appName, token.AllowedApplications)
+			goto invalid
+		}
+
+		valid:
+			writer.WriteTokenToRequest(token.JWT, req)
 
 			for i, _ := range a.listeners {
-				a.listeners[i].OnAuthenticatedRequest(req, token)
+				a.listeners[i].OnAuthenticatedRequest(req, token.JWT)
 			}
 
 			orig(res, req, p)
-		}
+			return
+
+		invalid:
+			res.Header().Set("Content-Type", "application/json")
+			res.WriteHeader(403)
+			res.Write([]byte("{\"msg\": \"not authenticated\"}"))
 	}
 }
 
@@ -134,18 +153,18 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 			return
 		}
 
-		jwt, err := a.authHandler.Authenticate(authRequest.Username, authRequest.Password)
+		authResponse, err := a.authHandler.Authenticate(authRequest.Username, authRequest.Password)
 		if err == InvalidCredentialsError {
 			rw.Header().Set("Content-Type", "application/json;charset=utf8")
 			rw.WriteHeader(403)
 			rw.Write([]byte(`{"msg":"invalid credentials"}`))
 			return
-		} else if err != nil {
+		} else if err != nil || authResponse == nil {
 			handleError(err, rw)
 			return
 		}
 
-		token, exp, err := a.tokenStore.AddToken(jwt)
+		token, exp, err := a.tokenStore.AddToken(authResponse)
 		if err != nil {
 			handleError(err, rw)
 			return

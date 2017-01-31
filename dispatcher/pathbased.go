@@ -192,7 +192,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 
 		for _, behaviour := range d.behaviours {
 			var err error
-			safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, d, &appCfg)
+			safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, d, name, &appCfg)
 			if err != nil {
 				return err
 			}
