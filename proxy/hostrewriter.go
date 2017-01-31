@@ -32,7 +32,7 @@ type mapping struct {
 	replacements  map[int]*regexp.Regexp
 }
 
-type JsonHostRewriter struct {
+type JSONHostRewriter struct {
 	InternalHost string
 	Mappings     []mapping
 	Logger       *logging.Logger
@@ -69,14 +69,14 @@ func NewHostRewriter(internalHost string, urlPatterns map[string]string, logger 
 		i += 1
 	}
 
-	return &JsonHostRewriter{
+	return &JSONHostRewriter{
 		InternalHost: internalHost,
 		Mappings:     mappings,
 		Logger:       logger,
 	}, nil
 }
 
-func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle {
+func (j *JSONHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle {
 	return func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		if req.Header.Get("X-No-Rewrite") != "" {
 			j.Logger.Noticef("skipping json rewriting due to client request")
@@ -134,7 +134,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 	}
 }
 
-func (j *JsonHostRewriter) copyAndRewriteHeaders(source http.ResponseWriter, target http.ResponseWriter, publicURL *url.URL) {
+func (j *JSONHostRewriter) copyAndRewriteHeaders(source http.ResponseWriter, target http.ResponseWriter, publicURL *url.URL) {
 	for k, values := range source.Header() {
 		if k == "Location" {
 			j.Logger.Debugf("found location header")
@@ -152,11 +152,11 @@ func (j *JsonHostRewriter) copyAndRewriteHeaders(source http.ResponseWriter, tar
 	}
 }
 
-func (j *JsonHostRewriter) CanHandle(res http.ResponseWriter) bool {
+func (j *JSONHostRewriter) CanHandle(res http.ResponseWriter) bool {
 	return strings.HasPrefix(res.Header().Get("content-type"), "application/json")
 }
 
-func (j *JsonHostRewriter) Rewrite(body []byte, reqURL *url.URL) ([]byte, error) {
+func (j *JSONHostRewriter) Rewrite(body []byte, reqURL *url.URL) ([]byte, error) {
 	var jsonData interface{}
 	err := json.Unmarshal(body, &jsonData)
 
@@ -174,7 +174,7 @@ func (j *JsonHostRewriter) Rewrite(body []byte, reqURL *url.URL) ([]byte, error)
 	return reencoded, nil
 }
 
-func (j *JsonHostRewriter) RewriteURL(urlString string, reqURL *url.URL) (string, error) {
+func (j *JSONHostRewriter) RewriteURL(urlString string, reqURL *url.URL) (string, error) {
 	parsedURL, err := url.Parse(urlString)
 	if err != nil {
 		return urlString, fmt.Errorf("error while parsing url %s: %s", urlString, err)
@@ -193,7 +193,7 @@ func (j *JsonHostRewriter) RewriteURL(urlString string, reqURL *url.URL) (string
 	return "", UnmappableURL
 }
 
-func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqURL *url.URL, inLinks bool) (interface{}, error) {
+func (j *JSONHostRewriter) walkJson(jsonStruct interface{}, reqURL *url.URL, inLinks bool) (interface{}, error) {
 	switch typed := jsonStruct.(type) {
 	case map[string]interface{}:
 		for key, _ := range typed {
