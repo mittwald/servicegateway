@@ -36,7 +36,7 @@ type pathBasedDispatcher struct {
 }
 
 type PatternClosure struct {
-	targetUrl  string
+	targetURL  string
 	parameters [][]string
 	appName    string
 	appCfg     *config.Application
@@ -44,7 +44,7 @@ type PatternClosure struct {
 }
 
 type PathClosure struct {
-	backendUrl string
+	backendURL string
 	appName    string
 	appCfg     *config.Application
 	proxy      *proxy.ProxyHandler
@@ -74,19 +74,19 @@ func (d *pathBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Reque
 }
 
 func (p *PatternClosure) Handle(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
-	targetUrl := p.targetUrl
+	targetURL := p.targetURL
 	for _, paramName := range p.parameters {
-		targetUrl = strings.Replace(targetUrl, paramName[0], params.ByName(paramName[1]), -1)
+		targetURL = strings.Replace(targetURL, paramName[0], params.ByName(paramName[1]), -1)
 	}
 
-	p.proxy.HandleProxyRequest(rw, req, targetUrl, p.appName, p.appCfg)
+	p.proxy.HandleProxyRequest(rw, req, targetURL, p.appName, p.appCfg)
 }
 
 func (p *PathClosure) Handle(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
 	sanitizedPath := strings.Replace(req.URL.Path, p.appCfg.Routing.Path, "", 1)
-	proxyUrl := p.backendUrl + sanitizedPath
+	proxyURL := p.backendURL + sanitizedPath
 
-	p.proxy.HandleProxyRequest(rw, req, proxyUrl, p.appName, p.appCfg)
+	p.proxy.HandleProxyRequest(rw, req, proxyURL, p.appName, p.appCfg)
 }
 
 func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner httprouter.Handle) httprouter.Handle {
@@ -134,12 +134,12 @@ func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner
 func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.Application) error {
 	routes := make(map[string]httprouter.Handle)
 
-	backendUrl := appCfg.Backend.URL
-	if backendUrl == "" && appCfg.Backend.Service != "" {
+	backendURL := appCfg.Backend.URL
+	if backendURL == "" && appCfg.Backend.Service != "" {
 		if appCfg.Backend.Tag != "" {
-			backendUrl = fmt.Sprintf("http://%s.%s.service.consul", appCfg.Backend.Tag, appCfg.Backend.Service)
+			backendURL = fmt.Sprintf("http://%s.%s.service.consul", appCfg.Backend.Tag, appCfg.Backend.Service)
 		} else {
-			backendUrl = fmt.Sprintf("http://%s.service.consul", appCfg.Backend.Service)
+			backendURL = fmt.Sprintf("http://%s.service.consul", appCfg.Backend.Service)
 		}
 	}
 
@@ -151,10 +151,10 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 			"/(?P<path>.*)": path + "/:path",
 		}
 
-		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, d.log)
+		rewriter, _ = proxy.NewHostRewriter(backendURL, mapping, d.log)
 
 		closure := new(PathClosure)
-		closure.backendUrl = backendUrl
+		closure.backendURL = backendURL
 		closure.appName = name
 		closure.appCfg = &appCfg
 		closure.proxy = d.prx
@@ -172,7 +172,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 			parameters := re.FindAllStringSubmatch(pattern, -1)
 
 			closure := new(PatternClosure)
-			closure.targetUrl = backendUrl + target
+			closure.targetURL = backendURL + target
 			closure.parameters = parameters
 			closure.appName = name
 			closure.appCfg = &appCfg
@@ -181,7 +181,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 			routes[pattern] = closure.Handle
 		}
 
-		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, d.log)
+		rewriter, _ = proxy.NewHostRewriter(backendURL, mapping, d.log)
 	}
 
 	for route, handler := range routes {
