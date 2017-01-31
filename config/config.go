@@ -78,7 +78,7 @@ type ProxyConfiguration struct {
 
 type Caching struct {
 	Enabled   bool `json:"enabled"`
-	Ttl       int  `json:"ttl"`
+	TTL       int  `json:"ttl"`
 	AutoFlush bool `json:"auto_flush"`
 }
 
