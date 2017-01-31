@@ -84,7 +84,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	h.logger.Infof("authenticating user %s", username)
 	h.logger.Debugf("authentication request: %s", debugJSONString)
 
-	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url+"/authenticate", bytes.NewBuffer(jsonString))
+	req, err := http.NewRequest("POST", h.config.ProviderConfig.URL +"/authenticate", bytes.NewBuffer(jsonString))
 	req.Header.Set("Accept", "application/jwt")
 	req.Header.Set("Content-Type", "application/json")
 
