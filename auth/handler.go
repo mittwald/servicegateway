@@ -79,10 +79,10 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	redactedAuthRequest := authRequest
 	redactedAuthRequest["password"] = "*REDACTED*"
 
-	debugJsonString, _ := json.Marshal(redactedAuthRequest)
+	debugJSONString, _ := json.Marshal(redactedAuthRequest)
 
 	h.logger.Infof("authenticating user %s", username)
-	h.logger.Debugf("authentication request: %s", debugJsonString)
+	h.logger.Debugf("authentication request: %s", debugJSONString)
 
 	req, err := http.NewRequest("POST", h.config.ProviderConfig.Url+"/authenticate", bytes.NewBuffer(jsonString))
 	req.Header.Set("Accept", "application/jwt")
