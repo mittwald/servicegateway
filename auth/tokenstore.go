@@ -6,6 +6,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/golang-lru"
 	"encoding/base32"
+	"strings"
 )
 
 type MappedToken struct {
@@ -14,9 +15,9 @@ type MappedToken struct {
 }
 
 type TokenStore interface {
-	AddToken(string) (string, int64, error)
-	SetToken(string, string) (int64, error)
-	GetToken(string) (string, error)
+	AddToken(*JWTResponse) (string, int64, error)
+	SetToken(string, *JWTResponse) (int64, error)
+	GetToken(string) (*JWTResponse, error)
 	GetAllTokens() (<-chan MappedToken, error)
 }
 
@@ -26,7 +27,7 @@ type CacheDecorator struct {
 }
 
 type CacheRecord struct {
-	token string
+	token *JWTResponse
 	exp   int64
 }
 
@@ -60,10 +61,10 @@ func NewTokenStore(redisPool *redis.Pool, verifier *JwtVerifier, options TokenSt
 	}, nil
 }
 
-func (s *RedisTokenStore) SetToken(token string, jwt string) (int64, error) {
+func (s *RedisTokenStore) SetToken(token string, jwt *JWTResponse) (int64, error) {
 	var expirationTstamp int64
 
-	valid, claims, err := s.verifier.VerifyToken(jwt)
+	valid, claims, err := s.verifier.VerifyToken(jwt.JWT)
 	if !valid {
 		return 0, fmt.Errorf("JWT is invalid")
 	}
@@ -87,7 +88,7 @@ func (s *RedisTokenStore) SetToken(token string, jwt string) (int64, error) {
 	conn := s.redisPool.Get()
 	defer conn.Close()
 
-	_, err = conn.Do("HMSET", key, "jwt", jwt, "token", token)
+	_, err = conn.Do("HMSET", key, "jwt", jwt.JWT, "token", token, "applications", strings.Join(jwt.AllowedApplications, ";"))
 	if err != nil {
 		return 0, err
 	}
@@ -102,7 +103,7 @@ func (s *RedisTokenStore) SetToken(token string, jwt string) (int64, error) {
 	return expirationTstamp, nil
 }
 
-func (s *RedisTokenStore) AddToken(jwt string) (string, int64, error) {
+func (s *RedisTokenStore) AddToken(jwt *JWTResponse) (string, int64, error) {
 	randomBytes := make([]byte, 32)
 
 	_, err := rand.Read(randomBytes)
@@ -120,20 +121,24 @@ func (s *RedisTokenStore) AddToken(jwt string) (string, int64, error) {
 	return tokenStr, exp, nil
 }
 
-func (s *RedisTokenStore) GetToken(token string) (string, error) {
+func (s *RedisTokenStore) GetToken(token string) (*JWTResponse, error) {
 	conn := s.redisPool.Get()
 	defer conn.Close()
 
 	key := "token_" + token
+	response := JWTResponse{}
 
-	jwt, err := redis.String(conn.Do("HGET", key, "jwt"))
+	results, err := redis.Strings(conn.Do("HMGET", key, "jwt", "applications"))
 	if err == redis.ErrNil {
-		return "", NoTokenError
+		return nil, NoTokenError
 	} else if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return jwt, nil
+	response.JWT = results[0]
+	response.AllowedApplications = strings.Split(results[1], ";")
+
+	return &response, nil
 }
 
 func (s *RedisTokenStore) GetAllTokens() (<-chan MappedToken, error) {
@@ -165,7 +170,7 @@ func (s *RedisTokenStore) GetAllTokens() (<-chan MappedToken, error) {
 	return c, nil
 }
 
-func (s *CacheDecorator) SetToken(token, jwt string) (int64, error) {
+func (s *CacheDecorator) SetToken(token string, jwt *JWTResponse) (int64, error) {
 	exp, err := s.wrapped.SetToken(token, jwt)
 	if err != nil {
 		return 0, err
@@ -175,7 +180,7 @@ func (s *CacheDecorator) SetToken(token, jwt string) (int64, error) {
 	return exp, nil
 }
 
-func (s *CacheDecorator) AddToken(jwt string) (string, int64, error) {
+func (s *CacheDecorator) AddToken(jwt *JWTResponse) (string, int64, error) {
 	token, exp, err := s.wrapped.AddToken(jwt)
 	if err != nil {
 		return "", 0, err
@@ -185,16 +190,16 @@ func (s *CacheDecorator) AddToken(jwt string) (string, int64, error) {
 	return token, exp, nil
 }
 
-func (s *CacheDecorator) GetToken(token string) (string, error) {
+func (s *CacheDecorator) GetToken(token string) (*JWTResponse, error) {
 	jwt, ok := s.localCache.Get(token)
 	if ok {
 		switch t := jwt.(type) {
 		case string:
-			return t, nil
+			return &JWTResponse{JWT: t}, nil
 		case *CacheRecord:
 			return t.token, nil
 		default:
-			return "", fmt.Errorf("invalid data type for token %s", token)
+			return nil, fmt.Errorf("invalid data type for token %s", token)
 		}
 	}
 

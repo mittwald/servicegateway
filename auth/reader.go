@@ -10,24 +10,24 @@ import (
 var NoTokenError error = errors.New("No authentication token found in request")
 
 type TokenReader interface {
-	TokenFromRequest(*http.Request) (string, error)
+	TokenFromRequest(*http.Request) (*JWTResponse, error)
 }
 
 type BearerTokenReader struct {
 	store TokenStore
 }
 
-func (b *BearerTokenReader) TokenFromRequest(req *http.Request) (string, error) {
+func (b *BearerTokenReader) TokenFromRequest(req *http.Request) (*JWTResponse, error) {
 	tokenString, err := b.tokenStringFromRequest(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	token, err := b.store.GetToken(tokenString)
 	if err == NoTokenError {
-		return "", err
+		return nil, err
 	} else if err != nil {
-		return "", fmt.Errorf("error while loading JWT for token %s: %s", tokenString, err)
+		return nil, fmt.Errorf("error while loading JWT for token %s: %s", tokenString, err)
 	}
 
 	return token, nil

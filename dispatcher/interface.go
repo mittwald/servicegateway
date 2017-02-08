@@ -35,7 +35,7 @@ type Dispatcher interface {
 }
 
 type DispatcherBehaviour interface {
-	Apply(httprouter.Handle, httprouter.Handle, Dispatcher, *config.Application) (httprouter.Handle, httprouter.Handle, error)
+	Apply(httprouter.Handle, httprouter.Handle, Dispatcher, string, *config.Application) (httprouter.Handle, httprouter.Handle, error)
 }
 
 type RoutingBehaviour interface {

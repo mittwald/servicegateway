@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/mittwald/servicegateway",
 	"GoVersion": "go1.6",
-	"GodepVersion": "v60",
+	"GodepVersion": "v75",
 	"Deps": [
 		{
 			"ImportPath": "github.com/beorn7/perks/quantile",
@@ -102,8 +102,46 @@
 			"Rev": "abf152e5f3e97f2fafac028d2cc06c1feb87ffa5"
 		},
 		{
+			"ImportPath": "github.com/robertkrimen/otto",
+			"Rev": "1c7376969459873387db43f2838ffab2aadf8010"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/ast",
+			"Rev": "1c7376969459873387db43f2838ffab2aadf8010"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/dbg",
+			"Rev": "1c7376969459873387db43f2838ffab2aadf8010"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/file",
+			"Rev": "1c7376969459873387db43f2838ffab2aadf8010"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/parser",
+			"Rev": "1c7376969459873387db43f2838ffab2aadf8010"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/registry",
+			"Rev": "1c7376969459873387db43f2838ffab2aadf8010"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/token",
+			"Rev": "1c7376969459873387db43f2838ffab2aadf8010"
+		},
+		{
 			"ImportPath": "github.com/streadway/amqp",
 			"Rev": "b4f3ceab0337f013208d31348b578d83c0064744"
+		},
+		{
+			"ImportPath": "gopkg.in/sourcemap.v1",
+			"Comment": "v1.0.3",
+			"Rev": "eef8f47ab679652a7d3a4ee34c34314d255d2536"
+		},
+		{
+			"ImportPath": "gopkg.in/sourcemap.v1/base64vlq",
+			"Comment": "v1.0.3",
+			"Rev": "eef8f47ab679652a7d3a4ee34c34314d255d2536"
 		}
 	]
 }

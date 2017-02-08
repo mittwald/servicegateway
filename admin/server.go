@@ -79,7 +79,7 @@ func NewAdminServer(
 
 		tokenString := bone.GetValue(req, "token")
 
-		exp, err := tokenStore.SetToken(tokenString, jwt)
+		exp, err := tokenStore.SetToken(tokenString, &auth.JWTResponse{JWT:jwt})
 		if err != nil {
 			logger.Errorf("error while storing token: %s", err)
 			res.WriteHeader(500)
@@ -122,7 +122,7 @@ func NewAdminServer(
 			return
 		}
 
-		tokenString, exp, err := tokenStore.AddToken(jwt)
+		tokenString, exp, err := tokenStore.AddToken(&auth.JWTResponse{JWT:jwt})
 		if err != nil {
 			logger.Errorf("error while storing token: %s", err)
 			res.WriteHeader(500)
