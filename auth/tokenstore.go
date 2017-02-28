@@ -136,7 +136,9 @@ func (s *RedisTokenStore) GetToken(token string) (*JWTResponse, error) {
 	}
 
 	response.JWT = results[0]
-	response.AllowedApplications = strings.Split(results[1], ";")
+	if results[1] != "" {
+		response.AllowedApplications = strings.Split(results[1], ";")
+	}
 
 	return &response, nil
 }
