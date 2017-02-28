@@ -78,6 +78,7 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName stri
 	return func(res http.ResponseWriter, req *http.Request, p httprouter.Params) {
 		if req.Method == "OPTIONS" {
 			orig(res, req, p)
+			return
 		}
 
 		authenticated, token, err := a.authHandler.IsAuthenticated(req)
