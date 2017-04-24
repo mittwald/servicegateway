@@ -24,5 +24,5 @@ type GlobalAuth struct {
 	VerificationKey    []byte             `json:"verification_key"`
 	VerificationKeyUrl string             `json:"verification_key_url"`
 	KeyCacheTtl        string             `json:"key_cache_ttl"`
-	EnableCORS         boolean            `json:"enable_cors"`
+	EnableCORS         bool               `json:"enable_cors"`
 }
