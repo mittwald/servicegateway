@@ -140,6 +140,13 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		rw.Write([]byte(`{"msg":"internal server error"}`))
 	}
 
+	if a.authHandler.config.EnableCORS {
+		mux.OPTIONS(uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
+			setCORSHeaders(rw.Header())
+			rw.WriteHeader(200)
+		})
+	}
+
 	mux.POST(uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		var authRequest ExternalAuthenticationRequest
 
@@ -181,9 +188,22 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 			return
 		}
 
-		rw.Header().Set("Content-Type", "application/json;charset=utf8")
+		h := rw.Header()
+
+		if a.authHandler.config.EnableCORS {
+			setCORSHeaders(h)
+		}
+
+		h.Set("Content-Type", "application/json;charset=utf8")
 		rw.Write(jsonResponse)
 	})
 
 	return nil
+}
+
+func setCORSHeaders(headers http.Header) {
+	headers.Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	headers.Set("Access-Control-Allow-Headers", "X-Requested-With, Authorization, Content-Type")
+	headers.Set("Access-Control-Allow-Origin", "*")
+	headers.Set("Access-Control-Allow-Credentials", "true")
 }
