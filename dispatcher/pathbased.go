@@ -202,6 +202,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 		d.mux.HEAD(route, safeHandler)
 		d.mux.POST(route, unsafeHandler)
 		d.mux.PUT(route, unsafeHandler)
+		d.mux.PATCH(route, unsafeHandler)
 		d.mux.DELETE(route, unsafeHandler)
 
 		// Register a dedicated OPTIONS handler if it was enabled.
