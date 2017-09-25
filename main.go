@@ -29,8 +29,6 @@ import (
 	"os/signal"
 	"runtime/pprof"
 	"strings"
-	"time"
-
 	"github.com/braintree/manners"
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/consul/api"
@@ -43,7 +41,7 @@ import (
 	"github.com/mittwald/servicegateway/monitoring"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/mittwald/servicegateway/ratelimit"
-	logging "github.com/op/go-logging"
+	"github.com/op/go-logging"
 )
 
 type StartupConfig struct {
@@ -186,7 +184,7 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
-		for _ = range c {
+		for range c {
 			logger.Notice("received interrupt signal")
 			monitoringController.Shutdown <- true
 			serverShutdown <- true
@@ -203,27 +201,7 @@ func main() {
 	}()
 
 	go func() {
-		var lastIndex uint64 = 0
-		var newLastIndex uint64 = 0
 		var err error
-
-		proxyServerChan := make(chan *manners.GracefulServer)
-		adminServerChan := make(chan *manners.GracefulServer)
-
-		go func() {
-			for server := range proxyServerChan {
-				logger.Infof("starting dispatcher on address %s", listenAddress)
-				server.ListenAndServe()
-			}
-		}()
-
-		go func() {
-			for server := range adminServerChan {
-				logger.Infof("starting admin server on address %s", adminListenAddress)
-				server.ListenAndServe()
-			}
-		}()
-
 		var proxyServer, adminServer *manners.GracefulServer
 
 		shutdownServers := func() {
@@ -246,41 +224,42 @@ func main() {
 			serverShutdownComplete <- true
 		}()
 
-		for {
-			var dispatcher http.Handler
-			var adminHandler http.Handler
+		var disp http.Handler
+		var adminHandler http.Handler
 
-			dispatcher, adminHandler, newLastIndex, err = buildDispatcher(
-				&startup,
-				&cfg,
-				consulClient,
-				handler,
-				redisPool,
-				logger,
-				tokenStore,
-				tokenVerifier,
-				httpLoggers,
-				lastIndex,
-			)
+		disp, adminHandler, err = buildDispatcher(
+			&startup,
+			&cfg,
+			consulClient,
+			handler,
+			redisPool,
+			logger,
+			tokenStore,
+			tokenVerifier,
+			httpLoggers,
+		)
 
-			if err != nil {
-				logger.Error(err.Error())
-				if lastIndex == 0 {
-					logger.Panic("error on startup")
-				}
-			} else {
-				lastIndex = newLastIndex
+		if err != nil {
+			logger.Error(err.Error())
+		} else {
 
-				shutdownServers()
+			shutdownServers()
 
-				proxyServer = manners.NewWithServer(&http.Server{Addr: listenAddress, Handler: dispatcher})
-				adminServer = manners.NewWithServer(&http.Server{Addr: adminListenAddress, Handler: adminHandler})
+			proxyServer = manners.NewWithServer(&http.Server{Addr: listenAddress, Handler: disp})
+			adminServer = manners.NewWithServer(&http.Server{Addr: adminListenAddress, Handler: adminHandler})
 
-				logger.Debug("Starting new servers")
+			logger.Debug("Starting new servers")
 
-				proxyServerChan <- proxyServer
-				adminServerChan <- adminServer
-			}
+			go func() {
+				logger.Infof("starting dispatcher on address %s", listenAddress)
+				proxyServer.ListenAndServe()
+			}()
+
+			go func() {
+				logger.Infof("starting admin server on address %s", adminListenAddress)
+				adminServer.ListenAndServe()
+			}()
+
 		}
 	}()
 
@@ -298,11 +277,9 @@ func buildDispatcher(
 	tokenStore auth.TokenStore,
 	tokenVerifier *auth.JwtVerifier,
 	httpLoggers []httplogging.HttpLogger,
-	lastIndex uint64,
-) (http.Handler, http.Handler, uint64, error) {
+) (http.Handler, http.Handler, error) {
 	var disp dispatcher.Dispatcher
 	var err error
-	var meta *api.QueryMeta
 	var configs api.KVPairs
 	var localCfg config.Configuration = *cfg
 	var appCfgs map[string]config.Application = make(map[string]config.Application)
@@ -317,19 +294,15 @@ func buildDispatcher(
 	}
 
 	if err != nil {
-		return nil, nil, 0, fmt.Errorf("error while creating proxy builder: %s", err)
+		return nil, nil, fmt.Errorf("error while creating proxy builder: %s", err)
 	}
 
 	applicationConfigBase := startup.ConsulBaseKey + "/applications"
-	queryOpts := api.QueryOptions{
-		WaitIndex: lastIndex,
-		WaitTime:  30 * time.Minute,
-	}
 
 	logger.Infof("loading gateway config from KV %s", startup.ConsulBaseKey)
-	configs, meta, err = consul.KV().List(startup.ConsulBaseKey, &queryOpts)
+	configs, _, err = consul.KV().List(startup.ConsulBaseKey, &api.QueryOptions{})
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, err
 	}
 
 	for _, cfgKVPair := range configs {
@@ -338,7 +311,7 @@ func buildDispatcher(
 		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
 		case "rate_limiting":
 			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.RateLimiting); err != nil {
-				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
+				return nil, nil, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
 			}
 		}
 
@@ -346,7 +319,7 @@ func buildDispatcher(
 			var appCfg config.Application
 
 			if err := json.Unmarshal(cfgKVPair.Value, &appCfg); err != nil {
-				return nil, nil, meta.LastIndex, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
+				return nil, nil, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
 			}
 
 			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase+"/")
@@ -356,12 +329,12 @@ func buildDispatcher(
 
 	authHandler, err := auth.NewAuthenticationHandler(&localCfg.Authentication, rpool, tokenStore, tokenVerifier, logger)
 	if err != nil {
-		return nil, nil, meta.LastIndex, err
+		return nil, nil, err
 	}
 
 	authDecorator, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"), authHandler, tokenStore, startup.UiDir)
 	if err != nil {
-		return nil, nil, meta.LastIndex, err
+		return nil, nil, err
 	}
 
 	rlim, err := ratelimit.NewRateLimiter(localCfg.RateLimiting, rpool, logging.MustGetLogger("ratelimiter"))
@@ -380,29 +353,29 @@ func buildDispatcher(
 	for name, appCfg := range appCfgs {
 		logger.Infof("registering application '%s' from Consul", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
-			return nil, nil, meta.LastIndex, err
+			return nil, nil, err
 		}
 	}
 
 	for name, appCfg := range localCfg.Applications {
 		logger.Infof("registering application '%s' from local config", name)
 		if err := disp.RegisterApplication(name, appCfg); err != nil {
-			return nil, nil, meta.LastIndex, err
+			return nil, nil, err
 		}
 	}
 
 	if err = disp.Initialize(); err != nil {
-		return nil, nil, meta.LastIndex, err
+		return nil, nil, err
 	}
 
 	adminLogger, err := logging.GetLogger("admin-api")
 	if err != nil {
-		return nil, nil, meta.LastIndex, err
+		return nil, nil, err
 	}
 
-	admin, err := admin.NewAdminServer(tokenStore, tokenVerifier, authHandler, adminLogger)
+	adminServer, err := admin.NewAdminServer(tokenStore, tokenVerifier, authHandler, adminLogger)
 	if err != nil {
-		return nil, nil, meta.LastIndex, err
+		return nil, nil, err
 	}
 
 	var server http.Handler = disp
@@ -414,11 +387,11 @@ func buildDispatcher(
 
 		server, err = httpLogger.Wrap(server)
 		if err != nil {
-			return nil, nil, meta.LastIndex, err
+			return nil, nil, err
 		}
 	}
 
-	return server, admin, meta.LastIndex, nil
+	return server, adminServer, nil
 }
 
 func buildLoggers(cfg *config.Configuration, tok *auth.JwtVerifier) ([]httplogging.HttpLogger, error) {
