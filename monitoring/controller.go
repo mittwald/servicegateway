@@ -113,7 +113,6 @@ func (m *MonitoringController) Start() error {
 func (m *MonitoringController) shutdown() error {
 	if err := m.consulClient.Agent().ServiceDeregister(m.consulServiceID); err != nil {
 		m.logger.Errorf("Error while deregistering service in Consul: %s", err)
-		return err
 	} else {
 		m.logger.Info("Successfully deregistered service in Consul")
 	}
