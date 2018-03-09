@@ -227,6 +227,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 		return typed, nil
 
 	case []interface{}:
+		originalLength := len(typed)
 		outputList := make([]interface{}, 0, len(typed))
 		removedCount := 0
 
@@ -241,7 +242,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 			}
 		}
 
-		if len(outputList) == 0 {
+		if len(outputList) == 0 && originalLength != 0 {
 			return nil, RemoveElement
 		}
 		return outputList, nil
