@@ -160,7 +160,7 @@ func (j *JsonHostRewriter) Rewrite(body []byte, reqUrl *url.URL) ([]byte, error)
 	err := json.Unmarshal(body, &jsonData)
 
 	if err != nil {
-		return nil, err
+		return body, nil
 	}
 
 	jsonData, err = j.walkJson(jsonData, reqUrl, false)
