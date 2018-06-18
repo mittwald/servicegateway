@@ -11,6 +11,7 @@ type ProviderAuthConfig struct {
 	PreAuthenticationHook string                 `json:"hook_pre_authentication"`
 	AllowAuthentication   bool                   `json:"allow_authentication"`
 	AuthenticationUri     string                 `json:"authentication_uri"`
+	Service     		  string                 `json:"service"`
 }
 
 type ApplicationAuth struct {

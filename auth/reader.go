@@ -52,7 +52,17 @@ func (b *BearerTokenReader) tokenStringFromRequest(req *http.Request) (string, e
 		return cookie.Value, nil
 	}
 
+	cookie, err = req.Cookie("access_token")
+	if err == nil {
+		return cookie.Value, nil
+	}
+
 	jwtHeader := req.Header.Get("X-JWT")
+	if jwtHeader != "" {
+		return jwtHeader, nil
+	}
+
+	jwtHeader = req.Header.Get("x-access-token")
 	if jwtHeader != "" {
 		return jwtHeader, nil
 	}

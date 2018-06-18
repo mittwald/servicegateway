@@ -131,7 +131,7 @@ func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner
 	}
 }
 
-func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.Application) error {
+func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.Application, config *config.Configuration) error {
 	routes := make(map[string]httprouter.Handle)
 
 	backendUrl := appCfg.Backend.Url
@@ -192,7 +192,7 @@ func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.App
 
 		for _, behaviour := range d.behaviours {
 			var err error
-			safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, d, name, &appCfg)
+			safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, d, name, &appCfg, config)
 			if err != nil {
 				return err
 			}

@@ -29,13 +29,13 @@ import (
 
 type Dispatcher interface {
 	http.Handler
-	RegisterApplication(string, config.Application) error
+	RegisterApplication(string, config.Application, *config.Configuration) error
 	Initialize() error
 	AddBehaviour(...DispatcherBehaviour)
 }
 
 type DispatcherBehaviour interface {
-	Apply(httprouter.Handle, httprouter.Handle, Dispatcher, string, *config.Application) (httprouter.Handle, httprouter.Handle, error)
+	Apply(httprouter.Handle, httprouter.Handle, Dispatcher, string, *config.Application, *config.Configuration) (httprouter.Handle, httprouter.Handle, error)
 }
 
 type RoutingBehaviour interface {

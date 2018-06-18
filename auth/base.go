@@ -32,7 +32,7 @@ import (
 var InvalidCredentialsError error = errors.New("invalid credentials given")
 
 type AuthDecorator interface {
-	DecorateHandler(httprouter.Handle, string, *config.Application) httprouter.Handle
+	DecorateHandler(httprouter.Handle, string, *config.Application, *config.Configuration) httprouter.Handle
 	RegisterRoutes(*httprouter.Router) error
 	RegisterRequestListener(AuthRequestListener)
 }

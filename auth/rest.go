@@ -60,7 +60,7 @@ func (a *RestAuthDecorator) RegisterRequestListener(listener AuthRequestListener
 	a.listeners = append(a.listeners, listener)
 }
 
-func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName string, appCfg *config.Application) httprouter.Handle {
+func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName string, appCfg *config.Application, cfg *config.Configuration) httprouter.Handle {
 	var writer TokenWriter
 
 	switch appCfg.Auth.Writer.Mode {
@@ -81,14 +81,21 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName stri
 			return
 		}
 
+		handleError := func(err error, rw http.ResponseWriter) {
+			a.logger.Errorf("error while handling authentication request: %s", err)
+			rw.Header().Set("Content-Type", "application/json;charset=utf8")
+			rw.WriteHeader(500)
+			rw.Write([]byte(`{"msg":"internal server error"}`))
+		}
+
 		authenticated, token, err := a.authHandler.IsAuthenticated(req)
 		if err != nil {
-			a.logger.Errorf("authentication error: %s", err)
-
-			res.Header().Set("Content-Type", "application/json")
-			res.WriteHeader(503)
-			res.Write([]byte("{\"msg\": \"service unavailable\"}"))
+			handleError(err, res)
 			return
+		}
+
+		if cfg.Authentication.ProviderConfig.Service == appName {
+			goto valid
 		}
 
 		if !authenticated {
@@ -114,6 +121,82 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName stri
 			}
 
 			orig(res, req, p)
+
+			// if app was a provider app allow token rewrites
+			if cfg.Authentication.ProviderConfig.Service == appName {
+				// rewrite body tokens
+				bodyTokenKey := res.Header().Get("X-Gateway-BodyToken")
+				if bodyTokenKey != "" {
+
+					var response map[string]string
+					jsonBlob, _ := ioutil.ReadAll(req.Body)
+					err := json.Unmarshal(jsonBlob, &response)
+
+					if err != nil {
+						handleError(err, res)
+						return
+					}
+
+					bodyToken := response[bodyTokenKey]
+
+					jwtResponse := JWTResponse{}
+					jwtResponse.JWT = string(bodyToken)
+
+					token, _, err := a.tokenStore.AddToken(&jwtResponse)
+					if err != nil {
+						handleError(err, res)
+						return
+					}
+
+					response[bodyTokenKey] = token
+					jsonResponse, err := json.Marshal(&response)
+					if err != nil {
+						handleError(err, res)
+						return
+					}
+					res.Write(jsonResponse)
+				}
+
+				headerTokenKey := res.Header().Get("X-Gateway-HeaderToken")
+				if headerTokenKey != "" {
+
+					header := res.Header().Get(headerTokenKey)
+
+					jwtResponse := JWTResponse{}
+					jwtResponse.JWT = string(header)
+
+					token, _, err := a.tokenStore.AddToken(&jwtResponse)
+					if err != nil {
+						handleError(err, res)
+						return
+					}
+
+					res.Header().Set(headerTokenKey, token)
+				}
+
+				cookieTokenKey := res.Header().Get("X-Gateway-CookieToken")
+				if cookieTokenKey != "" {
+
+					cookie, err := req.Cookie(cookieTokenKey)
+
+					if err != nil {
+						handleError(err, res)
+						return
+					}
+
+					jwtResponse := JWTResponse{}
+					jwtResponse.JWT = string(cookie.Value)
+
+					token, _, err := a.tokenStore.AddToken(&jwtResponse)
+					if err != nil {
+						handleError(err, res)
+						return
+					}
+
+					cookie.Value = token
+					http.SetCookie(res, cookie)
+				}
+			}
 			return
 
 		invalid:
@@ -130,7 +213,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 
 	uri := a.authHandler.config.ProviderConfig.AuthenticationUri
 	if uri == "" {
-		uri = "/authenciate"
+		uri = "/authenticate"
 	}
 
 	handleError := func(err error, rw http.ResponseWriter) {

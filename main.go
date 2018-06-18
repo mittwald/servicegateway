@@ -352,14 +352,14 @@ func buildDispatcher(
 
 	for name, appCfg := range appCfgs {
 		logger.Infof("registering application '%s' from Consul", name)
-		if err := disp.RegisterApplication(name, appCfg); err != nil {
+		if err := disp.RegisterApplication(name, appCfg, cfg); err != nil {
 			return nil, nil, err
 		}
 	}
 
 	for name, appCfg := range localCfg.Applications {
 		logger.Infof("registering application '%s' from local config", name)
-		if err := disp.RegisterApplication(name, appCfg); err != nil {
+		if err := disp.RegisterApplication(name, appCfg, cfg); err != nil {
 			return nil, nil, err
 		}
 	}
