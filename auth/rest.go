@@ -22,11 +22,12 @@ package auth
 import (
 	"net/http"
 
+	"encoding/json"
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
 	"io/ioutil"
-	"encoding/json"
+	"net/http/httptest"
 	"time"
 )
 
@@ -43,7 +44,7 @@ type ExternalAuthenticationRequest struct {
 }
 
 type ExternalAuthenticationResponse struct {
-	Token string `json:"token"`
+	Token   string `json:"token"`
 	Expires string `json:"expires,omitempty"`
 }
 
@@ -81,16 +82,18 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName stri
 			return
 		}
 
-		handleError := func(err error, rw http.ResponseWriter) {
+		resp := httptest.NewRecorder()
+
+		handleError := func(err error, rw http.ResponseWriter, statusCode int) {
 			a.logger.Errorf("error while handling authentication request: %s", err)
 			rw.Header().Set("Content-Type", "application/json;charset=utf8")
-			rw.WriteHeader(500)
+			rw.WriteHeader(statusCode)
 			rw.Write([]byte(`{"msg":"internal server error"}`))
 		}
 
 		authenticated, token, err := a.authHandler.IsAuthenticated(req)
 		if err != nil {
-			handleError(err, res)
+			handleError(err, res, 503)
 			return
 		}
 
@@ -113,96 +116,30 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName stri
 			goto invalid
 		}
 
-		valid:
-			writer.WriteTokenToRequest(token.JWT, req)
+	valid:
+		writer.WriteTokenToRequest(token.JWT, req)
 
-			for i, _ := range a.listeners {
-				a.listeners[i].OnAuthenticatedRequest(req, token.JWT)
+		for i, _ := range a.listeners {
+			a.listeners[i].OnAuthenticatedRequest(req, token.JWT)
+		}
+
+		orig(resp, req, p)
+
+		// if app was a provider app allow token rewrites
+		if cfg.Authentication.ProviderConfig.Service == appName {
+			err := rewriteAccessTokens(resp, res, a)
+
+			if err != nil {
+				handleError(err, resp, 500)
+				return
 			}
+		}
+		return
 
-			orig(res, req, p)
-
-			// if app was a provider app allow token rewrites
-			if cfg.Authentication.ProviderConfig.Service == appName {
-				// rewrite body tokens
-				bodyTokenKey := res.Header().Get("X-Gateway-BodyToken")
-				if bodyTokenKey != "" {
-
-					var response map[string]string
-					jsonBlob, _ := ioutil.ReadAll(req.Body)
-					err := json.Unmarshal(jsonBlob, &response)
-
-					if err != nil {
-						handleError(err, res)
-						return
-					}
-
-					bodyToken := response[bodyTokenKey]
-
-					jwtResponse := JWTResponse{}
-					jwtResponse.JWT = string(bodyToken)
-
-					token, _, err := a.tokenStore.AddToken(&jwtResponse)
-					if err != nil {
-						handleError(err, res)
-						return
-					}
-
-					response[bodyTokenKey] = token
-					jsonResponse, err := json.Marshal(&response)
-					if err != nil {
-						handleError(err, res)
-						return
-					}
-					res.Write(jsonResponse)
-				}
-
-				headerTokenKey := res.Header().Get("X-Gateway-HeaderToken")
-				if headerTokenKey != "" {
-
-					header := res.Header().Get(headerTokenKey)
-
-					jwtResponse := JWTResponse{}
-					jwtResponse.JWT = string(header)
-
-					token, _, err := a.tokenStore.AddToken(&jwtResponse)
-					if err != nil {
-						handleError(err, res)
-						return
-					}
-
-					res.Header().Set(headerTokenKey, token)
-				}
-
-				cookieTokenKey := res.Header().Get("X-Gateway-CookieToken")
-				if cookieTokenKey != "" {
-
-					cookie, err := req.Cookie(cookieTokenKey)
-
-					if err != nil {
-						handleError(err, res)
-						return
-					}
-
-					jwtResponse := JWTResponse{}
-					jwtResponse.JWT = string(cookie.Value)
-
-					token, _, err := a.tokenStore.AddToken(&jwtResponse)
-					if err != nil {
-						handleError(err, res)
-						return
-					}
-
-					cookie.Value = token
-					http.SetCookie(res, cookie)
-				}
-			}
-			return
-
-		invalid:
-			res.Header().Set("Content-Type", "application/json")
-			res.WriteHeader(403)
-			res.Write([]byte("{\"msg\": \"not authenticated\"}"))
+	invalid:
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(403)
+		res.Write([]byte("{\"msg\": \"not authenticated\"}"))
 	}
 }
 
@@ -262,7 +199,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		}
 
 		response := ExternalAuthenticationResponse{
-			Token: token,
+			Token:   token,
 			Expires: time.Unix(exp, 0).Format(time.RFC3339),
 		}
 		jsonResponse, err := json.Marshal(&response)
@@ -289,4 +226,104 @@ func setCORSHeaders(headers http.Header) {
 	headers.Set("Access-Control-Allow-Headers", "X-Requested-With, Authorization, Content-Type")
 	headers.Set("Access-Control-Allow-Origin", "*")
 	headers.Set("Access-Control-Allow-Credentials", "true")
+}
+
+func rewriteAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *RestAuthDecorator) error {
+	err := rewriteBodyAccessTokens(resp, req, a)
+	if err != nil {
+		return err
+	}
+
+	err = rewriteHeaderAccessTokens(resp, req, a)
+	if err != nil {
+		return err
+	}
+
+	return rewriteCookieAccessTokens(resp, req, a)
+}
+
+func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *RestAuthDecorator) error {
+	// rewrite body tokens
+	bodyTokenKey := resp.Header().Get("X-Gateway-BodyToken")
+	if bodyTokenKey != "" {
+
+		var response map[string]string
+		jsonBlob, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		err = json.Unmarshal(jsonBlob, &response)
+
+		if err != nil {
+			return err
+		}
+
+		bodyToken, ok := response[bodyTokenKey]
+
+		if !ok {
+			return err
+		}
+
+		jwtResponse := JWTResponse{}
+		jwtResponse.JWT = string(bodyToken)
+
+		token, _, err := a.tokenStore.AddToken(&jwtResponse)
+		if err != nil {
+			return err
+		}
+
+		response[bodyTokenKey] = token
+		jsonResponse, err := json.Marshal(&response)
+		if err != nil {
+			return err
+		}
+		resp.Write(jsonResponse)
+	}
+}
+
+func rewriteHeaderAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *RestAuthDecorator) error {
+
+	headerTokenKey := resp.Header().Get("X-Gateway-HeaderToken")
+	if headerTokenKey != "" {
+
+		header := resp.Header().Get(headerTokenKey)
+
+		jwtResponse := JWTResponse{}
+		jwtResponse.JWT = string(header)
+
+		token, _, err := a.tokenStore.AddToken(&jwtResponse)
+		if err != nil {
+			return err
+		}
+
+		resp.Header().Set(headerTokenKey, token)
+	}
+
+	return nil
+}
+
+func rewriteCookieAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *RestAuthDecorator) error {
+	cookieTokenKey := resp.Header().Get("X-Gateway-CookieToken")
+	if cookieTokenKey != "" {
+
+		cookie, err := req.Cookie(cookieTokenKey)
+
+		if err != nil {
+			return err
+		}
+
+		jwtResponse := JWTResponse{}
+		jwtResponse.JWT = string(cookie.Value)
+
+		token, _, err := a.tokenStore.AddToken(&jwtResponse)
+		if err != nil {
+			return err
+		}
+
+		cookie.Value = token
+		http.SetCookie(resp, cookie)
+	}
+
+	return nil
 }

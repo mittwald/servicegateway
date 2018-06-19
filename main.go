@@ -23,12 +23,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"os/signal"
-	"runtime/pprof"
-	"strings"
 	"github.com/braintree/manners"
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/consul/api"
@@ -42,6 +36,12 @@ import (
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/mittwald/servicegateway/ratelimit"
 	"github.com/op/go-logging"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"os/signal"
+	"runtime/pprof"
+	"strings"
 )
 
 type StartupConfig struct {
@@ -197,7 +197,7 @@ func main() {
 
 		logger.Notice("everything has shut down. exiting process.")
 
-		done<- true
+		done <- true
 	}()
 
 	go func() {
@@ -217,7 +217,7 @@ func main() {
 		}
 
 		go func() {
-			<- serverShutdown
+			<-serverShutdown
 
 			logger.Noticef("received server shutdown request. stopping creating new servers")
 			shutdownServers()
