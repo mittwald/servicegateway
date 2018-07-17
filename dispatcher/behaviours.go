@@ -43,7 +43,7 @@ func NewCachingBehaviour(c cache.CacheMiddleware) DispatcherBehaviour {
 	return &cachingBehaviour{c}
 }
 
-func (c *cachingBehaviour) Apply(safe httprouter.Handle, unsafe httprouter.Handle, d Dispatcher, _ string, app *config.Application) (httprouter.Handle, httprouter.Handle, error) {
+func (c *cachingBehaviour) Apply(safe httprouter.Handle, unsafe httprouter.Handle, d Dispatcher, _ string, app *config.Application, config *config.Configuration) (httprouter.Handle, httprouter.Handle, error) {
 	if app.Caching.Enabled {
 		safe = c.cache.DecorateHandler(safe)
 
@@ -58,10 +58,10 @@ func NewAuthenticationBehaviour(a auth.AuthDecorator) DispatcherBehaviour {
 	return &authBehaviour{a}
 }
 
-func (a *authBehaviour) Apply(safe httprouter.Handle, unsafe httprouter.Handle, d Dispatcher, appName string, app *config.Application) (httprouter.Handle, httprouter.Handle, error) {
+func (a *authBehaviour) Apply(safe httprouter.Handle, unsafe httprouter.Handle, d Dispatcher, appName string, app *config.Application, config *config.Configuration) (httprouter.Handle, httprouter.Handle, error) {
 	if !app.Auth.Disable {
-		safe = a.auth.DecorateHandler(safe, appName, app)
-		unsafe = a.auth.DecorateHandler(unsafe, appName, app)
+		safe = a.auth.DecorateHandler(safe, appName, app, config)
+		unsafe = a.auth.DecorateHandler(unsafe, appName, app, config)
 	}
 	return safe, unsafe, nil
 }
@@ -74,7 +74,7 @@ func NewRatelimitBehaviour(rlim ratelimit.RateLimitingMiddleware) DispatcherBeha
 	return &ratelimitBehaviour{rlim}
 }
 
-func (r *ratelimitBehaviour) Apply(safe httprouter.Handle, unsafe httprouter.Handle, d Dispatcher, _ string, app *config.Application) (httprouter.Handle, httprouter.Handle, error) {
+func (r *ratelimitBehaviour) Apply(safe httprouter.Handle, unsafe httprouter.Handle, d Dispatcher, _ string, app *config.Application, config *config.Configuration) (httprouter.Handle, httprouter.Handle, error) {
 	if app.RateLimiting {
 		safe = r.rlim.DecorateHandler(safe)
 		unsafe = r.rlim.DecorateHandler(unsafe)
