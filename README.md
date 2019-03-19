@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.org/mittwald/servicegateway.svg?branch=master)](https://travis-ci.org/mittwald/servicegateway)
 [![Go Report Card](https://goreportcard.com/badge/github.com/mittwald/servicegateway)](https://goreportcard.com/report/github.com/mittwald/servicegateway)
+[![Docker Repository on Quay](https://quay.io/repository/mittwald/servicegateway/status "Docker Repository on Quay")](https://quay.io/repository/mittwald/servicegateway)
 
 # Service gateway for microservice architectures
 
