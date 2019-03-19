@@ -16,23 +16,51 @@ func newLFUCache(cb *CacheBuilder) *LFUCache {
 	c := &LFUCache{}
 	buildCache(&c.baseCache, cb)
 
+	c.init()
+	c.loadGroup.cache = c
+	return c
+}
+
+func (c *LFUCache) init() {
 	c.freqList = list.New()
 	c.items = make(map[interface{}]*lfuItem, c.size+1)
 	c.freqList.PushFront(&freqEntry{
 		freq:  0,
-		items: make(map[*lfuItem]byte),
+		items: make(map[*lfuItem]struct{}),
 	})
-	return c
 }
 
-// set a new key-value pair
-func (c *LFUCache) Set(key, value interface{}) {
+// Set a new key-value pair
+func (c *LFUCache) Set(key, value interface{}) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.set(key, value)
+	_, err := c.set(key, value)
+	return err
 }
 
-func (c *LFUCache) set(key, value interface{}) (*lfuItem, error) {
+// Set a new key-value pair with an expiration time
+func (c *LFUCache) SetWithExpire(key, value interface{}, expiration time.Duration) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	item, err := c.set(key, value)
+	if err != nil {
+		return err
+	}
+
+	t := c.clock.Now().Add(expiration)
+	item.(*lfuItem).expiration = &t
+	return nil
+}
+
+func (c *LFUCache) set(key, value interface{}) (interface{}, error) {
+	var err error
+	if c.serializeFunc != nil {
+		value, err = c.serializeFunc(key, value)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Check for existing item
 	item, ok := c.items[key]
 	if ok {
@@ -43,25 +71,26 @@ func (c *LFUCache) set(key, value interface{}) (*lfuItem, error) {
 			c.evict(1)
 		}
 		item = &lfuItem{
+			clock:       c.clock,
 			key:         key,
 			value:       value,
 			freqElement: nil,
 		}
 		el := c.freqList.Front()
 		fe := el.Value.(*freqEntry)
-		fe.items[item] = 1
+		fe.items[item] = struct{}{}
 
 		item.freqElement = el
 		c.items[key] = item
 	}
 
 	if c.expiration != nil {
-		t := time.Now().Add(*c.expiration)
+		t := c.clock.Now().Add(*c.expiration)
 		item.expiration = &t
 	}
 
 	if c.addedFunc != nil {
-		go (*c.addedFunc)(key, value)
+		c.addedFunc(key, value)
 	}
 
 	return item, nil
@@ -71,63 +100,81 @@ func (c *LFUCache) set(key, value interface{}) (*lfuItem, error) {
 // If it dose not exists key and has LoaderFunc,
 // generate a value using `LoaderFunc` method returns value.
 func (c *LFUCache) Get(key interface{}) (interface{}, error) {
-	v, err := c.get(key)
-	if err != nil {
+	v, err := c.get(key, false)
+	if err == KeyNotFoundError {
 		return c.getWithLoader(key, true)
 	}
-	return v, nil
+	return v, err
 }
 
-// Get a value from cache pool using key if it exists.
+// GetIFPresent gets a value from cache pool using key if it exists.
 // If it dose not exists key, returns KeyNotFoundError.
 // And send a request which refresh value for specified key if cache object has LoaderFunc.
 func (c *LFUCache) GetIFPresent(key interface{}) (interface{}, error) {
-	v, err := c.get(key)
-	if err != nil {
+	v, err := c.get(key, false)
+	if err == KeyNotFoundError {
 		return c.getWithLoader(key, false)
+	}
+	return v, err
+}
+
+func (c *LFUCache) get(key interface{}, onLoad bool) (interface{}, error) {
+	v, err := c.getValue(key, onLoad)
+	if err != nil {
+		return nil, err
+	}
+	if c.deserializeFunc != nil {
+		return c.deserializeFunc(key, v)
 	}
 	return v, nil
 }
 
-func (c *LFUCache) get(key interface{}) (interface{}, error) {
-	c.mu.RLock()
+func (c *LFUCache) getValue(key interface{}, onLoad bool) (interface{}, error) {
+	c.mu.Lock()
 	item, ok := c.items[key]
-	c.mu.RUnlock()
-
 	if ok {
 		if !item.IsExpired(nil) {
-			c.mu.Lock()
 			c.increment(item)
+			v := item.value
 			c.mu.Unlock()
-			return item.value, nil
+			if !onLoad {
+				c.stats.IncrHitCount()
+			}
+			return v, nil
 		}
-		c.mu.Lock()
 		c.removeItem(item)
-		c.mu.Unlock()
+	}
+	c.mu.Unlock()
+	if !onLoad {
+		c.stats.IncrMissCount()
 	}
 	return nil, KeyNotFoundError
 }
 
 func (c *LFUCache) getWithLoader(key interface{}, isWait bool) (interface{}, error) {
-	if c.loaderFunc == nil {
+	if c.loaderExpireFunc == nil {
 		return nil, KeyNotFoundError
 	}
-	it, err := c.load(key, func(v interface{}, e error) (interface{}, error) {
-		if e == nil {
-			c.mu.Lock()
-			defer c.mu.Unlock()
-			return c.set(key, v)
+	value, _, err := c.load(key, func(v interface{}, expiration *time.Duration, e error) (interface{}, error) {
+		if e != nil {
+			return nil, e
 		}
-		return nil, e
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		item, err := c.set(key, v)
+		if err != nil {
+			return nil, err
+		}
+		if expiration != nil {
+			t := c.clock.Now().Add(*expiration)
+			item.(*lfuItem).expiration = &t
+		}
+		return v, nil
 	}, isWait)
 	if err != nil {
 		return nil, err
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	li := it.(*lfuItem)
-	c.increment(li)
-	return li.value, nil
+	return value, nil
 }
 
 func (c *LFUCache) increment(item *lfuItem) {
@@ -140,10 +187,10 @@ func (c *LFUCache) increment(item *lfuItem) {
 	if nextFreqElement == nil {
 		nextFreqElement = c.freqList.InsertAfter(&freqEntry{
 			freq:  nextFreq,
-			items: make(map[*lfuItem]byte),
+			items: make(map[*lfuItem]struct{}),
 		}, currentFreqElement)
 	}
-	nextFreqElement.Value.(*freqEntry).items[item] = 1
+	nextFreqElement.Value.(*freqEntry).items[item] = struct{}{}
 	item.freqElement = nextFreqElement
 }
 
@@ -166,7 +213,23 @@ func (c *LFUCache) evict(count int) {
 	}
 }
 
-// Removes the provided key from the cache.
+// Has checks if key exists in cache
+func (c *LFUCache) Has(key interface{}) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	now := time.Now()
+	return c.has(key, &now)
+}
+
+func (c *LFUCache) has(key interface{}, now *time.Time) bool {
+	item, ok := c.items[key]
+	if !ok {
+		return false
+	}
+	return !item.IsExpired(now)
+}
+
+// Remove removes the provided key from the cache.
 func (c *LFUCache) Remove(key interface{}) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -187,31 +250,49 @@ func (c *LFUCache) removeItem(item *lfuItem) {
 	delete(c.items, item.key)
 	delete(item.freqElement.Value.(*freqEntry).items, item)
 	if c.evictedFunc != nil {
-		go (*c.evictedFunc)(item.key, item.value)
+		c.evictedFunc(item.key, item.value)
 	}
 }
 
-// Returns a slice of the keys in the cache.
-func (c *LFUCache) Keys() []interface{} {
+func (c *LFUCache) keys() []interface{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-
 	keys := make([]interface{}, len(c.items))
-	i := 0
+	var i = 0
 	for k := range c.items {
 		keys[i] = k
 		i++
 	}
-
 	return keys
 }
 
-// Returns the number of items in the cache.
-func (c *LFUCache) Len() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+// Keys returns a slice of the keys in the cache.
+func (c *LFUCache) Keys() []interface{} {
+	keys := []interface{}{}
+	for _, k := range c.keys() {
+		_, err := c.GetIFPresent(k)
+		if err == nil {
+			keys = append(keys, k)
+		}
+	}
+	return keys
+}
 
-	return len(c.items)
+// GetALL returns all key-value pairs in the cache.
+func (c *LFUCache) GetALL() map[interface{}]interface{} {
+	m := make(map[interface{}]interface{})
+	for _, k := range c.keys() {
+		v, err := c.GetIFPresent(k)
+		if err == nil {
+			m[k] = v
+		}
+	}
+	return m
+}
+
+// Len returns the number of items in the cache.
+func (c *LFUCache) Len() int {
+	return len(c.GetALL())
 }
 
 // Completely clear the cache
@@ -219,50 +300,35 @@ func (c *LFUCache) Purge() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.freqList = list.New()
-	c.items = make(map[interface{}]*lfuItem, c.size)
-}
-
-// evict all expired entry
-func (c *LFUCache) gc() {
-	now := time.Now()
-	keys := []interface{}{}
-	c.mu.RLock()
-	for k, item := range c.items {
-		if item.IsExpired(&now) {
-			keys = append(keys, k)
+	if c.purgeVisitorFunc != nil {
+		for key, item := range c.items {
+			c.purgeVisitorFunc(key, item.value)
 		}
 	}
-	c.mu.RUnlock()
-	if len(keys) == 0 {
-		return
-	}
-	c.mu.Lock()
-	for _, k := range keys {
-		c.remove(k)
-	}
-	c.mu.Unlock()
+
+	c.init()
 }
 
 type freqEntry struct {
 	freq  uint
-	items map[*lfuItem]byte
+	items map[*lfuItem]struct{}
 }
 
 type lfuItem struct {
+	clock       Clock
 	key         interface{}
 	value       interface{}
 	freqElement *list.Element
 	expiration  *time.Time
 }
 
-// returns boolean value whether this item is expired or not.
+// IsExpired returns boolean value whether this item is expired or not.
 func (it *lfuItem) IsExpired(now *time.Time) bool {
 	if it.expiration == nil {
 		return false
 	}
 	if now == nil {
-		t := time.Now()
+		t := it.clock.Now()
 		now = &t
 	}
 	return it.expiration.Before(*now)

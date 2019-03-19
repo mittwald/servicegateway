@@ -1,4 +1,6 @@
-# GCache [![wercker status](https://app.wercker.com/status/1471b6c9cbc9ebbd15f8f9fe8f71ac67/s "wercker status")](https://app.wercker.com/project/bykey/1471b6c9cbc9ebbd15f8f9fe8f71ac67)[![GoDoc](https://godoc.org/github.com/bluele/gcache?status.png)](https://godoc.org/github.com/bluele/gcache)
+# GCache
+
+[![wercker status](https://app.wercker.com/status/1471b6c9cbc9ebbd15f8f9fe8f71ac67/m/master "wercker status")](https://app.wercker.com/project/bykey/1471b6c9cbc9ebbd15f8f9fe8f71ac67)[![GoDoc](https://godoc.org/github.com/bluele/gcache?status.png)](https://godoc.org/github.com/bluele/gcache)
 
 Cache library for golang. It supports expirable Cache, LFU, LRU and ARC.
 
@@ -8,7 +10,7 @@ Cache library for golang. It supports expirable Cache, LFU, LRU and ARC.
 
 * Goroutine safe.
 
-* Supports event handlers which evict and add entry. (Optional)
+* Supports event handlers which evict, purge, and add entry. (Optional)
 
 * Automatically load cache if it doesn't exists. (Optional)
 
@@ -47,6 +49,43 @@ func main() {
 Get: ok
 ```
 
+### Manually set a key-value pair, with an expiration time.
+
+```go
+package main
+
+import (
+  "github.com/bluele/gcache"
+  "fmt"
+  "time"
+)
+
+func main() {
+  gc := gcache.New(20).
+    LRU().
+    Build()
+  gc.SetWithExpire("key", "ok", time.Second*10)
+  value, _ := gc.Get("key")
+  fmt.Println("Get:", value)
+
+  // Wait for value to expire
+  time.Sleep(time.Second*10)
+
+  value, err = gc.Get("key")
+  if err != nil {
+    panic(err)
+  }
+  fmt.Println("Get:", value)
+}
+```
+
+```
+Get: ok
+// 10 seconds later, new attempt:
+panic: ErrKeyNotFound
+```
+
+
 ### Automatically load value
 
 ```go
@@ -75,6 +114,62 @@ func main() {
 ```
 Get: ok
 ```
+
+### Automatically load value with expiration
+
+```go
+package main
+
+import (
+  "fmt"
+  "time"
+
+  "github.com/bluele/gcache"
+)
+
+func main() {
+  var evictCounter, loaderCounter, purgeCounter int
+  gc := gcache.New(20).
+    LRU().
+    LoaderExpireFunc(func(key interface{}) (interface{}, *time.Duration, error) {
+      loaderCounter++
+      expire := 1 * time.Second
+      return "ok", &expire, nil
+    }).
+    EvictedFunc(func(key, value interface{}) {
+      evictCounter++
+      fmt.Println("evicted key:", key)
+    }).
+    PurgeVisitorFunc(func(key, value interface{}) {
+      purgeCounter++
+      fmt.Println("purged key:", key)
+    }).
+    Build()
+  value, err := gc.Get("key")
+  if err != nil {
+    panic(err)
+  }
+  fmt.Println("Get:", value)
+  time.Sleep(1 * time.Second)
+  value, err = gc.Get("key")
+  if err != nil {
+    panic(err)
+  }
+  fmt.Println("Get:", value)
+  gc.Purge()
+  if loaderCounter != evictCounter+purgeCounter {
+    panic("bad")
+  }
+}
+```
+
+```
+Get: ok
+evicted key: key
+Get: ok
+purged key: key
+```
+
 
 ## Cache Algorithm
 
