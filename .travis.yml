@@ -1,6 +1,6 @@
 language: go
 go:
-  - 1.6
+  - 1.12
 
 script:
   - "go vet $(go list ./... | grep -v vendor)"

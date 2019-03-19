@@ -1,11 +1,19 @@
-GOFILES=$(wildcard **/*.go)
-GOVERSION=1.6
+GOVERSION=1.12
+PKG_LIST := $(shell go list ./... | grep -v /vendor/)
 
-servicegateway: ${GOFILES}
-	docker run --rm -v $(PWD):/go/src/github.com/mittwald/servicegateway -w /go/src/github.com/mittwald/servicegateway golang:$(GOVERSION) go build -tags netgo
+all: dep build-static
+
+dep:
+	go get && go mod vendor -v
 
 build-static:
-	$(MAKE) -C static
+	CGO_ENABLED=0 GOOS=linux go build -mod vendor -o servicegateway
 
-docker: servicegateway build-static Dockerfile
+servicegateway:
+	docker run --rm -v $(PWD):/usr/src/github.com/mittwald/servicegateway -w /usr/src/github.com/mittwald/servicegateway golang:$(GOVERSION) make
+
+docker:
 	docker build -t mittwald/servicegateway .
+
+fmt:
+	go fmt ${PKG_LIST}

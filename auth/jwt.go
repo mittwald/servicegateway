@@ -4,7 +4,7 @@ import (
 	"time"
 	"sync"
 	"net/http"
-	"github.com/dgrijalva/jwt-go"
+	jwt2 "github.com/dgrijalva/jwt-go"
 	"fmt"
 	"io/ioutil"
 )
@@ -62,20 +62,20 @@ func (h *JwtVerifier) GetVerificationKey() ([]byte, error) {
 	return h.cachedKey, nil
 }
 
-func (h *JwtVerifier) VerifyToken(token string) (bool, map[string]interface{}, error) {
+func (h *JwtVerifier) VerifyToken(token string) (bool, jwt2.Claims, error) {
 	key, err := h.GetVerificationKey()
 	if err != nil {
 		return false, nil, err
 	}
 
-	var keyFunc jwt.Keyfunc = func(decodedToken *jwt.Token) (interface{}, error) {
-		if _, ok := decodedToken.Method.(*jwt.SigningMethodRSA); !ok {
+	var keyFunc jwt2.Keyfunc = func(decodedToken *jwt2.Token) (interface{}, error) {
+		if _, ok := decodedToken.Method.(*jwt2.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %s", decodedToken.Header["alg"])
 		}
 		return key, nil
 	}
 
-	dec, err := jwt.Parse(token, keyFunc)
+	dec, err := jwt2.Parse(token, keyFunc)
 	if err == nil && dec.Valid {
 		return true, dec.Claims, nil
 	}

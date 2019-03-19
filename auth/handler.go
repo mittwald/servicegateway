@@ -228,27 +228,18 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 	} else if !ok {
 		valid, claims, err := h.verifier.VerifyToken(token.JWT)
 		if err == nil && valid {
-			exp, ok := claims["exp"]
+			stdClaims, ok := claims.(jwt.StandardClaims)
 			if !ok {
-				h.expLock.Lock()
-				h.expCache[token.JWT] = 0
-				h.expLock.Unlock()
-				return true, token, nil
+				return false, nil, fmt.Errorf("error while casting claims")
 			}
 
-			expNum, ok := exp.(float64)
-			if !ok {
-				return false, nil, fmt.Errorf("expiration tstamp is not numeric")
-			}
-
-			expNumInt := int64(expNum)
-			if expNumInt > time.Now().Unix() {
-				h.logger.Debugf("JWT for token %s expires at %d", token, expNumInt)
+			if stdClaims.ExpiresAt > time.Now().Unix() {
+				h.logger.Debugf("JWT for token %s expires at %d", token, stdClaims.ExpiresAt)
 				h.expLock.Lock()
-				h.expCache[token.JWT] = expNumInt
+				h.expCache[token.JWT] = stdClaims.ExpiresAt
 				h.expLock.Unlock()
 
-				c := time.After(time.Duration((expNumInt - time.Now().Unix())) * time.Second)
+				c := time.After(time.Duration(stdClaims.ExpiresAt - time.Now().Unix()) * time.Second)
 				go func() {
 					<- c
 					h.expLock.Lock()

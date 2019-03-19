@@ -17,8 +17,7 @@ management.
 
 ## Compilation and installation
 
-For building, you will need a halfway current [Go SDK][go] (tested with 1.5 and
-1.6). Then simply `go install`:
+For building, you will need a halfway current [Go SDK][go] (tested with 1.12). Then simply `go install`:
 
 ```shellsession
 > go install github.com/mittwald/servicegateway
