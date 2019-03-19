@@ -20,27 +20,27 @@ package monitoring
  */
 
 import (
-	"github.com/op/go-logging"
-	"github.com/hashicorp/consul/api"
 	"fmt"
-	"os"
+	"github.com/hashicorp/consul/api"
+	"github.com/op/go-logging"
 	"net/http"
+	"os"
 )
 
 type MonitoringController struct {
 	Shutdown         chan bool
 	ShutdownComplete chan bool
 
-	httpAddress      string
-	httpPort         int
-	httpServer       *MonitoringServer
+	httpAddress string
+	httpPort    int
+	httpServer  *MonitoringServer
 
-	logger           *logging.Logger
+	logger *logging.Logger
 
-	promMetrics      *PromMetrics
+	promMetrics *PromMetrics
 
-	consulClient     *api.Client
-	consulServiceID  string
+	consulClient    *api.Client
+	consulServiceID string
 }
 
 func NewMonitoringController(address string, port int, consul *api.Client, logger *logging.Logger) (*MonitoringController, error) {
@@ -60,15 +60,15 @@ func NewMonitoringController(address string, port int, consul *api.Client, logge
 	}
 
 	return &MonitoringController{
-		Shutdown: make(chan bool),
+		Shutdown:         make(chan bool),
 		ShutdownComplete: make(chan bool),
-		httpAddress: address,
-		httpPort: port,
-		httpServer: server,
-		logger: logger,
-		promMetrics: metrics,
-		consulClient: consul,
-		consulServiceID: fmt.Sprintf("servicegateway-%s", hostname),
+		httpAddress:      address,
+		httpPort:         port,
+		httpServer:       server,
+		logger:           logger,
+		promMetrics:      metrics,
+		consulClient:     consul,
+		consulServiceID:  fmt.Sprintf("servicegateway-%s", hostname),
 	}, nil
 }
 
@@ -80,11 +80,11 @@ func (m *MonitoringController) Start() error {
 	m.logger.Info("Registering node in Consul")
 
 	registration := api.AgentServiceRegistration{
-		ID: m.consulServiceID,
+		ID:   m.consulServiceID,
 		Name: "servicegateway",
 		Port: m.httpPort,
 		Check: &api.AgentServiceCheck{
-			HTTP: fmt.Sprintf("http://localhost:%d/status", m.httpPort),
+			HTTP:     fmt.Sprintf("http://localhost:%d/status", m.httpPort),
 			Interval: "30s",
 		},
 	}

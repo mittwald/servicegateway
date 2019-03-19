@@ -1,4 +1,5 @@
 package config
+
 import "fmt"
 
 /*
@@ -54,8 +55,8 @@ type Backend struct {
 }
 
 type RedisConfiguration struct {
-	Address string `json:"address"`
-	Database int `json:"database"`
+	Address  string `json:"address"`
+	Database int    `json:"database"`
 }
 
 type ConsulConfiguration struct {
@@ -69,9 +70,9 @@ func (c ConsulConfiguration) Address() string {
 }
 
 type ProxyConfiguration struct {
-	StripResponseHeaders map[string]bool `json:"strip_res_headers"`
-	SetResponseHeaders   map[string]string `json:"set_res_headers"`
-	SetRequestHeaders    map[string]string `json:"set_req_headers"`
+	StripResponseHeaders map[string]bool      `json:"strip_res_headers"`
+	SetResponseHeaders   map[string]string    `json:"set_res_headers"`
+	SetRequestHeaders    map[string]string    `json:"set_req_headers"`
 	OptionsConfiguration OptionsConfiguration `json:"options"`
 }
 
@@ -82,11 +83,11 @@ type Caching struct {
 }
 
 type RateLimiting struct {
-	Burst             int    `json:"burst"`
-	Window            string `json:"window"`
+	Burst  int    `json:"burst"`
+	Window string `json:"window"`
 }
 
 type OptionsConfiguration struct {
-	Enabled	bool `json:"enabled"`
-	CORS	bool `json:"cors"`
+	Enabled bool `json:"enabled"`
+	CORS    bool `json:"cors"`
 }

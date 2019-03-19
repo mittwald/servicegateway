@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
+	jwt2 "github.com/dgrijalva/jwt-go"
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
 	"github.com/streadway/amqp"
-	jwt2 "github.com/dgrijalva/jwt-go"
 )
 
 type AmqpLoggingBehaviour struct {
