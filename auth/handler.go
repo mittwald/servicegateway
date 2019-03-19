@@ -233,6 +233,13 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 				return false, nil, fmt.Errorf("error while casting claims")
 			}
 
+			if  stdClaims.ExpiresAt == 0 {
+				h.expLock.Lock()
+				h.expCache[token.JWT] = 0
+				h.expLock.Unlock()
+				return true, token, nil
+			}
+
 			if stdClaims.ExpiresAt > time.Now().Unix() {
 				h.logger.Debugf("JWT for token %s expires at %d", token, stdClaims.ExpiresAt)
 				h.expLock.Lock()
