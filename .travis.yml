@@ -2,7 +2,12 @@ language: go
 go:
   - 1.12
 
+env:
+  - GO111MODULE=on
+
+install: true
+
 script:
-  - "go vet $(go list ./... | grep -v vendor)"
-  - "go test $(go list ./... | grep -v vendor)"
+  - "go vet -mod=vendor $(go list ./... | grep -v vendor)"
+  - "go test -mod=vendor $(go list ./... | grep -v vendor)"
   - "make"
