@@ -2,6 +2,7 @@ package gcache
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -16,61 +17,87 @@ const (
 var KeyNotFoundError = errors.New("Key not found.")
 
 type Cache interface {
-	Set(interface{}, interface{})
+	Set(interface{}, interface{}) error
+	SetWithExpire(interface{}, interface{}, time.Duration) error
 	Get(interface{}) (interface{}, error)
 	GetIFPresent(interface{}) (interface{}, error)
+	GetALL() map[interface{}]interface{}
+	Has(interface{}) bool
+	get(interface{}, bool) (interface{}, error)
 	Remove(interface{}) bool
 	Purge()
 	Keys() []interface{}
 	Len() int
-	gc()
+
+	statsAccessor
 }
 
 type baseCache struct {
-	size        int
-	loaderFunc  *LoaderFunc
-	evictedFunc *EvictedFunc
-	addedFunc   *AddedFunc
-	expiration  *time.Duration
-	mu          sync.RWMutex
-	loadGroup   Group
+	clock            Clock
+	size             int
+	loaderExpireFunc LoaderExpireFunc
+	evictedFunc      EvictedFunc
+	purgeVisitorFunc PurgeVisitorFunc
+	addedFunc        AddedFunc
+	deserializeFunc  DeserializeFunc
+	serializeFunc    SerializeFunc
+	expiration       *time.Duration
+	mu               sync.RWMutex
+	loadGroup        Group
+	*stats
 }
 
-type LoaderFunc func(interface{}) (interface{}, error)
-
-type EvictedFunc func(interface{}, interface{})
-
-type AddedFunc func(interface{}, interface{})
+type (
+	LoaderFunc       func(interface{}) (interface{}, error)
+	LoaderExpireFunc func(interface{}) (interface{}, *time.Duration, error)
+	EvictedFunc      func(interface{}, interface{})
+	PurgeVisitorFunc func(interface{}, interface{})
+	AddedFunc        func(interface{}, interface{})
+	DeserializeFunc  func(interface{}, interface{}) (interface{}, error)
+	SerializeFunc    func(interface{}, interface{}) (interface{}, error)
+)
 
 type CacheBuilder struct {
-	tp          string
-	size        int
-	loaderFunc  *LoaderFunc
-	evictedFunc *EvictedFunc
-	addedFunc   *AddedFunc
-	expiration  *time.Duration
-	gcInterval  *time.Duration
+	clock            Clock
+	tp               string
+	size             int
+	loaderExpireFunc LoaderExpireFunc
+	evictedFunc      EvictedFunc
+	purgeVisitorFunc PurgeVisitorFunc
+	addedFunc        AddedFunc
+	expiration       *time.Duration
+	deserializeFunc  DeserializeFunc
+	serializeFunc    SerializeFunc
 }
 
 func New(size int) *CacheBuilder {
-	if size <= 0 {
-		panic("gcache: size <= 0")
-	}
 	return &CacheBuilder{
-		tp:   TYPE_SIMPLE,
-		size: size,
+		clock: NewRealClock(),
+		tp:    TYPE_SIMPLE,
+		size:  size,
 	}
+}
+
+func (cb *CacheBuilder) Clock(clock Clock) *CacheBuilder {
+	cb.clock = clock
+	return cb
 }
 
 // Set a loader function.
 // loaderFunc: create a new value with this function if cached value is expired.
 func (cb *CacheBuilder) LoaderFunc(loaderFunc LoaderFunc) *CacheBuilder {
-	cb.loaderFunc = &loaderFunc
+	cb.loaderExpireFunc = func(k interface{}) (interface{}, *time.Duration, error) {
+		v, err := loaderFunc(k)
+		return v, nil, err
+	}
 	return cb
 }
 
-func (cb *CacheBuilder) EnableGC(interval time.Duration) *CacheBuilder {
-	cb.gcInterval = &interval
+// Set a loader function with expiration.
+// loaderExpireFunc: create a new value with this function if cached value is expired.
+// If nil returned instead of time.Duration from loaderExpireFunc than value will never expire.
+func (cb *CacheBuilder) LoaderExpireFunc(loaderExpireFunc LoaderExpireFunc) *CacheBuilder {
+	cb.loaderExpireFunc = loaderExpireFunc
 	return cb
 }
 
@@ -96,12 +123,27 @@ func (cb *CacheBuilder) ARC() *CacheBuilder {
 }
 
 func (cb *CacheBuilder) EvictedFunc(evictedFunc EvictedFunc) *CacheBuilder {
-	cb.evictedFunc = &evictedFunc
+	cb.evictedFunc = evictedFunc
+	return cb
+}
+
+func (cb *CacheBuilder) PurgeVisitorFunc(purgeVisitorFunc PurgeVisitorFunc) *CacheBuilder {
+	cb.purgeVisitorFunc = purgeVisitorFunc
 	return cb
 }
 
 func (cb *CacheBuilder) AddedFunc(addedFunc AddedFunc) *CacheBuilder {
-	cb.addedFunc = &addedFunc
+	cb.addedFunc = addedFunc
+	return cb
+}
+
+func (cb *CacheBuilder) DeserializeFunc(deserializeFunc DeserializeFunc) *CacheBuilder {
+	cb.deserializeFunc = deserializeFunc
+	return cb
+}
+
+func (cb *CacheBuilder) SerializeFunc(serializeFunc SerializeFunc) *CacheBuilder {
+	cb.serializeFunc = serializeFunc
 	return cb
 }
 
@@ -111,20 +153,11 @@ func (cb *CacheBuilder) Expiration(expiration time.Duration) *CacheBuilder {
 }
 
 func (cb *CacheBuilder) Build() Cache {
-	cache := cb.build()
-	if cb.gcInterval != nil {
-		go func() {
-			t := time.NewTicker(*cb.gcInterval)
-			for {
-				select {
-				case <-t.C:
-					go cache.gc()
-				}
-			}
-			t.Stop()
-		}()
+	if cb.size <= 0 && cb.tp != TYPE_SIMPLE {
+		panic("gcache: Cache size <= 0")
 	}
-	return cache
+
+	return cb.build()
 }
 
 func (cb *CacheBuilder) build() Cache {
@@ -143,20 +176,30 @@ func (cb *CacheBuilder) build() Cache {
 }
 
 func buildCache(c *baseCache, cb *CacheBuilder) {
+	c.clock = cb.clock
 	c.size = cb.size
-	c.loaderFunc = cb.loaderFunc
+	c.loaderExpireFunc = cb.loaderExpireFunc
 	c.expiration = cb.expiration
 	c.addedFunc = cb.addedFunc
+	c.deserializeFunc = cb.deserializeFunc
+	c.serializeFunc = cb.serializeFunc
 	c.evictedFunc = cb.evictedFunc
+	c.purgeVisitorFunc = cb.purgeVisitorFunc
+	c.stats = &stats{}
 }
 
 // load a new value using by specified key.
-func (c *baseCache) load(key interface{}, cb func(interface{}, error) (interface{}, error), isWait bool) (interface{}, error) {
-	v, err := c.loadGroup.DoWithOption(key, func() (interface{}, error) {
-		return cb((*c.loaderFunc)(key))
+func (c *baseCache) load(key interface{}, cb func(interface{}, *time.Duration, error) (interface{}, error), isWait bool) (interface{}, bool, error) {
+	v, called, err := c.loadGroup.Do(key, func() (v interface{}, e error) {
+		defer func() {
+			if r := recover(); r != nil {
+				e = fmt.Errorf("Loader panics: %v", r)
+			}
+		}()
+		return cb(c.loaderExpireFunc(key))
 	}, isWait)
 	if err != nil {
-		return nil, err
+		return nil, called, err
 	}
-	return v, nil
+	return v, called, nil
 }

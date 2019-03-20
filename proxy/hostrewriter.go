@@ -1,18 +1,19 @@
 package proxy
+
 import (
-	"net/http"
-	"strings"
-	"encoding/json"
-	"net/http/httptest"
-	"io/ioutil"
 	"bufio"
-	"fmt"
-	"strconv"
-	"github.com/op/go-logging"
-	"regexp"
-	"net/url"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/julienschmidt/httprouter"
+	"github.com/op/go-logging"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"regexp"
+	"strconv"
+	"strings"
 )
 
 var UnmappableUrl = errors.New("unmappable URL")
@@ -26,15 +27,15 @@ type HostRewriter interface {
 }
 
 type mapping struct {
-	regex *regexp.Regexp
+	regex         *regexp.Regexp
 	targetPattern string
-	replacements map[int]*regexp.Regexp
+	replacements  map[int]*regexp.Regexp
 }
 
 type JsonHostRewriter struct {
 	InternalHost string
-	Mappings []mapping
-	Logger *logging.Logger
+	Mappings     []mapping
+	Logger       *logging.Logger
 }
 
 func (m *mapping) repl(matches []string) string {
@@ -59,10 +60,10 @@ func NewHostRewriter(internalHost string, urlPatterns map[string]string, logger 
 			}
 		}
 
-		mappings[i] = mapping {
-			regex: re,
+		mappings[i] = mapping{
+			regex:         re,
 			targetPattern: targetPattern,
-			replacements: replacements,
+			replacements:  replacements,
 		}
 
 		i += 1
@@ -70,8 +71,8 @@ func NewHostRewriter(internalHost string, urlPatterns map[string]string, logger 
 
 	return &JsonHostRewriter{
 		InternalHost: internalHost,
-		Mappings: mappings,
-		Logger: logger,
+		Mappings:     mappings,
+		Logger:       logger,
 	}, nil
 }
 
@@ -250,4 +251,3 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 
 	return jsonStruct, nil
 }
-

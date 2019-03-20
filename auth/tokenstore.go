@@ -2,10 +2,11 @@ package auth
 
 import (
 	"crypto/rand"
+	"encoding/base32"
 	"fmt"
+	jwt2 "github.com/dgrijalva/jwt-go"
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/golang-lru"
-	"encoding/base32"
 	"strings"
 )
 
@@ -55,15 +56,13 @@ func NewTokenStore(redisPool *redis.Pool, verifier *JwtVerifier, options TokenSt
 	return &CacheDecorator{
 		wrapped: &RedisTokenStore{
 			redisPool: redisPool,
-			verifier: verifier,
+			verifier:  verifier,
 		},
 		localCache: cache,
 	}, nil
 }
 
 func (s *RedisTokenStore) SetToken(token string, jwt *JWTResponse) (int64, error) {
-	var expirationTstamp int64
-
 	valid, claims, err := s.verifier.VerifyToken(jwt.JWT)
 	if !valid {
 		return 0, fmt.Errorf("JWT is invalid")
@@ -73,14 +72,9 @@ func (s *RedisTokenStore) SetToken(token string, jwt *JWTResponse) (int64, error
 		return 0, fmt.Errorf("bad JWT: %s", err)
 	}
 
-	exp, ok := claims["exp"]
-	if ok {
-		expAsFloat, ok := exp.(float64)
-		if !ok {
-			return 0, fmt.Errorf("token contained non-number exp time")
-		}
-
-		expirationTstamp = int64(expAsFloat)
+	stdClaims, ok := claims.(jwt2.StandardClaims)
+	if !ok {
+		return 0, fmt.Errorf("error while casting claims")
 	}
 
 	key := "token_" + token
@@ -93,14 +87,14 @@ func (s *RedisTokenStore) SetToken(token string, jwt *JWTResponse) (int64, error
 		return 0, err
 	}
 
-	if expirationTstamp > 0 {
-		_, err = conn.Do("EXPIREAT", key, expirationTstamp)
+	if stdClaims.ExpiresAt > 0 {
+		_, err = conn.Do("EXPIREAT", key, stdClaims.ExpiresAt)
 		if err != nil {
 			return 0, err
 		}
 	}
 
-	return expirationTstamp, nil
+	return stdClaims.ExpiresAt, nil
 }
 
 func (s *RedisTokenStore) AddToken(jwt *JWTResponse) (string, int64, error) {

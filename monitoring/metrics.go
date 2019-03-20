@@ -33,22 +33,22 @@ func newMetrics() (*PromMetrics, error) {
 	p.TotalResponseTimes = prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: "servicegateway",
 		Subsystem: "proxy",
-		Name: "total_times_seconds",
-		Help: "HTTP total response times",
+		Name:      "total_times_seconds",
+		Help:      "HTTP total response times",
 	}, []string{"application"})
 
 	p.UpstreamResponseTimes = prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: "servicegateway",
 		Subsystem: "proxy",
-		Name: "upstream_times_seconds",
-		Help: "HTTP upstream response times",
+		Name:      "upstream_times_seconds",
+		Help:      "HTTP upstream response times",
 	}, []string{"application"})
 
 	p.Errors = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "servicegateway",
 		Subsystem: "proxy",
-		Name: "errors",
-		Help: "HTTP proxy errors",
+		Name:      "errors",
+		Help:      "HTTP proxy errors",
 	}, []string{"application", "reason"})
 
 	return p, nil

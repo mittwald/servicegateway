@@ -23,15 +23,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/garyburd/redigo/redis"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
+	"github.com/robertkrimen/otto"
 	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/robertkrimen/otto"
 )
 
 type AuthenticationHandler struct {
@@ -44,14 +44,14 @@ type AuthenticationHandler struct {
 
 	hookPreAuth *otto.Script
 
-	expCache    map[string]int64
-	expLock     sync.RWMutex
+	expCache map[string]int64
+	expLock  sync.RWMutex
 
-	jsVM        *otto.Otto
+	jsVM *otto.Otto
 }
 
 type JWTResponse struct {
-	JWT string
+	JWT                 string
 	AllowedApplications []string
 }
 
@@ -76,7 +76,7 @@ func NewAuthenticationHandler(
 	if cfg.ProviderConfig.PreAuthenticationHook != "" {
 		handler.jsVM = otto.New()
 		handler.jsVM.Set("log", func(call otto.FunctionCall) otto.Value {
-			format := call.Argument(0).String();
+			format := call.Argument(0).String()
 			args := call.ArgumentList[1:]
 			values := make([]interface{}, len(args))
 
@@ -105,7 +105,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	authRequest["username"] = username
 	authRequest["password"] = password
 
-	requestURL := h.config.ProviderConfig.Url+"/authenticate"
+	requestURL := h.config.ProviderConfig.Url + "/authenticate"
 
 	if h.hookPreAuth != nil {
 		_, err := h.jsVM.Run(h.hookPreAuth)
@@ -228,29 +228,27 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 	} else if !ok {
 		valid, claims, err := h.verifier.VerifyToken(token.JWT)
 		if err == nil && valid {
-			exp, ok := claims["exp"]
+			stdClaims, ok := claims.(jwt.StandardClaims)
 			if !ok {
+				return false, nil, fmt.Errorf("error while casting claims")
+			}
+
+			if stdClaims.ExpiresAt == 0 {
 				h.expLock.Lock()
 				h.expCache[token.JWT] = 0
 				h.expLock.Unlock()
 				return true, token, nil
 			}
 
-			expNum, ok := exp.(float64)
-			if !ok {
-				return false, nil, fmt.Errorf("expiration tstamp is not numeric")
-			}
-
-			expNumInt := int64(expNum)
-			if expNumInt > time.Now().Unix() {
-				h.logger.Debugf("JWT for token %s expires at %d", token, expNumInt)
+			if stdClaims.ExpiresAt > time.Now().Unix() {
+				h.logger.Debugf("JWT for token %s expires at %d", token, stdClaims.ExpiresAt)
 				h.expLock.Lock()
-				h.expCache[token.JWT] = expNumInt
+				h.expCache[token.JWT] = stdClaims.ExpiresAt
 				h.expLock.Unlock()
 
-				c := time.After(time.Duration((expNumInt - time.Now().Unix())) * time.Second)
+				c := time.After(time.Duration(stdClaims.ExpiresAt-time.Now().Unix()) * time.Second)
 				go func() {
-					<- c
+					<-c
 					h.expLock.Lock()
 					delete(h.expCache, token.JWT)
 					h.expLock.Unlock()

@@ -20,11 +20,11 @@ package dispatcher
  */
 
 import (
+	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/op/go-logging"
 	"net/http"
-	"github.com/julienschmidt/httprouter"
 )
 
 type Dispatcher interface {

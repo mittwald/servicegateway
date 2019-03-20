@@ -1,12 +1,13 @@
 package auth
+
 import (
-	"github.com/mittwald/servicegateway/config"
-	"time"
-	"sync"
-	"net/http"
-	"github.com/dgrijalva/jwt-go"
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/mittwald/servicegateway/config"
 	"io/ioutil"
+	"net/http"
+	"sync"
+	"time"
 )
 
 type JwtVerifier struct {
@@ -24,7 +25,7 @@ func NewJwtVerifier(cfg *config.GlobalAuth) (*JwtVerifier, error) {
 	}
 
 	return &JwtVerifier{
-		config: cfg,
+		config:   cfg,
 		cacheTtl: cacheTtl,
 	}, nil
 }
@@ -62,7 +63,7 @@ func (h *JwtVerifier) GetVerificationKey() ([]byte, error) {
 	return h.cachedKey, nil
 }
 
-func (h *JwtVerifier) VerifyToken(token string) (bool, map[string]interface{}, error) {
+func (h *JwtVerifier) VerifyToken(token string) (bool, jwt.Claims, error) {
 	key, err := h.GetVerificationKey()
 	if err != nil {
 		return false, nil, err

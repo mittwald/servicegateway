@@ -20,11 +20,11 @@ package dispatcher
  */
 
 import (
+	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/cache"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/ratelimit"
-	"github.com/julienschmidt/httprouter"
 )
 
 type cachingBehaviour struct {

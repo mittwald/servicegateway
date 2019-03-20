@@ -1,3 +1,7 @@
+[![Build Status](https://travis-ci.org/mittwald/servicegateway.svg?branch=master)](https://travis-ci.org/mittwald/servicegateway)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mittwald/servicegateway)](https://goreportcard.com/report/github.com/mittwald/servicegateway)
+[![Docker Repository on Quay](https://quay.io/repository/mittwald/servicegateway/status "Docker Repository on Quay")](https://quay.io/repository/mittwald/servicegateway)
+
 # Service gateway for microservice architectures
 
 ## Author and license
@@ -17,8 +21,7 @@ management.
 
 ## Compilation and installation
 
-For building, you will need a halfway current [Go SDK][go] (tested with 1.5 and
-1.6). Then simply `go install`:
+For building, you will need a halfway current [Go SDK][go] (tested with 1.12). Then simply `go install`:
 
 ```shellsession
 > go install github.com/mittwald/servicegateway
