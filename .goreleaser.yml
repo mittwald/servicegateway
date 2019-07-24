@@ -26,15 +26,15 @@ changelog:
 dockers:
   -
     image_templates:
-      - quay.io/mittwald/mittnite:v{{ .Major }}
-      - quay.io/mittwald/mittnite:v{{ .Major }}.{{ .Minor }}
-      - quay.io/mittwald/mittnite:{{ .Tag }}
-      - quay.io/mittwald/mittnite:stable
-      - quay.io/mittwald/mittnite:latest
-      - quay.io/mittwald/mittnite:v{{ .Major }}-alpine
-      - quay.io/mittwald/mittnite:v{{ .Major }}.{{ .Minor }}-alpine
-      - quay.io/mittwald/mittnite:{{ .Tag }}-alpine
-      - quay.io/mittwald/mittnite:stable-alpine
+      - quay.io/mittwald/servicegateway:v{{ .Major }}
+      - quay.io/mittwald/servicegateway:v{{ .Major }}.{{ .Minor }}
+      - quay.io/mittwald/servicegateway:{{ .Tag }}
+      - quay.io/mittwald/servicegateway:stable
+      - quay.io/mittwald/servicegateway:latest
+      - quay.io/mittwald/servicegateway:v{{ .Major }}-alpine
+      - quay.io/mittwald/servicegateway:v{{ .Major }}.{{ .Minor }}-alpine
+      - quay.io/mittwald/servicegateway:{{ .Tag }}-alpine
+      - quay.io/mittwald/servicegateway:stable-alpine
     binaries:
       - servicegateway
     goos: linux
