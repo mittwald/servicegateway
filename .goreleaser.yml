@@ -26,11 +26,11 @@ changelog:
 dockers:
   -
     image_templates:
+      - quay.io/mittwald/servicegateway:latest
       - quay.io/mittwald/servicegateway:v{{ .Major }}
       - quay.io/mittwald/servicegateway:v{{ .Major }}.{{ .Minor }}
       - quay.io/mittwald/servicegateway:{{ .Tag }}
       - quay.io/mittwald/servicegateway:stable
-      - quay.io/mittwald/servicegateway:latest
       - quay.io/mittwald/servicegateway:v{{ .Major }}-alpine
       - quay.io/mittwald/servicegateway:v{{ .Major }}.{{ .Minor }}-alpine
       - quay.io/mittwald/servicegateway:{{ .Tag }}-alpine
