@@ -7,7 +7,7 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
-    binary: mittnite
+    binary: servicegateway
     ldflags:
       - -s -w -X "main.Version={{ .Version }}" -X "main.Commit={{ .Commit }}" -X "main.BuiltAt={{ .Date }}"
     goos:
