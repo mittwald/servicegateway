@@ -31,10 +31,6 @@ dockers:
       - quay.io/mittwald/servicegateway:v{{ .Major }}.{{ .Minor }}
       - quay.io/mittwald/servicegateway:{{ .Tag }}
       - quay.io/mittwald/servicegateway:stable
-      - quay.io/mittwald/servicegateway:v{{ .Major }}-alpine
-      - quay.io/mittwald/servicegateway:v{{ .Major }}.{{ .Minor }}-alpine
-      - quay.io/mittwald/servicegateway:{{ .Tag }}-alpine
-      - quay.io/mittwald/servicegateway:stable-alpine
     binaries:
       - servicegateway
     goos: linux

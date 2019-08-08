@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: {{ include "servicegateway.fullname" . }}
   labels:
-        {{ include "servicegateway.labels" . | indent 4 }}
+{{ include "servicegateway.labels" . | indent 4 }}
 data:
   servicegateway.json: |
         {{ .Values.servicegateway.config.content | toJson }}
