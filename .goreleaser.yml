@@ -1,0 +1,38 @@
+project_name: servicegateway
+before:
+  hooks:
+    - go vet ./...
+    - go test ./...
+    - go mod download
+builds:
+  - env:
+      - CGO_ENABLED=0
+    binary: servicegateway
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+dockers:
+  -
+    image_templates:
+      - quay.io/mittwald/servicegateway:latest
+      - quay.io/mittwald/servicegateway:v{{ .Major }}
+      - quay.io/mittwald/servicegateway:v{{ .Major }}.{{ .Minor }}
+      - quay.io/mittwald/servicegateway:{{ .Tag }}
+      - quay.io/mittwald/servicegateway:stable
+    binaries:
+      - servicegateway
+    goos: linux
+    goarch: amd64
+    goarm: ''
