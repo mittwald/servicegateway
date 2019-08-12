@@ -37,7 +37,7 @@ func (s *MonitoringServer) ServeHTTP(res http.ResponseWriter, req *http.Request)
 
 	mux := httprouter.New()
 	mux.GET("/status", func(res http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-		res.Write([]byte("Hallo Welt!"))
+		res.Write([]byte("Hello world!"))
 	})
 	mux.GET("/metrics", func(res http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 		promHandler.ServeHTTP(res, req)

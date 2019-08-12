@@ -26,7 +26,13 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: {{ .Values.gateway.port }}
+              protocol: TCP
+            - name: admin
+              containerPort: {{ .Values.admin.port }}
+              protocol: TCP
+            - name: monitoring
+              containerPort: {{ .Values.monitoring.port }}
               protocol: TCP
           livenessProbe:
             {{- toYaml .Values.probes.livenessProbe | nindent 12 }}
@@ -35,8 +41,20 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           args:
+            - -debug
+            - {{ .Values.gateway.debug }}
             - -config
             - {{ .Values.servicegateway.config.mountPath }}/servicegateway.json
+            - -port
+            - {{ .Values.gateway.port }}
+            - -monitor-addr
+            - {{ .Values.monitoring.addr }}
+            - -monitor-port
+            - {{ .Values.monitoring.port }}
+            - -admin-port
+            - {{ .Values.admin.port }}
+            - -admin-addr
+            - {{ .Values.admin.addr }}
             {{- if .Values.additionalArgs }}
             {{- toYaml .Values.additionalArgs | nindent 12 }}
             {{- end }}

@@ -119,10 +119,12 @@ func main() {
 	consulConfig := api.DefaultConfig()
 	consulConfig.Address = cfg.Consul.Address()
 	consulConfig.Datacenter = cfg.Consul.DataCenter
-
-	consulClient, err := api.NewClient(consulConfig)
-	if err != nil {
-		logger.Panic(err)
+	var consulClient *api.Client
+	if len(cfg.Consul.Address()) >= 1 {
+		consulClient, err = api.NewClient(consulConfig)
+		if err != nil {
+			logger.Panic(err)
+		}
 	}
 
 	monitoringController, err := monitoring.NewMonitoringController(
@@ -272,7 +274,7 @@ func buildDispatcher(
 	cfg *config.Configuration,
 	consul *api.Client,
 	handler *proxy.ProxyHandler,
-	rpool *redis.Pool,
+	rPool *redis.Pool,
 	logger *logging.Logger,
 	tokenStore auth.TokenStore,
 	tokenVerifier *auth.JwtVerifier,
@@ -280,9 +282,8 @@ func buildDispatcher(
 ) (http.Handler, http.Handler, error) {
 	var disp dispatcher.Dispatcher
 	var err error
-	var configs api.KVPairs
-	var localCfg config.Configuration = *cfg
-	var appCfgs map[string]config.Application = make(map[string]config.Application)
+	localCfg := *cfg
+	appCfgs := make(map[string]config.Application)
 
 	dispLogger := logging.MustGetLogger("dispatch")
 
@@ -297,47 +298,24 @@ func buildDispatcher(
 		return nil, nil, fmt.Errorf("error while creating proxy builder: %s", err)
 	}
 
-	applicationConfigBase := startup.ConsulBaseKey + "/applications"
-
-	logger.Infof("loading gateway config from KV %s", startup.ConsulBaseKey)
-	configs, _, err = consul.KV().List(startup.ConsulBaseKey, &api.QueryOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for _, cfgKVPair := range configs {
-		logger.Debugf("found KV pair with key '%s'", cfgKVPair.Key)
-
-		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
-		case "rate_limiting":
-			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.RateLimiting); err != nil {
-				return nil, nil, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
-			}
-		}
-
-		if strings.HasPrefix(cfgKVPair.Key, applicationConfigBase) {
-			var appCfg config.Application
-
-			if err := json.Unmarshal(cfgKVPair.Value, &appCfg); err != nil {
-				return nil, nil, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
-			}
-
-			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase+"/")
-			appCfgs[name] = appCfg
+	if consul != nil {
+		appCfgs, err = buildDispatcherConsul(cfg, startup, logger, consul)
+		if err != nil {
+			return nil, nil, err
 		}
 	}
 
-	authHandler, err := auth.NewAuthenticationHandler(&localCfg.Authentication, rpool, tokenStore, tokenVerifier, logger)
+	authHandler, err := auth.NewAuthenticationHandler(&localCfg.Authentication, rPool, tokenStore, tokenVerifier, logger)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	authDecorator, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"), authHandler, tokenStore, startup.UiDir)
+	authDecorator, err := auth.NewAuthDecorator(&localCfg.Authentication, rPool, logging.MustGetLogger("auth"), authHandler, tokenStore, startup.UiDir)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	rlim, err := ratelimit.NewRateLimiter(localCfg.RateLimiting, rpool, logging.MustGetLogger("ratelimiter"))
+	rlim, err := ratelimit.NewRateLimiter(localCfg.RateLimiting, rPool, logging.MustGetLogger("ratelimiter"))
 	if err != nil {
 		logger.Fatalf("error while configuring rate limiting: %s", err)
 	}
@@ -392,6 +370,50 @@ func buildDispatcher(
 	}
 
 	return server, adminServer, nil
+}
+
+func buildDispatcherConsul(
+	cfg *config.Configuration,
+	startup *StartupConfig,
+	logger *logging.Logger,
+	consul *api.Client,
+) (map[string]config.Application, error) {
+	var err error
+	var configs api.KVPairs
+	localCfg := *cfg
+	appCfgs := make(map[string]config.Application)
+
+	applicationConfigBase := startup.ConsulBaseKey + "/applications"
+
+	logger.Infof("loading gateway config from KV %s", startup.ConsulBaseKey)
+	configs, _, err = consul.KV().List(startup.ConsulBaseKey, &api.QueryOptions{})
+	if err != nil {
+		return appCfgs, err
+	}
+
+	for _, cfgKVPair := range configs {
+		logger.Debugf("found KV pair with key '%s'", cfgKVPair.Key)
+
+		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
+		case "rate_limiting":
+			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.RateLimiting); err != nil {
+				return appCfgs, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
+			}
+		}
+
+		if strings.HasPrefix(cfgKVPair.Key, applicationConfigBase) {
+			var appCfg config.Application
+
+			if err := json.Unmarshal(cfgKVPair.Value, &appCfg); err != nil {
+				return appCfgs, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
+			}
+
+			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase+"/")
+			appCfgs[name] = appCfg
+		}
+	}
+
+	return appCfgs, nil
 }
 
 func buildLoggers(cfg *config.Configuration, tok *auth.JwtVerifier) ([]httplogging.HttpLogger, error) {

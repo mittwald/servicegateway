@@ -22,6 +22,18 @@ service:
   type: ClusterIP
   port: 80
 
+gateway:
+  port: 8080
+  debug: false
+
+admin:
+  port: 8081
+  addr: 127.0.0.1
+
+monitoring:
+  port: 8082
+  addr: 0.0.0.0
+
 ingress:
   enabled: false
   annotations: {}
@@ -40,11 +52,11 @@ probes:
   livenessProbe:
     httpGet:
       path: /status
-      port: http
+      port: monitoring
   readinessProbe:
     httpGet:
       path: /status
-      port: http
+      port: monitoring
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
