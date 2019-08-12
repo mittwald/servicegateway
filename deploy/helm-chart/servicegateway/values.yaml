@@ -58,6 +58,27 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
+additionalArgs: []
+  # - -foobar /srv/foo
+  # - -barfoo /foo/srv
+
+additionalConfigmapData: {}
+  # foo: bar
+  # foobar: |
+  #  multilinebar
+
+additionalVolumeMounts: []
+  # - name: config-volume
+  #   mountPath: test123
+
+additionalVolumes: []
+  # - name: foobar
+  #   configmap: barfoo
+
+additionalEnv: []
+  # - name: fooname
+  #   value: foovalue
+
 nodeSelector: {}
 
 tolerations: []

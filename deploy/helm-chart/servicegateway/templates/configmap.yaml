@@ -6,4 +6,7 @@ metadata:
 {{ include "servicegateway.labels" . | indent 4 }}
 data:
   servicegateway.json: |
-        {{ .Values.servicegateway.config.content | toJson }}
+    {{ .Values.servicegateway.config.content | toJson }}
+  {{- if .Values.additionalConfigmapData }}
+    {{- toYaml .Values.additionalConfigmapData | nindent 2}}
+  {{- end }}
