@@ -42,19 +42,19 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           args:
             - -debug
-            - {{ .Values.gateway.debug }}
+            - {{ .Values.gateway.debug | quote }}
             - -config
             - {{ .Values.servicegateway.config.mountPath }}/servicegateway.json
             - -port
-            - {{ .Values.gateway.port }}
+            - {{ .Values.gateway.port | quote }}
             - -monitor-addr
-            - {{ .Values.monitoring.addr }}
+            - {{ .Values.monitoring.addr | quote }}
             - -monitor-port
-            - {{ .Values.monitoring.port }}
+            - {{ .Values.monitoring.port | quote }}
             - -admin-port
-            - {{ .Values.admin.port }}
+            - {{ .Values.admin.port | quote }}
             - -admin-addr
-            - {{ .Values.admin.addr }}
+            - {{ .Values.admin.addr | quote }}
             {{- if .Values.additionalArgs }}
             {{- toYaml .Values.additionalArgs | nindent 12 }}
             {{- end }}
