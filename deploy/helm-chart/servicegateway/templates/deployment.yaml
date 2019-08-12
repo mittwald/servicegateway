@@ -35,7 +35,8 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           args:
-            - -config {{ .Values.servicegateway.config.mountPath }}/servicegateway.json
+            - -config
+            - {{ .Values.servicegateway.config.mountPath }}/servicegateway.json
             {{- if .Values.additionalArgs }}
             {{- toYaml .Values.additionalArgs | nindent 12 }}
             {{- end }}
