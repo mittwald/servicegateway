@@ -58,6 +58,10 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
+additionalArgs: []
+  # - -foobar /srv/foo
+  # - -barfoo /foo/srv
+
 additionalConfigmapData: {}
   # foo: bar
   # foobar: |

@@ -36,6 +36,9 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           args:
             - -config /srv/servicegateway/config/servicegateway.json
+            {{- if .Values.additionalArgs }}
+            {{- toYaml .Values.additionalArgs | nindent 12 }}
+            {{- end }}
           volumeMounts:
             - name: config-volume
               mountPath: {{ .Values.servicegateway.config.mountPath }}
