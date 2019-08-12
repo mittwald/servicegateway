@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: {{ include "servicegateway.fullname" . }}
   labels:
-        {{ include "servicegateway.labels" . | indent 4 }}
+    {{ include "servicegateway.labels" . | indent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
