@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: {{ include "servicegateway.fullname" . }}
   labels:
-{{ include "servicegateway.labels" . | indent 4 }}
+        {{ include "servicegateway.labels" . | indent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -16,56 +16,74 @@ spec:
         app.kubernetes.io/name: {{ include "servicegateway.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-    {{- with .Values.imagePullSecrets }}
+            {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-    {{- end }}
+            {{- toYaml . | nindent 8 }}
+            {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: {{ .Values.gateway.port }}
+              protocol: TCP
+            - name: admin
+              containerPort: {{ .Values.admin.port }}
+              protocol: TCP
+            - name: monitoring
+              containerPort: {{ .Values.monitoring.port }}
               protocol: TCP
           livenessProbe:
-            {{- toYaml .Values.probes.livenessProbe | nindent 12 }}
+                {{- toYaml .Values.probes.livenessProbe | nindent 12 }}
           readinessProbe:
-            {{- toYaml .Values.probes.readinessProbe | nindent 12 }}
+                {{- toYaml .Values.probes.readinessProbe | nindent 12 }}
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+                {{- toYaml .Values.resources | nindent 12 }}
           args:
+            - -debug
+            - {{ .Values.gateway.debug }}
             - -config
             - {{ .Values.servicegateway.config.mountPath }}/servicegateway.json
-            {{- if .Values.additionalArgs }}
-            {{- toYaml .Values.additionalArgs | nindent 12 }}
-            {{- end }}
+            - -port
+            - {{ .Values.gateway.port }}
+            - -monitor-addr
+            - {{ .Values.monitoring.addr }}
+            - -monitor-port
+            - {{ .Values.monitoring.port }}
+            - -admin-port
+            - {{ .Values.admin.port }}
+            - -admin-addr
+            - {{ .Values.admin.addr }}
+                    {{- if .Values.additionalArgs }}
+                    {{- toYaml .Values.additionalArgs | nindent 12 }}
+                {{- end }}
           volumeMounts:
             - name: config-volume
               mountPath: {{ .Values.servicegateway.config.mountPath }}
-            {{- if .Values.additionalVolumeMounts }}
-            {{- toYaml .Values.additionalVolumeMounts | nindent 12 }}
-            {{- end }}
-            {{- if .Values.additionalEnv }}
+                  {{- if .Values.additionalVolumeMounts }}
+                  {{- toYaml .Values.additionalVolumeMounts | nindent 12 }}
+                  {{- end }}
+                {{- if .Values.additionalEnv }}
           env:
-            {{- toYaml .Values.additionalEnv | nindent 12}}
+                {{- toYaml .Values.additionalEnv | nindent 12}}
             {{- end }}
       volumes:
         - name: config-volume
           configMap:
             name: {{ include "servicegateway.fullname" . }}
-        {{- if .Values.additionalVolumes }}
-        {{- toYaml .Values.additionalVolumes | nindent 8}}
-        {{- end }}
-      {{- with .Values.nodeSelector }}
+              {{- if .Values.additionalVolumes }}
+              {{- toYaml .Values.additionalVolumes | nindent 8}}
+            {{- end }}
+            {{- with .Values.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-    {{- with .Values.affinity }}
+            {{- toYaml . | nindent 8 }}
+            {{- end }}
+            {{- with .Values.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
-    {{- end }}
-    {{- with .Values.tolerations }}
+            {{- toYaml . | nindent 8 }}
+            {{- end }}
+            {{- with .Values.tolerations }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
-    {{- end }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
