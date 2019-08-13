@@ -66,7 +66,7 @@ func (h *JwtVerifier) GetVerificationKey() ([]byte, error) {
 func (h *JwtVerifier) VerifyToken(token string) (bool, jwt.Claims, error) {
 	keyPEM, err := h.GetVerificationKey()
 	if err != nil {
-		return false, nil, err
+		return false, nil, fmt.Errorf("error while getting verification key. Err: '%+v'", err)
 	}
 
 	t, err := jwt.ParseWithClaims(token, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
