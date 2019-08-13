@@ -4,6 +4,9 @@ metadata:
   name: {{ include "servicegateway.fullname" . }}
   labels:
 {{ include "servicegateway.labels" . | indent 4 }}
+{{- if .Values.additionalLabels }}
+{{ toYaml .Values.additionalLabels | indent 4 }}
+{{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:

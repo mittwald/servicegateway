@@ -6,6 +6,9 @@ metadata:
   name: {{ $fullName }}
   labels:
 {{ include "servicegateway.labels" . | indent 4 }}
+{{- if .Values.additionalLabels }}
+{{ toYaml .Values.additionalLabels | indent 4 }}
+{{- end }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
