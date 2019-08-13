@@ -70,7 +70,7 @@ func NewAdminServer(
 
 		jwt := string(jwtBytes)
 
-		valid, _, _, err := tokenVerifier.VerifyToken(jwt)
+		valid, _, err := tokenVerifier.VerifyToken(jwt)
 		if err != nil || !valid {
 			res.WriteHeader(400)
 			res.Write([]byte(fmt.Sprintf(`{"msg":"invalid token","reason":"%s"}`, err)))
@@ -115,7 +115,7 @@ func NewAdminServer(
 
 		jwt := string(jwtBytes)
 
-		valid, _, _, err := tokenVerifier.VerifyToken(jwt)
+		valid, _, err := tokenVerifier.VerifyToken(jwt)
 		if err != nil || !valid {
 			res.WriteHeader(400)
 			res.Write([]byte(fmt.Sprintf(`{"msg":"invalid token","reason":"%s"}`, err)))

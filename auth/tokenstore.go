@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base32"
 	"fmt"
+	jwt2 "github.com/dgrijalva/jwt-go"
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/golang-lru"
 	"strings"
@@ -62,13 +63,18 @@ func NewTokenStore(redisPool *redis.Pool, verifier *JwtVerifier, options TokenSt
 }
 
 func (s *RedisTokenStore) SetToken(token string, jwt *JWTResponse) (int64, error) {
-	valid, stdClaims, _, err := s.verifier.VerifyToken(jwt.JWT)
+	valid, claims, err := s.verifier.VerifyToken(jwt.JWT)
 	if !valid {
 		return 0, fmt.Errorf("JWT is invalid. Err: '%+v'", err)
 	}
 
 	if err != nil {
 		return 0, fmt.Errorf("bad JWT: %s", err)
+	}
+
+	stdClaims, ok := claims.(*jwt2.StandardClaims)
+	if !ok {
+		return 0, fmt.Errorf("error while casting claims")
 	}
 
 	key := "token_" + token
