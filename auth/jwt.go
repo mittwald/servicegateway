@@ -73,7 +73,7 @@ func (h *JwtVerifier) VerifyToken(token string) (bool, jwt.Claims, error) {
 		return jwt.ParseRSAPublicKeyFromPEM(keyPEM)
 	})
 	if err != nil {
-		return false, nil, err
+		return false, nil, fmt.Errorf("error while parsing token with claims. Err: '%+v'", err)
 	}
 
 	claims, ok := t.Claims.(*jwt.StandardClaims)
