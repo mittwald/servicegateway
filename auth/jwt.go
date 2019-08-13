@@ -69,12 +69,17 @@ func (h *JwtVerifier) VerifyToken(token string) (bool, jwt.Claims, error) {
 		return false, nil, err
 	}
 
-	dec, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+	t, err := jwt.ParseWithClaims(token, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return jwt.ParseRSAPublicKeyFromPEM(keyPEM)
 	})
-	if err == nil && dec.Valid {
-		return true, dec.Claims, nil
+	if err != nil {
+		return false, nil, err
 	}
 
-	return false, nil, err
+	claims, ok := t.Claims.(*jwt.StandardClaims)
+	if !ok {
+		return false, nil, fmt.Errorf("error while type-casting claims. Err: '%+v'", err)
+	}
+
+	return true, claims, err
 }
