@@ -226,13 +226,8 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 	if ok && (exp == 0 || exp > time.Now().Unix()) {
 		return true, token, nil
 	} else if !ok {
-		valid, claims, err := h.verifier.VerifyToken(token.JWT)
+		valid, stdClaims, _, err := h.verifier.VerifyToken(token.JWT)
 		if err == nil && valid {
-			stdClaims, ok := claims.(*jwt.StandardClaims)
-			if !ok {
-				return false, nil, fmt.Errorf("error while casting claims")
-			}
-
 			if stdClaims.ExpiresAt == 0 {
 				h.expLock.Lock()
 				h.expCache[token.JWT] = 0

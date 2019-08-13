@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	jwt2 "github.com/dgrijalva/jwt-go"
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
@@ -109,12 +108,7 @@ func (c *AmqpLoggingBehaviour) match(req *http.Request) bool {
 func (c *AmqpLoggingBehaviour) OnAuthenticatedRequest(req *http.Request, jwt string) {
 	if c.match(req) {
 		go func(req *http.Request, jwt string) {
-			_, claims, _ := c.verifier.VerifyToken(jwt)
-
-			mapClaims, ok := claims.(jwt2.MapClaims)
-			if !ok {
-				c.logger.Errorf("error while parsing claims")
-			}
+			_, _, mapClaims, _ := c.verifier.VerifyToken(jwt)
 
 			var sub string
 			var sudo string
