@@ -48,13 +48,13 @@ func (h *JwtVerifier) GetVerificationKey() ([]byte, error) {
 
 	resp, err := http.Get(h.config.VerificationKeyUrl)
 	if err != nil {
-		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
+		return nil, fmt.Errorf("could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
 	}
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
+		return nil, fmt.Errorf("could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
 	}
 
 	h.cachedKey = body
@@ -64,19 +64,14 @@ func (h *JwtVerifier) GetVerificationKey() ([]byte, error) {
 }
 
 func (h *JwtVerifier) VerifyToken(token string) (bool, jwt.Claims, error) {
-	key, err := h.GetVerificationKey()
+	keyPEM, err := h.GetVerificationKey()
 	if err != nil {
 		return false, nil, err
 	}
 
-	var keyFunc jwt.Keyfunc = func(decodedToken *jwt.Token) (interface{}, error) {
-		if _, ok := decodedToken.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %s", decodedToken.Header["alg"])
-		}
-		return key, nil
-	}
-
-	dec, err := jwt.Parse(token, keyFunc)
+	dec, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		return jwt.ParseRSAPublicKeyFromPEM(keyPEM)
+	})
 	if err == nil && dec.Valid {
 		return true, dec.Claims, nil
 	}
