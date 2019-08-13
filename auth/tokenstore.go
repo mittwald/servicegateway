@@ -72,7 +72,7 @@ func (s *RedisTokenStore) SetToken(token string, jwt *JWTResponse) (int64, error
 		return 0, fmt.Errorf("bad JWT: %s", err)
 	}
 
-	stdClaims, ok := claims.(jwt2.StandardClaims)
+	stdClaims, ok := claims.(*jwt2.StandardClaims)
 	if !ok {
 		return 0, fmt.Errorf("error while casting claims")
 	}

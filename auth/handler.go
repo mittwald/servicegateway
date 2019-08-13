@@ -228,7 +228,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 	} else if !ok {
 		valid, claims, err := h.verifier.VerifyToken(token.JWT)
 		if err == nil && valid {
-			stdClaims, ok := claims.(jwt.StandardClaims)
+			stdClaims, ok := claims.(*jwt.StandardClaims)
 			if !ok {
 				return false, nil, fmt.Errorf("error while casting claims")
 			}
