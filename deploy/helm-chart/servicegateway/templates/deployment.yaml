@@ -5,7 +5,7 @@ metadata:
   labels:
 {{ include "servicegateway.labels" . | indent 4 }}
 {{- if .Values.additionalLabels }}
-{{- toYaml .Values.additionalLabels | indent 4 }}
+{{ toYaml .Values.additionalLabels | indent 4 }}
 {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
