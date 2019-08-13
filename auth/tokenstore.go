@@ -65,7 +65,7 @@ func NewTokenStore(redisPool *redis.Pool, verifier *JwtVerifier, options TokenSt
 func (s *RedisTokenStore) SetToken(token string, jwt *JWTResponse) (int64, error) {
 	valid, claims, err := s.verifier.VerifyToken(jwt.JWT)
 	if !valid {
-		return 0, fmt.Errorf("JWT is invalid")
+		return 0, fmt.Errorf("JWT is invalid. Err: '%+v'", err)
 	}
 
 	if err != nil {
