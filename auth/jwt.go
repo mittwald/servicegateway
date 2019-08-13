@@ -78,13 +78,13 @@ func (h *JwtVerifier) VerifyToken(token string) (bool, *jwt.StandardClaims, jwt.
 
 	claims, ok := t.Claims.(*jwt.StandardClaims)
 	if !ok {
-		return false, nil, nil, fmt.Errorf("error while type-casting claims to standardClaims")
+		return false, nil, nil, fmt.Errorf("error while type-casting claims to standardClaims. Err: '%+v'", err)
 	}
 
-	mapClaims, ok := t.Claims.(jwt.MapClaims)
+	mapClaims, ok := t.Claims.(*jwt.MapClaims)
 	if !ok {
-		return false, nil, nil, fmt.Errorf("error while type-casting claims to mapClaims")
+		return false, nil, nil, fmt.Errorf("error while type-casting claims to mapClaims. Err: '%+v'", err)
 	}
 
-	return true, claims, mapClaims, err
+	return true, claims, *mapClaims, err
 }
