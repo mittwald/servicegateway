@@ -48,13 +48,13 @@ func (h *JwtVerifier) GetVerificationKey() ([]byte, error) {
 
 	resp, err := http.Get(h.config.VerificationKeyUrl)
 	if err != nil {
-		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
+		return nil, fmt.Errorf("could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
 	}
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
+		return nil, fmt.Errorf("could not retrieve key from '%s': %s", h.config.VerificationKeyUrl, err)
 	}
 
 	h.cachedKey = body
@@ -63,23 +63,27 @@ func (h *JwtVerifier) GetVerificationKey() ([]byte, error) {
 	return h.cachedKey, nil
 }
 
-func (h *JwtVerifier) VerifyToken(token string) (bool, jwt.Claims, error) {
-	key, err := h.GetVerificationKey()
+func (h *JwtVerifier) VerifyToken(token string) (bool, *jwt.StandardClaims, jwt.MapClaims, error) {
+	keyPEM, err := h.GetVerificationKey()
 	if err != nil {
-		return false, nil, err
+		return false, nil, nil, fmt.Errorf("error while getting verification key. Err: '%+v'", err)
 	}
 
-	var keyFunc jwt.Keyfunc = func(decodedToken *jwt.Token) (interface{}, error) {
-		if _, ok := decodedToken.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %s", decodedToken.Header["alg"])
-		}
-		return key, nil
+	keyFunc := func(token *jwt.Token) (interface{}, error) {
+		return jwt.ParseRSAPublicKeyFromPEM(keyPEM)
 	}
 
-	dec, err := jwt.Parse(token, keyFunc)
-	if err == nil && dec.Valid {
-		return true, dec.Claims, nil
+	stdClaims := jwt.StandardClaims{}
+	_, err = jwt.ParseWithClaims(token, &stdClaims, keyFunc)
+	if err != nil {
+		return false, nil, nil, fmt.Errorf("error while parsing token with std-claims. Err: '%+v'", err)
 	}
 
-	return false, nil, err
+	mapClaims := jwt.MapClaims{}
+	_, err = jwt.ParseWithClaims(token, &mapClaims, keyFunc)
+	if err != nil {
+		return false, nil, nil, fmt.Errorf("error while parsing token with map-claims. Err: '%+v'", err)
+	}
+
+	return true, &stdClaims, mapClaims, err
 }
