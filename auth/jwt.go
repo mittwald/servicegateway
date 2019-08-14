@@ -69,25 +69,29 @@ func (h *JwtVerifier) VerifyToken(token string) (bool, *jwt.StandardClaims, jwt.
 		return false, nil, nil, fmt.Errorf("error while getting verification key. Err: '%+v'", err)
 	}
 
-	t, err := jwt.Parse(token, func(decodedToken *jwt.Token) (interface{}, error) {
-		if _, ok := decodedToken.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %s", decodedToken.Header["alg"])
-		}
+	stdToken, err := jwt.ParseWithClaims(token, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return jwt.ParseRSAPublicKeyFromPEM(keyPEM)
 	})
 	if err != nil {
-		return false, nil, nil, fmt.Errorf("error while parsing token with claims. Err: '%+v'", err)
+		return false, nil, nil, fmt.Errorf("error while parsing token with std-claims. Err: '%+v'", err)
 	}
 
-	standardClaims, ok := t.Claims.(*jwt.StandardClaims)
+	stdClaims, ok := stdToken.Claims.(*jwt.StandardClaims)
 	if !ok {
-		return false, nil, nil, fmt.Errorf("error while type-casting claims. Err: '%+v'", err)
+		return false, nil, nil, fmt.Errorf("error while type-casting std-claims. Err: '%+v'", err)
 	}
 
-	mapClaims, ok := t.Claims.(jwt.MapClaims)
+	mapToken, err := jwt.ParseWithClaims(token, jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return jwt.ParseRSAPublicKeyFromPEM(keyPEM)
+	})
+	if err != nil {
+		return false, nil, nil, fmt.Errorf("error while parsing token with map-claims. Err: '%+v'", err)
+	}
+
+	mapClaims, ok := mapToken.Claims.(jwt.MapClaims)
 	if !ok {
-		return false, nil, nil, fmt.Errorf("error while type-casting claims. Err: '%+v'", err)
+		return false, nil, nil, fmt.Errorf("error while type-casting map-claims. Err: '%+v'", err)
 	}
 
-	return true, standardClaims, mapClaims, err
+	return true, stdClaims, mapClaims, err
 }
