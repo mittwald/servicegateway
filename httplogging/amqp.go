@@ -108,7 +108,10 @@ func (c *AmqpLoggingBehaviour) match(req *http.Request) bool {
 func (c *AmqpLoggingBehaviour) OnAuthenticatedRequest(req *http.Request, jwt string) {
 	if c.match(req) {
 		go func(req *http.Request, jwt string) {
-			_, _, mapClaims, _ := c.verifier.VerifyToken(jwt)
+			_, _, mapClaims, err  := c.verifier.VerifyToken(jwt)
+			if err != nil {
+				c.logger.Errorf("unable to verify token! Message: '%+v'", err)
+			}
 			var sub string
 			var sudo string
 
@@ -143,7 +146,7 @@ func (c *AmqpLoggingBehaviour) OnAuthenticatedRequest(req *http.Request, jwt str
 				Body:         jsonbytes,
 			}
 
-			err := c.channel.Publish(c.Config.Exchange, key, true, false, msg)
+			err = c.channel.Publish(c.Config.Exchange, key, true, false, msg)
 			if err != nil {
 				c.logger.Errorf("publishing message failed! Message: '%+v'", err)
 			}
