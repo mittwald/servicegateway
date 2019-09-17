@@ -293,7 +293,11 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 		if err != nil {
 			return err
 		}
-		resp.Write(jsonResponse)
+		contentLength, err := resp.Write(jsonResponse)
+		if err != nil {
+			return err
+		}
+		resp.Header().Set("Content-Length", fmt.Sprintf("%d", contentLength))
 	}
 
 	return nil
