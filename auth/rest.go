@@ -258,6 +258,31 @@ func rewriteAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *
 }
 
 func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *RestAuthDecorator) error {
+	if resp.Header().Get("Content-Type") == "application/jwt" {
+		jwtBlob, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		jwtResponse := JWTResponse{}
+		jwtResponse.JWT = string(jwtBlob)
+
+		token, _, err := a.tokenStore.AddToken(&jwtResponse)
+		if err != nil {
+			return err
+		}
+
+		contentLength, err := resp.Write([]byte(token))
+		if err != nil {
+			return err
+		}
+
+		resp.Header().Set("Content-Type", "text/plain")
+		resp.Header().Set("Content-Length", fmt.Sprintf("%d", contentLength))
+
+		return nil
+	}
+
 	// rewrite body tokens
 	bodyTokenKey := resp.Header().Get("X-Gateway-BodyToken")
 	if bodyTokenKey != "" {
