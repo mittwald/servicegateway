@@ -25,6 +25,7 @@ import (
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/op/go-logging"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -127,6 +128,17 @@ func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner
 		}
 
 		rw.Header().Set("Allow", allow)
+
+		body, err := ioutil.ReadAll(recorder.Body)
+		if err != nil {
+			d.log.Errorf("error while reading response body: %s", err)
+			rw.WriteHeader(500)
+			contentLength, _ := rw.Write([]byte(`{"msg":"internal server error"}`))
+			rw.Header().Set("Content-Length", fmt.Sprintf("%d", contentLength))
+			return
+		}
+		rw.Write(body)
+
 		rw.WriteHeader(recorder.Code)
 	}
 }
