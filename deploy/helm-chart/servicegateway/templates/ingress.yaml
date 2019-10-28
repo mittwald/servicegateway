@@ -33,7 +33,11 @@ spec:
           - path: {{ . }}
             backend:
               serviceName: {{ $fullName }}
+              {{- if .host.port }}
+              servicePort: {{ .host.port }}
+              {{- else}}
               servicePort: http
+              {{- end }}
         {{- end }}
   {{- end }}
 {{- end }}
