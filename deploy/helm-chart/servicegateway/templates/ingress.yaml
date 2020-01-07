@@ -1,6 +1,6 @@
 {{- if .Values.ingress.enabled -}}
 {{- $fullName := include "servicegateway.fullname" . -}}
-apiVersion: extensions/v1beta1
+apiVersion: {{ template "servicegateway.ingress.apiVersion" . }}
 kind: Ingress
 metadata:
   name: {{ $fullName }}
