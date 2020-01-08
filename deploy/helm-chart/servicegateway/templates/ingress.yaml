@@ -1,14 +1,15 @@
 {{- if .Values.ingress.enabled -}}
 {{- $fullName := include "servicegateway.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
 apiVersion: {{ template "servicegateway.ingress.apiVersion" . }}
 kind: Ingress
 metadata:
   name: {{ $fullName }}
   labels:
-{{ include "servicegateway.labels" . | indent 4 }}
-{{- if .Values.additionalLabels }}
-{{ toYaml .Values.additionalLabels | indent 4 }}
-{{- end }}
+    {{- include "servicegateway.labels" . | nindent 4 }}
+    {{- if .Values.additionalLabels }}
+    {{ toYaml .Values.additionalLabels | nindent 4 }}
+    {{- end }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -33,11 +34,7 @@ spec:
           - path: {{ . }}
             backend:
               serviceName: {{ $fullName }}
-              {{- if .host.port }}
-              servicePort: {{ .host.port }}
-              {{- else}}
-              servicePort: http
-              {{- end }}
+              servicePort: {{ $svcPort }}
         {{- end }}
   {{- end }}
 {{- end }}

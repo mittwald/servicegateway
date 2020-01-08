@@ -23,7 +23,7 @@ spec:
         {{- end }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        timestamp: '{{ date "20060102150405" .Release.Time }}'
+        timestamp: '{{ date "20060102150405" now }}'
     spec:
     {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
