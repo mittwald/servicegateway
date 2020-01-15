@@ -27,8 +27,8 @@ spec:
 {{- end }}
   rules:
   {{- range .Values.ingress.hosts }}
-  {{- if .host.port }}
-  {{- $svcPort := .host.port -}}
+  {{- if .port -}}
+  {{- $svcPort = .port -}}
   {{- end }}
     - host: {{ .host | quote }}
       http:
