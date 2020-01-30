@@ -36,3 +36,13 @@ dockers:
     goos: linux
     goarch: amd64
     goarm: ''
+nfpms:
+  - vendor: Mittwald CM Service
+    homepage: https://github.com/mittwald/servicegateway
+    maintainer: Mittwald CM Service <opensource@mittwald.de>
+    description: Gateway reverse proxy for microservice architectures with Consul integration
+    license: GPL-3.0
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
