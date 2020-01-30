@@ -41,7 +41,7 @@ nfpms:
     homepage: https://github.com/mittwald/servicegateway
     maintainer: Martin Helmich <m.helmich@mittwald.de>
     description: Gateway reverse proxy for microservice architectures with Consul integration
-    license: Proprietary
+    license: GPL-3.0
     formats:
       - deb
       - rpm
