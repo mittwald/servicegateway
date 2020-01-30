@@ -1,7 +1,9 @@
 package config
 
-import "fmt"
-import "github.com/garyburd/redigo/redis"
+import (
+	"fmt"
+	"github.com/garyburd/redigo/redis"
+)
 
 /*
  * Microservice gateway application
