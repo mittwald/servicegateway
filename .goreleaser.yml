@@ -38,7 +38,7 @@ dockers:
     goarm: ''
 nfpms:
   - vendor: Mittwald CM Service
-    homepage: https://github.com/mittwald/mittnite
+    homepage: https://github.com/mittwald/servicegateway
     maintainer: Martin Helmich <m.helmich@mittwald.de>
     description: Gateway reverse proxy for microservice architectures with Consul integration
     license: Proprietary
