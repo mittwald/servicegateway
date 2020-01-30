@@ -148,7 +148,7 @@ func main() {
 	redisPool := &redis.Pool{
 		MaxIdle: 8,
 		Dial: func() (redis.Conn, error) {
-			conn, err := redis.Dial("tcp", cfg.Redis.Address, redis.DialDatabase(cfg.Redis.Database))
+			conn, err := redis.Dial("tcp", cfg.Redis.Address, cfg.Redis.DialOptions()...)
 			if err != nil {
 				return nil, err
 			}

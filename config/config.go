@@ -1,6 +1,7 @@
 package config
 
 import "fmt"
+import "github.com/garyburd/redigo/redis"
 
 /*
  * Microservice gateway application
@@ -56,6 +57,7 @@ type Backend struct {
 
 type RedisConfiguration struct {
 	Address  string `json:"address"`
+	Password string `json:"password"`
 	Database int    `json:"database"`
 }
 
@@ -63,6 +65,15 @@ type ConsulConfiguration struct {
 	Host       string `json:"host"`
 	Port       int    `json:"port"`
 	DataCenter string `json:"datacenter"`
+}
+
+func (c RedisConfiguration) DialOptions() []redis.DialOption {
+	var dialOpts []redis.DialOption
+	dialOpts = append(dialOpts, redis.DialDatabase(c.Database))
+	if len(c.Password) > 0 {
+		dialOpts = append(dialOpts, redis.DialPassword(c.Password))
+	}
+	return dialOpts
 }
 
 func (c ConsulConfiguration) Address() string {
