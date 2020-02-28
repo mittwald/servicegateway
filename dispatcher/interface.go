@@ -31,10 +31,10 @@ type Dispatcher interface {
 	http.Handler
 	RegisterApplication(string, config.Application, *config.Configuration) error
 	Initialize() error
-	AddBehaviour(...DispatcherBehaviour)
+	AddBehaviour(...Behaviour)
 }
 
-type DispatcherBehaviour interface {
+type Behaviour interface {
 	Apply(httprouter.Handle, httprouter.Handle, Dispatcher, string, *config.Application, *config.Configuration) (httprouter.Handle, httprouter.Handle, error)
 }
 
@@ -42,21 +42,21 @@ type RoutingBehaviour interface {
 	AddRoutes(*httprouter.Router) error
 }
 
+// avoid `cfg` is unused (structcheck)
+// nolint: structcheck
 type abstractDispatcher struct {
 	cfg *config.Configuration
 	mux *httprouter.Router
 	prx *proxy.ProxyHandler
 	log *logging.Logger
 
-	behaviours []DispatcherBehaviour
+	behaviours []Behaviour
 }
 
 func (d *abstractDispatcher) setProxy(p *proxy.ProxyHandler) {
 	d.prx = p
 }
 
-func (d *abstractDispatcher) AddBehaviour(behaviours ...DispatcherBehaviour) {
-	for _, behaviour := range behaviours {
-		d.behaviours = append(d.behaviours, behaviour)
-	}
+func (d *abstractDispatcher) AddBehaviour(behaviours ...Behaviour) {
+	d.behaviours = append(d.behaviours, behaviours...)
 }

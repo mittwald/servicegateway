@@ -62,7 +62,10 @@ func (c *AmqpLoggingBehaviour) connect() error {
 			<-timer.C
 
 			c.logger.Errorf("reconnecting after connection error")
-			c.connect()
+			err := c.connect()
+			if err != nil {
+				c.logger.Errorf("reconnecting after connection error failed")
+			}
 		}()
 	}()
 

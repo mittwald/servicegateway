@@ -26,41 +26,22 @@ import (
 	"github.com/braintree/manners"
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/consul/api"
-	"github.com/mittwald/servicegateway/admin"
 	"github.com/mittwald/servicegateway/auth"
-	"github.com/mittwald/servicegateway/cache"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/dispatcher"
 	"github.com/mittwald/servicegateway/httplogging"
 	"github.com/mittwald/servicegateway/monitoring"
 	"github.com/mittwald/servicegateway/proxy"
-	"github.com/mittwald/servicegateway/ratelimit"
 	"github.com/op/go-logging"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime/pprof"
-	"strings"
 )
 
-type StartupConfig struct {
-	ConfigSource    string
-	ConfigFile      string
-	DispatchingMode string
-	ConsulBaseKey   string
-	UiDir           string
-	Port            int
-	AdminAddress    string
-	AdminPort       int
-	MonitorAddress  string
-	MonitorPort     int
-	Debug           bool
-	ProfileCpu      string
-}
-
 func main() {
-	startup := StartupConfig{}
+	startup := config.Startup{}
 
 	flag.StringVar(&startup.ConfigFile, "config", "/etc/servicegateway.json", "configuration file")
 	flag.StringVar(&startup.DispatchingMode, "dispatch", "path", "dispatching mode ('path' or 'host')")
@@ -86,13 +67,16 @@ func main() {
 		if err != nil {
 			logger.Fatal(err)
 		}
-		pprof.StartCPUProfile(f)
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			logger.Fatal(err)
+		}
 		defer pprof.StopCPUProfile()
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
 		go func() {
-			for _ = range c {
+			for range c {
 				pprof.StopCPUProfile()
 				os.Exit(0)
 			}
@@ -116,21 +100,28 @@ func main() {
 
 	logger.Debugf("%s", cfg)
 
-	consulConfig := api.DefaultConfig()
-	consulConfig.Address = cfg.Consul.Address()
-	consulConfig.Datacenter = cfg.Consul.DataCenter
+	var monitoringController monitoring.Controller
+	monitoringLogger := logging.MustGetLogger("monitoring")
 
-	consulClient, err := api.NewClient(consulConfig)
-	if err != nil {
-		logger.Panic(err)
+	if startup.IsConsulConfig() {
+		consulClient, consulClientErr := cfg.Consul.BuildConsulClient()
+		if consulClientErr != nil {
+			logger.Panic(err)
+		}
+		monitoringController, err = monitoring.NewConsulIntegrationMonitoringController(
+			startup.MonitorAddress,
+			startup.MonitorPort,
+			consulClient,
+			monitoringLogger,
+		)
+	} else {
+		monitoringController, err = monitoring.NewNoIntegrationMonitoringController(
+			startup.MonitorAddress,
+			startup.MonitorPort,
+			monitoringLogger,
+		)
 	}
 
-	monitoringController, err := monitoring.NewMonitoringController(
-		startup.MonitorAddress,
-		startup.MonitorPort,
-		consulClient,
-		logging.MustGetLogger("monitoring"),
-	)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -186,13 +177,13 @@ func main() {
 	go func() {
 		for range c {
 			logger.Notice("received interrupt signal")
-			monitoringController.Shutdown <- true
+			monitoringController.SendShutdown()
 			serverShutdown <- true
 		}
 	}()
 
 	go func() {
-		<-monitoringController.ShutdownComplete
+		monitoringController.WaitForShutdown()
 		<-serverShutdownComplete
 
 		logger.Notice("everything has shut down. exiting process.")
@@ -227,171 +218,64 @@ func main() {
 		var disp http.Handler
 		var adminHandler http.Handler
 
-		disp, adminHandler, err = buildDispatcher(
-			&startup,
-			&cfg,
-			consulClient,
-			handler,
-			redisPool,
-			logger,
-			tokenStore,
-			tokenVerifier,
-			httpLoggers,
-		)
+		if startup.IsConsulConfig() {
+			var consulClient *api.Client
+			consulClient, err = cfg.Consul.BuildConsulClient()
+			if err != nil {
+				logger.Error(err.Error())
+				return
+			}
+
+			disp, adminHandler, err = dispatcher.BuildConsulDispatcher(
+				&startup,
+				&cfg,
+				consulClient,
+				handler,
+				redisPool,
+				logger,
+				tokenStore,
+				tokenVerifier,
+				httpLoggers,
+			)
+		} else {
+			disp, adminHandler, err = dispatcher.BuildNoConsulDispatcher(
+				&startup,
+				&cfg,
+				handler,
+				redisPool,
+				logger,
+				tokenStore,
+				tokenVerifier,
+				httpLoggers,
+			)
+		}
 
 		if err != nil {
 			logger.Error(err.Error())
-		} else {
-
-			shutdownServers()
-
-			proxyServer = manners.NewWithServer(&http.Server{Addr: listenAddress, Handler: disp})
-			adminServer = manners.NewWithServer(&http.Server{Addr: adminListenAddress, Handler: adminHandler})
-
-			logger.Debug("Starting new servers")
-
-			go func() {
-				logger.Infof("starting dispatcher on address %s", listenAddress)
-				proxyServer.ListenAndServe()
-			}()
-
-			go func() {
-				logger.Infof("starting admin server on address %s", adminListenAddress)
-				adminServer.ListenAndServe()
-			}()
-
+			return
 		}
+
+		shutdownServers()
+
+		proxyServer = manners.NewWithServer(&http.Server{Addr: listenAddress, Handler: disp})
+		adminServer = manners.NewWithServer(&http.Server{Addr: adminListenAddress, Handler: adminHandler})
+
+		logger.Debug("Starting new servers")
+
+		go func() {
+			logger.Infof("starting dispatcher on address %s", listenAddress)
+			_ = proxyServer.ListenAndServe()
+		}()
+
+		go func() {
+			logger.Infof("starting admin server on address %s", adminListenAddress)
+			_ = adminServer.ListenAndServe()
+		}()
+
 	}()
 
 	logger.Info("waiting to die")
 	<-done
-}
-
-func buildDispatcher(
-	startup *StartupConfig,
-	cfg *config.Configuration,
-	consul *api.Client,
-	handler *proxy.ProxyHandler,
-	rpool *redis.Pool,
-	logger *logging.Logger,
-	tokenStore auth.TokenStore,
-	tokenVerifier *auth.JwtVerifier,
-	httpLoggers []httplogging.HttpLogger,
-) (http.Handler, http.Handler, error) {
-	var disp dispatcher.Dispatcher
-	var err error
-	var configs api.KVPairs
-	var localCfg config.Configuration = *cfg
-	var appCfgs map[string]config.Application = make(map[string]config.Application)
-
-	dispLogger := logging.MustGetLogger("dispatch")
-
-	switch startup.DispatchingMode {
-	case "path":
-		disp, err = dispatcher.NewPathBasedDispatcher(&localCfg, dispLogger, handler)
-	default:
-		err = fmt.Errorf("unsupported dispatching mode: '%s'", startup.DispatchingMode)
-	}
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("error while creating proxy builder: %s", err)
-	}
-
-	applicationConfigBase := startup.ConsulBaseKey + "/applications"
-
-	logger.Infof("loading gateway config from KV %s", startup.ConsulBaseKey)
-	configs, _, err = consul.KV().List(startup.ConsulBaseKey, &api.QueryOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for _, cfgKVPair := range configs {
-		logger.Debugf("found KV pair with key '%s'", cfgKVPair.Key)
-
-		switch strings.TrimPrefix(startup.ConsulBaseKey+"/", cfgKVPair.Key) {
-		case "rate_limiting":
-			if err := json.Unmarshal(cfgKVPair.Value, &localCfg.RateLimiting); err != nil {
-				return nil, nil, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
-			}
-		}
-
-		if strings.HasPrefix(cfgKVPair.Key, applicationConfigBase) {
-			var appCfg config.Application
-
-			if err := json.Unmarshal(cfgKVPair.Value, &appCfg); err != nil {
-				return nil, nil, fmt.Errorf("JSON error on consul KV pair '%s': %s", cfgKVPair.Key, err)
-			}
-
-			name := strings.TrimPrefix(cfgKVPair.Key, applicationConfigBase+"/")
-			appCfgs[name] = appCfg
-		}
-	}
-
-	authHandler, err := auth.NewAuthenticationHandler(&localCfg.Authentication, rpool, tokenStore, tokenVerifier, logger)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	authDecorator, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"), authHandler, tokenStore, startup.UiDir)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	rlim, err := ratelimit.NewRateLimiter(localCfg.RateLimiting, rpool, logging.MustGetLogger("ratelimiter"))
-	if err != nil {
-		logger.Fatalf("error while configuring rate limiting: %s", err)
-	}
-
-	cch := cache.NewCache(4096)
-
-	// Order is important here! Behaviours will be called in LIFO order;
-	// behaviours that are added last will be called first!
-	disp.AddBehaviour(dispatcher.NewCachingBehaviour(cch))
-	disp.AddBehaviour(dispatcher.NewAuthenticationBehaviour(authDecorator))
-	disp.AddBehaviour(dispatcher.NewRatelimitBehaviour(rlim))
-
-	for name, appCfg := range appCfgs {
-		logger.Infof("registering application '%s' from Consul", name)
-		if err := disp.RegisterApplication(name, appCfg, cfg); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	for name, appCfg := range localCfg.Applications {
-		logger.Infof("registering application '%s' from local config", name)
-		if err := disp.RegisterApplication(name, appCfg, cfg); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	if err = disp.Initialize(); err != nil {
-		return nil, nil, err
-	}
-
-	adminLogger, err := logging.GetLogger("admin-api")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	adminServer, err := admin.NewAdminServer(tokenStore, tokenVerifier, authHandler, adminLogger)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var server http.Handler = disp
-
-	for _, httpLogger := range httpLoggers {
-		if listener, ok := httpLogger.(auth.AuthRequestListener); ok {
-			authDecorator.RegisterRequestListener(listener)
-		}
-
-		server, err = httpLogger.Wrap(server)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	return server, adminServer, nil
 }
 
 func buildLoggers(cfg *config.Configuration, tok *auth.JwtVerifier) ([]httplogging.HttpLogger, error) {

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
+	"github.com/hashicorp/consul/api"
 )
 
 /*
@@ -67,6 +68,18 @@ type ConsulConfiguration struct {
 	Host       string `json:"host"`
 	Port       int    `json:"port"`
 	DataCenter string `json:"datacenter"`
+}
+
+func (c *ConsulConfiguration) BuildConsulConfig() *api.Config {
+	consulConfig := api.DefaultConfig()
+	consulConfig.Address = c.Address()
+	consulConfig.Datacenter = c.DataCenter
+
+	return consulConfig
+}
+
+func (c *ConsulConfiguration) BuildConsulClient() (*api.Client, error) {
+	return api.NewClient(c.BuildConsulConfig())
 }
 
 func (c RedisConfiguration) DialOptions() []redis.DialOption {

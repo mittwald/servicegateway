@@ -61,7 +61,7 @@ func NewPathBasedDispatcher(
 	dispatcher.mux = httprouter.New()
 	dispatcher.log = log
 	dispatcher.prx = prx
-	dispatcher.behaviours = make([]DispatcherBehaviour, 0, 8)
+	dispatcher.behaviours = make([]Behaviour, 0, 8)
 
 	return dispatcher, nil
 }

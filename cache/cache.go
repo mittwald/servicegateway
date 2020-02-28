@@ -80,7 +80,7 @@ func (r *ResponseBuffer) Dump(rw http.ResponseWriter) {
 	}
 
 	rw.WriteHeader(r.status)
-	rw.Write(r.body)
+	_, _ = rw.Write(r.body)
 }
 
 func NewCache(s int) CacheMiddleware {
@@ -118,7 +118,7 @@ func (c *inMemoryCacheMiddleware) DecorateHandler(handler httprouter.Handle) htt
 		}
 
 		entry, err := c.cache.Get(identifier)
-		if useCache == false || err == gcache.KeyNotFoundError {
+		if !useCache || err == gcache.KeyNotFoundError {
 			buf := NewResponseBuffer()
 
 			handler(buf, req, params)
@@ -130,7 +130,7 @@ func (c *inMemoryCacheMiddleware) DecorateHandler(handler httprouter.Handle) htt
 
 			if useCache {
 				rw.Header().Add("X-Cache", "MISS")
-				c.cache.Set(identifier, buf)
+				_ = c.cache.Set(identifier, buf)
 			} else {
 				rw.Header().Add("X-Cache", "PASS")
 			}
@@ -144,11 +144,11 @@ func (c *inMemoryCacheMiddleware) DecorateHandler(handler httprouter.Handle) htt
 			default:
 				fmt.Println("Unknown type in cache")
 				rw.WriteHeader(500)
-				rw.Write([]byte("{\"msg\":\"internal server error\"}"))
+				_, _ = rw.Write([]byte("{\"msg\":\"internal server error\"}"))
 			}
 		} else {
 			rw.WriteHeader(500)
-			rw.Write([]byte("{\"msg\":\"internal server error\"}"))
+			_, _ = rw.Write([]byte("{\"msg\":\"internal server error\"}"))
 		}
 	}
 }

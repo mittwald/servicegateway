@@ -27,23 +27,14 @@ import (
 	"os"
 )
 
-type MonitoringController struct {
-	Shutdown         chan bool
-	ShutdownComplete chan bool
-
-	httpAddress string
-	httpPort    int
-	httpServer  *MonitoringServer
-
-	logger *logging.Logger
-
-	promMetrics *PromMetrics
+type ConsulIntegrationController struct {
+	NoIntegrationController
 
 	consulClient    *api.Client
 	consulServiceID string
 }
 
-func NewMonitoringController(address string, port int, consul *api.Client, logger *logging.Logger) (*MonitoringController, error) {
+func NewConsulIntegrationMonitoringController(address string, port int, consul *api.Client, logger *logging.Logger) (*ConsulIntegrationController, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -59,24 +50,26 @@ func NewMonitoringController(address string, port int, consul *api.Client, logge
 		return nil, err
 	}
 
-	return &MonitoringController{
-		Shutdown:         make(chan bool),
-		ShutdownComplete: make(chan bool),
-		httpAddress:      address,
-		httpPort:         port,
-		httpServer:       server,
-		logger:           logger,
-		promMetrics:      metrics,
-		consulClient:     consul,
-		consulServiceID:  fmt.Sprintf("servicegateway-%s", hostname),
+	return &ConsulIntegrationController{
+		NoIntegrationController: NoIntegrationController{
+			Shutdown:         make(chan bool),
+			ShutdownComplete: make(chan bool),
+			httpAddress:      address,
+			httpPort:         port,
+			httpServer:       server,
+			logger:           logger,
+			promMetrics:      metrics,
+		},
+		consulClient:    consul,
+		consulServiceID: fmt.Sprintf("servicegateway-%s", hostname),
 	}, nil
 }
 
-func (m *MonitoringController) Metrics() *PromMetrics {
+func (m *ConsulIntegrationController) Metrics() *PromMetrics {
 	return m.promMetrics
 }
 
-func (m *MonitoringController) Start() error {
+func (m *ConsulIntegrationController) Start() error {
 	m.logger.Info("Registering node in Consul")
 
 	registration := api.AgentServiceRegistration{
@@ -99,18 +92,22 @@ func (m *MonitoringController) Start() error {
 	m.promMetrics.Init()
 
 	go func() {
-		http.ListenAndServe(fmt.Sprintf("%s:%d", m.httpAddress, m.httpPort), m.httpServer)
+		err := http.ListenAndServe(fmt.Sprintf("%s:%d", m.httpAddress, m.httpPort), m.httpServer)
+		if err != nil {
+			m.logger.Error(err)
+		}
 	}()
 
 	go func() {
 		<-m.Shutdown
-		m.shutdown()
+		err := m.shutdown()
+		m.logger.Error(err)
 	}()
 
 	return nil
 }
 
-func (m *MonitoringController) shutdown() error {
+func (m *ConsulIntegrationController) shutdown() error {
 	if err := m.consulClient.Agent().ServiceDeregister(m.consulServiceID); err != nil {
 		m.logger.Errorf("Error while deregistering service in Consul: %s", err)
 	} else {
@@ -120,4 +117,12 @@ func (m *MonitoringController) shutdown() error {
 	m.ShutdownComplete <- true
 
 	return nil
+}
+
+func (m *ConsulIntegrationController) SendShutdown() {
+	m.Shutdown <- true
+}
+
+func (m *ConsulIntegrationController) WaitForShutdown() {
+	<-m.ShutdownComplete
 }

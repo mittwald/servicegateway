@@ -40,7 +40,7 @@ type JsonHostRewriter struct {
 
 func (m *mapping) repl(matches []string) string {
 	path := m.targetPattern
-	for k, _ := range m.replacements {
+	for k := range m.replacements {
 		path = m.replacements[k].ReplaceAllString(path, matches[k])
 	}
 	return path
@@ -103,7 +103,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 			if err != nil {
 				j.Logger.Errorf("error while reading response body: %s", err)
 				rw.WriteHeader(500)
-				rw.Write([]byte(`{"msg":"internal server error"}`))
+				_, _ = rw.Write([]byte(`{"msg":"internal server error"}`))
 			}
 
 			if req.Method != "HEAD" {
@@ -111,7 +111,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 				if err != nil {
 					j.Logger.Errorf("error while rewriting response body: %s", err)
 					rw.WriteHeader(500)
-					rw.Write([]byte(`{"msg":"internal server error"}`))
+					_ , _ = rw.Write([]byte(`{"msg":"internal server error"}`))
 					return
 				}
 			}
@@ -120,7 +120,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 
 			rw.Header().Set("Content-Length", strconv.Itoa(len(b)))
 			rw.WriteHeader(recorder.Code)
-			rw.Write(b)
+			_ , _ = rw.Write(b)
 		} else {
 			j.copyAndRewriteHeaders(recorder, rw, &publicUrl)
 			rw.WriteHeader(recorder.Code)
@@ -138,7 +138,7 @@ func (j *JsonHostRewriter) copyAndRewriteHeaders(source http.ResponseWriter, tar
 	for k, values := range source.Header() {
 		if k == "Location" {
 			j.Logger.Debugf("found location header")
-			for i, _ := range values {
+			for i := range values {
 				newUrl, err := j.RewriteUrl(values[i], publicUrl)
 				if err != nil {
 					j.Logger.Errorf("error while mapping URL from location header %s: %s", values[i], err)
@@ -165,6 +165,9 @@ func (j *JsonHostRewriter) Rewrite(body []byte, reqUrl *url.URL) ([]byte, error)
 	}
 
 	jsonData, err = j.walkJson(jsonData, reqUrl, false)
+	if err != nil {
+		return nil, err
+	}
 
 	reencoded, err := json.Marshal(jsonData)
 	if err != nil {
@@ -196,7 +199,7 @@ func (j *JsonHostRewriter) RewriteUrl(urlString string, reqUrl *url.URL) (string
 func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inLinks bool) (interface{}, error) {
 	switch typed := jsonStruct.(type) {
 	case map[string]interface{}:
-		for key, _ := range typed {
+		for key := range typed {
 			if key == "href" {
 				if url, ok := typed["href"].(string); ok {
 					newUrl, err := j.RewriteUrl(url, reqUrl)
@@ -232,7 +235,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 		outputList := make([]interface{}, 0, len(typed))
 		removedCount := 0
 
-		for key, _ := range typed {
+		for key := range typed {
 			v, err := j.walkJson(typed[key], reqUrl, inLinks)
 			if err == RemoveElement {
 				removedCount += 1

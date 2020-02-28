@@ -32,9 +32,14 @@ import (
 	"time"
 )
 
+// nolint: structcheck
 type Bucket struct {
 	sync.Mutex
+	// avoid `limit` is unused (unused)
+	// nolint: unused
 	limit     int
+	// avoid `fillLevel` is unused (unused)
+	// nolint: unused
 	fillLevel int
 }
 
@@ -79,11 +84,22 @@ func (t *RedisSimpleRateThrottler) identifyClient(req *http.Request) string {
 func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 	key := "RL_BUCKET_" + user
 	conn := t.redisPool.Get()
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
-	conn.Send("MULTI")
-	conn.Send("SET", key, t.burstSize, "EX", t.window.Seconds(), "NX")
-	conn.Send("DECR", key)
+	err := conn.Send("MULTI")
+	if err != nil {
+		return 0, 0, err
+	}
+	err = conn.Send("SET", key, t.burstSize, "EX", t.window.Seconds(), "NX")
+	if err != nil {
+		return 0, 0, err
+	}
+	err = conn.Send("DECR", key)
+	if err != nil {
+		return 0, 0, err
+	}
 
 	if val, err := redis.Values(conn.Do("EXEC")); err != nil {
 		return 0, 0, err
@@ -137,7 +153,7 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler httprouter.Handle) ht
 			t.logger.Errorf("Error occurred while handling request from %s: %s", req.RemoteAddr, err)
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(503)
-			rw.Write([]byte("{\"msg\":\"service unavailable\"}"))
+			_, _ = rw.Write([]byte("{\"msg\":\"service unavailable\"}"))
 			return
 		}
 
@@ -151,7 +167,7 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler httprouter.Handle) ht
 		if remaining <= 0 {
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(429)
-			rw.Write([]byte("{\"msg\":\"rate limit exceeded\"}"))
+			_, _ = rw.Write([]byte("{\"msg\":\"rate limit exceeded\"}"))
 		} else {
 			handler(rw, req, p)
 		}

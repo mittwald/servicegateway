@@ -60,6 +60,9 @@ func NewProxyHandler(logger *logging.Logger, config *config.Configuration, metri
 	}
 }
 
+
+// avoid func `(*ProxyHandler).replaceBackendUri` is unused (unused)
+// nolint: unused
 func (p *ProxyHandler) replaceBackendUri(value string, req *http.Request, appCfg *config.Application) string {
 	proto := "http"
 	if req.TLS != nil {
@@ -80,7 +83,7 @@ func (p *ProxyHandler) UnavailableError(rw http.ResponseWriter, req *http.Reques
 
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(503)
-	rw.Write([]byte("{\"msg\": \"service unavailable\", \"reason\": \"no can do; sorry.\"}"))
+	_, _ = rw.Write([]byte("{\"msg\": \"service unavailable\", \"reason\": \"no can do; sorry.\"}"))
 }
 
 func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Request, targetUrl string, appName string, appCfg *config.Application) {
@@ -125,14 +128,14 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 
 	proxyRes, err := p.Client.Do(proxyReq)
 	if err != nil {
-		if uerr, ok := err.(*url.Error); ok == false || uerr.Err != redirectRequest {
+		if uerr, ok := err.(*url.Error); !ok || uerr.Err != redirectRequest {
 			p.Logger.Errorf("could not proxy request to %s: %s", targetUrl, uerr)
 			p.UnavailableError(rw, req, appName)
 			return
 		}
 	}
 
-	p.metrics.UpstreamResponseTimes.With(prometheus.Labels{"application": appName}).Observe(time.Now().Sub(upstreamStart).Seconds())
+	p.metrics.UpstreamResponseTimes.With(prometheus.Labels{"application": appName}).Observe(time.Since(upstreamStart).Seconds())
 
 	for header, values := range proxyRes.Header {
 		if _, ok := p.Config.Proxy.StripResponseHeaders[header]; ok {
@@ -154,7 +157,7 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	_, err = reader.WriteTo(rw)
 
 	defer proxyRes.Body.Close()
-	p.metrics.TotalResponseTimes.With(prometheus.Labels{"application": appName}).Observe(time.Now().Sub(totalStart).Seconds())
+	p.metrics.TotalResponseTimes.With(prometheus.Labels{"application": appName}).Observe(time.Since(totalStart).Seconds())
 
 	if err != nil {
 		p.Logger.Errorf("error while writing response body: %s", err)
