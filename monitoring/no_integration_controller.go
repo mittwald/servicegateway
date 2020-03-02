@@ -22,6 +22,7 @@ package monitoring
 import (
 	"fmt"
 	"github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"net/http"
 )
 
@@ -41,23 +42,23 @@ type NoIntegrationController struct {
 func NewNoIntegrationMonitoringController(address string, port int, logger *logging.Logger) (*NoIntegrationController, error) {
 	server, err := NewMonitoringServer()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	metrics, err := newMetrics()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	return &NoIntegrationController{
-			Shutdown:         make(chan bool),
-			ShutdownComplete: make(chan bool),
-			httpAddress:      address,
-			httpPort:         port,
-			httpServer:       server,
-			logger:           logger,
-			promMetrics:      metrics,
-		}, nil
+		Shutdown:         make(chan bool),
+		ShutdownComplete: make(chan bool),
+		httpAddress:      address,
+		httpPort:         port,
+		httpServer:       server,
+		logger:           logger,
+		promMetrics:      metrics,
+	}, nil
 }
 
 func (m *NoIntegrationController) Metrics() *PromMetrics {

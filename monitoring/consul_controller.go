@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"net/http"
 	"os"
 )
@@ -37,17 +38,17 @@ type ConsulIntegrationController struct {
 func NewConsulIntegrationMonitoringController(address string, port int, consul *api.Client, logger *logging.Logger) (*ConsulIntegrationController, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	server, err := NewMonitoringServer()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	metrics, err := newMetrics()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	return &ConsulIntegrationController{
@@ -84,7 +85,7 @@ func (m *ConsulIntegrationController) Start() error {
 
 	if err := m.consulClient.Agent().ServiceRegister(&registration); err != nil {
 		m.logger.Errorf("Error while registering node in Consul: %s", err)
-		return err
+		return errors.WithStack(err)
 	} else {
 		m.logger.Info("Successfully registered node in Consul")
 	}
@@ -110,6 +111,7 @@ func (m *ConsulIntegrationController) Start() error {
 func (m *ConsulIntegrationController) shutdown() error {
 	if err := m.consulClient.Agent().ServiceDeregister(m.consulServiceID); err != nil {
 		m.logger.Errorf("Error while deregistering service in Consul: %s", err)
+		return errors.WithStack(err)
 	} else {
 		m.logger.Info("Successfully deregistered service in Consul")
 	}

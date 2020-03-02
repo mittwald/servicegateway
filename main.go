@@ -238,7 +238,7 @@ func main() {
 				httpLoggers,
 			)
 		} else {
-			disp, adminHandler, err = dispatcher.BuildNoConsulDispatcher(
+			disp, adminHandler, err = dispatcher.BuildNoIntegrationDispatcher(
 				&startup,
 				&cfg,
 				handler,

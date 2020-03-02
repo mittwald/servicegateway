@@ -27,6 +27,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"github.com/robertkrimen/otto"
 	"io/ioutil"
 	"net/http"
@@ -88,7 +89,7 @@ func NewAuthenticationHandler(
 			return otto.UndefinedValue()
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 
 		script, err := handler.jsVM.Compile(cfg.ProviderConfig.PreAuthenticationHook, nil)
@@ -139,7 +140,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 		body, err := hookResultObj.Get("body")
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 		exportedAuthRequest, _ := body.Export()
 		newAuthRequest, ok := exportedAuthRequest.(map[string]interface{})
@@ -157,7 +158,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 		url, err := hookResultObj.Get("url")
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 		if url.IsString() {
 			requestURL = url.String()
@@ -166,7 +167,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 		allowedApps, err := hookResultObj.Get("allowedApplications")
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 		if allowedApps.IsDefined() {
 			exported, _ := allowedApps.Export()
@@ -179,7 +180,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 	jsonString, err := json.Marshal(authRequest)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	redactedAuthRequest := authRequest
@@ -194,14 +195,14 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonString))
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	req.Header.Set("Accept", "application/jwt")
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := h.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -216,7 +217,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 		} else {
 			err := fmt.Errorf("unexpected status code %d for user %s: %s", resp.StatusCode, username, body)
 			h.logger.Error(err.Error())
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 	}
 
@@ -233,7 +234,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 		return false, nil, nil
 	} else if err != nil {
 		h.logger.Warningf("error while reading token from request: %s", err)
-		return false, nil, err
+		return false, nil, errors.WithStack(err)
 	}
 
 	h.expLock.RLock()
@@ -278,7 +279,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 					return false, nil, nil
 				}
 			}
-			return false, nil, err
+			return false, nil, errors.WithStack(err)
 		}
 	}
 	return false, nil, nil

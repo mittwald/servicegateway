@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"github.com/bluele/gcache"
 	"github.com/julienschmidt/httprouter"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
 )
@@ -64,7 +65,7 @@ func (r *ResponseBuffer) WriteHeader(status int) {
 
 func (r *ResponseBuffer) Write(b []byte) (int, error) {
 	l, err := r.buf.Write(b)
-	return l, err
+	return l, errors.WithStack(err)
 }
 
 func (r *ResponseBuffer) Complete() {

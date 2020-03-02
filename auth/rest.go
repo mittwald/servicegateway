@@ -20,6 +20,7 @@ package auth
  */
 
 import (
+	"github.com/pkg/errors"
 	"net/http"
 
 	"encoding/json"
@@ -246,12 +247,12 @@ func setCORSHeaders(headers http.Header) {
 func rewriteAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *RestAuthDecorator) error {
 	err := rewriteBodyAccessTokens(resp, req, a)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	err = rewriteHeaderAccessTokens(resp, req, a)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	return rewriteCookieAccessTokens(resp, req, a)
@@ -261,7 +262,7 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 	if resp.Header().Get("Content-Type") == "application/jwt" {
 		jwtBlob, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		jwtResponse := JWTResponse{}
@@ -269,12 +270,12 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 
 		token, _, err := a.tokenStore.AddToken(&jwtResponse)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		contentLength, err := resp.Write([]byte(token))
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		resp.Header().Set("Content-Type", "text/plain")
@@ -290,19 +291,19 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 		var response map[string]interface{}
 		jsonBlob, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		err = json.Unmarshal(jsonBlob, &response)
 
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		bodyToken, ok := response[bodyTokenKey]
 
 		if !ok {
-			return err
+			return errors.WithStack(err)
 		}
 
 		jwtResponse := JWTResponse{}
@@ -310,17 +311,17 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 
 		token, _, err := a.tokenStore.AddToken(&jwtResponse)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		response[bodyTokenKey] = token
 		jsonResponse, err := json.Marshal(&response)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 		contentLength, err := resp.Write(jsonResponse)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 		resp.Header().Set("Content-Length", fmt.Sprintf("%d", contentLength))
 	}
@@ -340,7 +341,7 @@ func rewriteHeaderAccessTokens(resp *httptest.ResponseRecorder, req *http.Reques
 
 		token, _, err := a.tokenStore.AddToken(&jwtResponse)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		resp.Header().Set(headerTokenKey, token)
@@ -364,7 +365,7 @@ func rewriteCookieAccessTokens(resp *httptest.ResponseRecorder, req *http.Reques
 
 		token, _, err := a.tokenStore.AddToken(&jwtResponse)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		cookie.Value = token

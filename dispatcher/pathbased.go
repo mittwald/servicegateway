@@ -24,15 +24,14 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/proxy"
-	"github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 )
 
-type pathBasedDispatcher struct {
+type abstractPathBasedDispatcher struct {
 	abstractDispatcher
 }
 
@@ -51,22 +50,7 @@ type PathClosure struct {
 	proxy      *proxy.ProxyHandler
 }
 
-func NewPathBasedDispatcher(
-	cfg *config.Configuration,
-	log *logging.Logger,
-	prx *proxy.ProxyHandler,
-) (*pathBasedDispatcher, error) {
-	dispatcher := new(pathBasedDispatcher)
-	dispatcher.cfg = cfg
-	dispatcher.mux = httprouter.New()
-	dispatcher.log = log
-	dispatcher.prx = prx
-	dispatcher.behaviours = make([]Behaviour, 0, 8)
-
-	return dispatcher, nil
-}
-
-func (d *pathBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+func (d *abstractPathBasedDispatcher) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	//	for k, v := range d.cfg.Proxy.SetResponseHeaders {
 	//		res.Header.Set(k, v)
 	//	}
@@ -90,7 +74,7 @@ func (p *PathClosure) Handle(rw http.ResponseWriter, req *http.Request, params h
 	p.proxy.HandleProxyRequest(rw, req, proxyUrl, p.appName, p.appCfg)
 }
 
-func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner httprouter.Handle) httprouter.Handle {
+func (d *abstractPathBasedDispatcher) buildOptionsHandler(inner httprouter.Handle) httprouter.Handle {
 	return func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		recorder := httptest.NewRecorder()
 
@@ -129,7 +113,7 @@ func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner
 
 		rw.Header().Set("Allow", allow)
 
-		_, err := io.Copy(rw,recorder.Body)
+		_, err := io.Copy(rw, recorder.Body)
 		if err != nil {
 			d.log.Errorf("error while reading response body: %s", err)
 			rw.WriteHeader(500)
@@ -143,98 +127,12 @@ func (d *pathBasedDispatcher) buildOptionsHandler(cfg *config.Application, inner
 	}
 }
 
-func (d *pathBasedDispatcher) RegisterApplication(name string, appCfg config.Application, config *config.Configuration) error {
-	routes := make(map[string]httprouter.Handle)
-
-	backendUrl := appCfg.Backend.Url
-	if backendUrl == "" && appCfg.Backend.Service != "" {
-		if appCfg.Backend.Tag != "" {
-			backendUrl = fmt.Sprintf("http://%s.%s.service.consul", appCfg.Backend.Tag, appCfg.Backend.Service)
-		} else {
-			backendUrl = fmt.Sprintf("http://%s.service.consul", appCfg.Backend.Service)
-		}
-	}
-
-	var rewriter proxy.HostRewriter
-
-	if appCfg.Routing.Type == "path" {
-		path := strings.TrimRight(appCfg.Routing.Path, "/")
-		mapping := map[string]string{
-			"/(?P<path>.*)": path + "/:path",
-		}
-
-		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, d.log)
-
-		closure := new(PathClosure)
-		closure.backendUrl = backendUrl
-		closure.appName = name
-		closure.appCfg = &appCfg
-		closure.proxy = d.prx
-
-		routes[path] = closure.Handle
-		routes[path+"/*path"] = closure.Handle
-	} else if appCfg.Routing.Type == "pattern" {
-		re := regexp.MustCompile(":([a-zA-Z0-9]+)")
-		mapping := make(map[string]string)
-
-		for pattern, target := range appCfg.Routing.Patterns {
-			targetPattern := "^" + re.ReplaceAllString(target, "(?P<$1>[^/]+?)") + "$"
-			mapping[targetPattern] = pattern
-
-			parameters := re.FindAllStringSubmatch(pattern, -1)
-
-			closure := new(PatternClosure)
-			closure.targetUrl = backendUrl + target
-			closure.parameters = parameters
-			closure.appName = name
-			closure.appCfg = &appCfg
-			closure.proxy = d.prx
-
-			routes[pattern] = closure.Handle
-		}
-
-		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, d.log)
-	}
-
-	for route, handler := range routes {
-		handler = rewriter.Decorate(handler)
-
-		safeHandler := handler
-		unsafeHandler := handler
-
-		for _, behaviour := range d.behaviours {
-			var err error
-			safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, d, name, &appCfg, config)
-			if err != nil {
-				return err
-			}
-		}
-
-		d.mux.GET(route, safeHandler)
-		d.mux.HEAD(route, safeHandler)
-		d.mux.POST(route, unsafeHandler)
-		d.mux.PUT(route, unsafeHandler)
-		d.mux.PATCH(route, unsafeHandler)
-		d.mux.DELETE(route, unsafeHandler)
-
-		// Register a dedicated OPTIONS handler if it was enabled.
-		// If no OPTIONS handler was enabled, simply proxy OPTIONS request through to the backend servers.
-		if d.cfg.Proxy.OptionsConfiguration.Enabled {
-			d.mux.OPTIONS(route, d.buildOptionsHandler(&appCfg, safeHandler))
-		} else {
-			d.mux.OPTIONS(route, safeHandler)
-		}
-	}
-
-	return nil
-}
-
-func (d *pathBasedDispatcher) Initialize() error {
+func (d *abstractPathBasedDispatcher) Initialize() error {
 	for _, behaviour := range d.behaviours {
 		switch t := behaviour.(type) {
 		case RoutingBehaviour:
 			if err := t.AddRoutes(d.mux); err != nil {
-				return err
+				return errors.WithStack(err)
 			}
 		}
 	}

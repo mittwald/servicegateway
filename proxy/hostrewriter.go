@@ -3,10 +3,10 @@ package proxy
 import (
 	"bufio"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	"github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -111,7 +111,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 				if err != nil {
 					j.Logger.Errorf("error while rewriting response body: %s", err)
 					rw.WriteHeader(500)
-					_ , _ = rw.Write([]byte(`{"msg":"internal server error"}`))
+					_, _ = rw.Write([]byte(`{"msg":"internal server error"}`))
 					return
 				}
 			}
@@ -120,7 +120,7 @@ func (j *JsonHostRewriter) Decorate(handler httprouter.Handle) httprouter.Handle
 
 			rw.Header().Set("Content-Length", strconv.Itoa(len(b)))
 			rw.WriteHeader(recorder.Code)
-			_ , _ = rw.Write(b)
+			_, _ = rw.Write(b)
 		} else {
 			j.copyAndRewriteHeaders(recorder, rw, &publicUrl)
 			rw.WriteHeader(recorder.Code)
@@ -166,12 +166,12 @@ func (j *JsonHostRewriter) Rewrite(body []byte, reqUrl *url.URL) ([]byte, error)
 
 	jsonData, err = j.walkJson(jsonData, reqUrl, false)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	reencoded, err := json.Marshal(jsonData)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	return reencoded, nil
@@ -222,7 +222,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 				if err == RemoveElement {
 					delete(typed, key)
 				} else if err != nil {
-					return nil, err
+					return nil, errors.WithStack(err)
 				} else {
 					typed[key] = v
 				}
@@ -240,7 +240,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 			if err == RemoveElement {
 				removedCount += 1
 			} else if err != nil {
-				return nil, err
+				return nil, errors.WithStack(err)
 			} else {
 				outputList = append(outputList, v)
 			}

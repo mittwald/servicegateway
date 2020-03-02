@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/consul/api"
+	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/admin"
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/cache"
@@ -13,7 +14,9 @@ import (
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/mittwald/servicegateway/ratelimit"
 	"github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -38,7 +41,7 @@ func BuildConsulDispatcher(
 
 	switch startup.DispatchingMode {
 	case "path":
-		disp, err = NewPathBasedDispatcher(&localCfg, dispLogger, handler)
+		disp, err = buildConsulPathDispatcher(&localCfg, dispLogger, handler)
 	default:
 		err = fmt.Errorf("unsupported dispatching mode: '%s'", startup.DispatchingMode)
 	}
@@ -142,4 +145,109 @@ func BuildConsulDispatcher(
 	}
 
 	return server, adminServer, nil
+}
+
+type consulPathDispatcher struct {
+	*abstractPathBasedDispatcher
+}
+
+func buildConsulPathDispatcher(
+	cfg *config.Configuration,
+	log *logging.Logger,
+	prx *proxy.ProxyHandler,
+) (*consulPathDispatcher, error) {
+	dispatcher := new(consulPathDispatcher)
+	dispatcher.cfg = cfg
+	dispatcher.mux = httprouter.New()
+	dispatcher.log = log
+	dispatcher.prx = prx
+	dispatcher.behaviours = make([]Behaviour, 0, 8)
+
+	return dispatcher, nil
+}
+
+func (c *consulPathDispatcher) RegisterApplication (name string, appCfg config.Application, config *config.Configuration) error{
+	routes := make(map[string]httprouter.Handle)
+
+	backendUrl := appCfg.Backend.Url
+	if backendUrl == "" && appCfg.Backend.Service != "" {
+		if appCfg.Backend.Tag != "" {
+			backendUrl = fmt.Sprintf("http://%s.%s.service.consul", appCfg.Backend.Tag, appCfg.Backend.Service)
+		} else {
+			backendUrl = fmt.Sprintf("http://%s.service.consul", appCfg.Backend.Service)
+		}
+	}
+
+	var rewriter proxy.HostRewriter
+
+	if appCfg.Routing.Type == "path" {
+		path := strings.TrimRight(appCfg.Routing.Path, "/")
+		mapping := map[string]string{
+			"/(?P<path>.*)": path + "/:path",
+		}
+
+		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, c.log)
+
+		closure := new(PathClosure)
+		closure.backendUrl = backendUrl
+		closure.appName = name
+		closure.appCfg = &appCfg
+		closure.proxy = c.prx
+
+		routes[path] = closure.Handle
+		routes[path+"/*path"] = closure.Handle
+	} else if appCfg.Routing.Type == "pattern" {
+		re := regexp.MustCompile(":([a-zA-Z0-9]+)")
+		mapping := make(map[string]string)
+
+		for pattern, target := range appCfg.Routing.Patterns {
+			targetPattern := "^" + re.ReplaceAllString(target, "(?P<$1>[^/]+?)") + "$"
+			mapping[targetPattern] = pattern
+
+			parameters := re.FindAllStringSubmatch(pattern, -1)
+
+			closure := new(PatternClosure)
+			closure.targetUrl = backendUrl + target
+			closure.parameters = parameters
+			closure.appName = name
+			closure.appCfg = &appCfg
+			closure.proxy = c.prx
+
+			routes[pattern] = closure.Handle
+		}
+
+		rewriter, _ = proxy.NewHostRewriter(backendUrl, mapping, c.log)
+	}
+
+	for route, handler := range routes {
+		handler = rewriter.Decorate(handler)
+
+		safeHandler := handler
+		unsafeHandler := handler
+
+		for _, behaviour := range c.behaviours {
+			var err error
+			safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, c, name, &appCfg, config)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+		}
+
+		c.mux.GET(route, safeHandler)
+		c.mux.HEAD(route, safeHandler)
+		c.mux.POST(route, unsafeHandler)
+		c.mux.PUT(route, unsafeHandler)
+		c.mux.PATCH(route, unsafeHandler)
+		c.mux.DELETE(route, unsafeHandler)
+
+		// Register a dedicated OPTIONS handler if it was enabled.
+		// If no OPTIONS handler was enabled, simply proxy OPTIONS request through to the backend servers.
+		if c.cfg.Proxy.OptionsConfiguration.Enabled {
+			c.mux.OPTIONS(route, c.buildOptionsHandler(safeHandler))
+		} else {
+			c.mux.OPTIONS(route, safeHandler)
+		}
+	}
+
+	return nil
 }

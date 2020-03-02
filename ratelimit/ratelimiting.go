@@ -24,6 +24,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	logging "github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"net"
 	"net/http"
 	"strconv"
@@ -61,7 +62,7 @@ func NewRateLimiter(cfg config.RateLimiting, red *redis.Pool, logger *logging.Lo
 	t.logger = logger
 
 	if w, err := time.ParseDuration(cfg.Window); err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	} else {
 		t.window = w
 	}
@@ -90,15 +91,15 @@ func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 
 	err := conn.Send("MULTI")
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.WithStack(err)
 	}
 	err = conn.Send("SET", key, t.burstSize, "EX", t.window.Seconds(), "NX")
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.WithStack(err)
 	}
 	err = conn.Send("DECR", key)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.WithStack(err)
 	}
 
 	if val, err := redis.Values(conn.Do("EXEC")); err != nil {
@@ -120,7 +121,7 @@ func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 //	conn.Send("GET", key)
 //
 //	if val, err := redis.Values(conn.Do("EXEC")); err != nil {
-//		return 0, 0, err
+//		return 0, 0, errors.WithStack(err)
 //	} else {
 //		lastTstamp, _ := redis.Int64(val[1], nil)
 //		currentTokenCount, _ := redis.Int64(val[2], nil)
@@ -137,7 +138,7 @@ func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 //
 //		val2, err := redis.Int(conn.Do("INCRBY", key, addedTokensSinceLastRequest - 1))
 //		if err != nil {
-//			return 0, 0, err
+//			return 0, 0, errors.WithStack(err)
 //		}
 //
 //		return val2, int(t.burstSize), nil
