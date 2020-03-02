@@ -29,7 +29,7 @@ func NewAdminServer(
 		res.Header().Set("Content-Type", "application/json")
 		tokenStream, err := tokenStore.GetAllTokens()
 		if err != nil {
-			logger.Error(err)
+			logger.Error(err.Error())
 			writeError(res, "could not load tokens")
 			return
 		}
