@@ -61,8 +61,6 @@ func NewProxyHandler(logger *logging.Logger, config *config.Configuration, metri
 }
 
 
-// avoid func `(*ProxyHandler).replaceBackendUri` is unused (unused)
-// nolint: unused
 func (p *ProxyHandler) replaceBackendUri(value string, req *http.Request, appCfg *config.Application) string {
 	proto := "http"
 	if req.TLS != nil {

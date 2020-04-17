@@ -28,14 +28,14 @@ import (
 	"os"
 )
 
-type ConsulIntegrationController struct {
-	NoIntegrationController
+type consulIntegrationController struct {
+	noIntegrationController
 
 	consulClient    *api.Client
 	consulServiceID string
 }
 
-func NewConsulIntegrationMonitoringController(address string, port int, consul *api.Client, logger *logging.Logger) (*ConsulIntegrationController, error) {
+func NewConsulIntegrationMonitoringController(address string, port int, consul *api.Client, logger *logging.Logger) (Controller, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -51,8 +51,8 @@ func NewConsulIntegrationMonitoringController(address string, port int, consul *
 		return nil, errors.WithStack(err)
 	}
 
-	return &ConsulIntegrationController{
-		NoIntegrationController: NoIntegrationController{
+	return &consulIntegrationController{
+		noIntegrationController: noIntegrationController{
 			Shutdown:         make(chan bool),
 			ShutdownComplete: make(chan bool),
 			httpAddress:      address,
@@ -66,11 +66,11 @@ func NewConsulIntegrationMonitoringController(address string, port int, consul *
 	}, nil
 }
 
-func (m *ConsulIntegrationController) Metrics() *PromMetrics {
+func (m *consulIntegrationController) Metrics() *PromMetrics {
 	return m.promMetrics
 }
 
-func (m *ConsulIntegrationController) Start() error {
+func (m *consulIntegrationController) Start() error {
 	m.logger.Info("Registering node in Consul")
 
 	registration := api.AgentServiceRegistration{
@@ -108,7 +108,7 @@ func (m *ConsulIntegrationController) Start() error {
 	return nil
 }
 
-func (m *ConsulIntegrationController) shutdown() error {
+func (m *consulIntegrationController) shutdown() error {
 	if err := m.consulClient.Agent().ServiceDeregister(m.consulServiceID); err != nil {
 		m.logger.Errorf("Error while deregistering service in Consul: %s", err)
 		return errors.WithStack(err)
@@ -121,10 +121,10 @@ func (m *ConsulIntegrationController) shutdown() error {
 	return nil
 }
 
-func (m *ConsulIntegrationController) SendShutdown() {
+func (m *consulIntegrationController) SendShutdown() {
 	m.Shutdown <- true
 }
 
-func (m *ConsulIntegrationController) WaitForShutdown() {
+func (m *consulIntegrationController) WaitForShutdown() {
 	<-m.ShutdownComplete
 }

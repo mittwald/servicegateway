@@ -26,7 +26,7 @@ import (
 	"net/http"
 )
 
-type NoIntegrationController struct {
+type noIntegrationController struct {
 	Shutdown         chan bool
 	ShutdownComplete chan bool
 
@@ -39,7 +39,7 @@ type NoIntegrationController struct {
 	promMetrics *PromMetrics
 }
 
-func NewNoIntegrationMonitoringController(address string, port int, logger *logging.Logger) (*NoIntegrationController, error) {
+func NewNoIntegrationMonitoringController(address string, port int, logger *logging.Logger) (Controller, error) {
 	server, err := NewMonitoringServer()
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -50,7 +50,7 @@ func NewNoIntegrationMonitoringController(address string, port int, logger *logg
 		return nil, errors.WithStack(err)
 	}
 
-	return &NoIntegrationController{
+	return &noIntegrationController{
 		Shutdown:         make(chan bool),
 		ShutdownComplete: make(chan bool),
 		httpAddress:      address,
@@ -61,11 +61,11 @@ func NewNoIntegrationMonitoringController(address string, port int, logger *logg
 	}, nil
 }
 
-func (m *NoIntegrationController) Metrics() *PromMetrics {
+func (m *noIntegrationController) Metrics() *PromMetrics {
 	return m.promMetrics
 }
 
-func (m *NoIntegrationController) Start() error {
+func (m *noIntegrationController) Start() error {
 	m.promMetrics.Init()
 
 	go func() {
@@ -84,16 +84,16 @@ func (m *NoIntegrationController) Start() error {
 	return nil
 }
 
-func (m *NoIntegrationController) shutdown() error {
+func (m *noIntegrationController) shutdown() error {
 	m.ShutdownComplete <- true
 
 	return nil
 }
 
-func (m *NoIntegrationController) SendShutdown() {
+func (m *noIntegrationController) SendShutdown() {
 	m.Shutdown <- true
 }
 
-func (m *NoIntegrationController) WaitForShutdown() {
+func (m *noIntegrationController) WaitForShutdown() {
 	<-m.ShutdownComplete
 }

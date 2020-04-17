@@ -65,7 +65,7 @@ func (c *AmqpLoggingBehaviour) connect() error {
 			c.logger.Errorf("reconnecting after connection error")
 			err := c.connect()
 			if err != nil {
-				c.logger.Errorf("reconnecting after connection error failed")
+				c.logger.Errorf("reconnecting after connection error failed: %s", err.Error())
 			}
 		}()
 	}()

@@ -33,14 +33,9 @@ import (
 	"time"
 )
 
-// nolint: structcheck
 type Bucket struct {
 	sync.Mutex
-	// avoid `limit` is unused (unused)
-	// nolint: unused
 	limit     int
-	// avoid `fillLevel` is unused (unused)
-	// nolint: unused
 	fillLevel int
 }
 
