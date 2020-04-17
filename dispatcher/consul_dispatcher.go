@@ -156,7 +156,11 @@ func buildConsulPathDispatcher(
 	log *logging.Logger,
 	prx *proxy.ProxyHandler,
 ) (*consulPathDispatcher, error) {
-	dispatcher := new(consulPathDispatcher)
+	dispatcher := &consulPathDispatcher{
+		abstractPathBasedDispatcher: &abstractPathBasedDispatcher{
+			abstractDispatcher: abstractDispatcher{},
+		},
+	}
 	dispatcher.cfg = cfg
 	dispatcher.mux = httprouter.New()
 	dispatcher.log = log
@@ -166,7 +170,7 @@ func buildConsulPathDispatcher(
 	return dispatcher, nil
 }
 
-func (c *consulPathDispatcher) RegisterApplication (name string, appCfg config.Application, config *config.Configuration) error{
+func (c *consulPathDispatcher) RegisterApplication(name string, appCfg config.Application, config *config.Configuration) error {
 	routes := make(map[string]httprouter.Handle)
 
 	backendUrl := appCfg.Backend.Url
