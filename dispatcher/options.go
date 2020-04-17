@@ -23,14 +23,14 @@ import (
 	"github.com/mittwald/servicegateway/proxy"
 )
 
-type dispatcherSetters interface {
+type setters interface {
 	setProxy(*proxy.ProxyHandler)
 }
 
-type DispatcherOption func(dispatcherSetters) error
+type Option func(setters) error
 
-func ProxyHandler(prx *proxy.ProxyHandler) DispatcherOption {
-	return func(d dispatcherSetters) error {
+func ProxyHandler(prx *proxy.ProxyHandler) Option {
+	return func(d setters) error {
 		d.setProxy(prx)
 		return nil
 	}

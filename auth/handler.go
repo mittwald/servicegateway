@@ -27,6 +27,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"github.com/robertkrimen/otto"
 	"io/ioutil"
 	"net/http"
@@ -75,7 +76,7 @@ func NewAuthenticationHandler(
 
 	if cfg.ProviderConfig.PreAuthenticationHook != "" {
 		handler.jsVM = otto.New()
-		handler.jsVM.Set("log", func(call otto.FunctionCall) otto.Value {
+		err := handler.jsVM.Set("log", func(call otto.FunctionCall) otto.Value {
 			format := call.Argument(0).String()
 			args := call.ArgumentList[1:]
 			values := make([]interface{}, len(args))
@@ -87,6 +88,9 @@ func NewAuthenticationHandler(
 			logger.Debugf(format, values...)
 			return otto.UndefinedValue()
 		})
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
 
 		script, err := handler.jsVM.Compile(cfg.ProviderConfig.PreAuthenticationHook, nil)
 		if err != nil {
@@ -135,6 +139,9 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 		hookResultObj := hookResult.Object()
 
 		body, err := hookResultObj.Get("body")
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
 		exportedAuthRequest, _ := body.Export()
 		newAuthRequest, ok := exportedAuthRequest.(map[string]interface{})
 
@@ -150,12 +157,18 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 		}
 
 		url, err := hookResultObj.Get("url")
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
 		if url.IsString() {
 			requestURL = url.String()
 			h.logger.Debugf("hook set request URL to: %s", url)
 		}
 
 		allowedApps, err := hookResultObj.Get("allowedApplications")
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
 		if allowedApps.IsDefined() {
 			exported, _ := allowedApps.Export()
 			if l, ok := exported.([]string); ok {
@@ -167,7 +180,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 
 	jsonString, err := json.Marshal(authRequest)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	redactedAuthRequest := authRequest
@@ -181,14 +194,19 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	h.logger.Debugf("authentication request: %s", debugJsonString)
 
 	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonString))
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 	req.Header.Set("Accept", "application/jwt")
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := h.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode >= 400 {
 		body, _ := ioutil.ReadAll(resp.Body)
@@ -199,7 +217,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 		} else {
 			err := fmt.Errorf("unexpected status code %d for user %s: %s", resp.StatusCode, username, body)
 			h.logger.Error(err.Error())
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 	}
 
@@ -216,7 +234,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 		return false, nil, nil
 	} else if err != nil {
 		h.logger.Warningf("error while reading token from request: %s", err)
-		return false, nil, err
+		return false, nil, errors.WithStack(err)
 	}
 
 	h.expLock.RLock()
@@ -261,7 +279,7 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 					return false, nil, nil
 				}
 			}
-			return false, nil, err
+			return false, nil, errors.WithStack(err)
 		}
 	}
 	return false, nil, nil

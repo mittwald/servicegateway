@@ -39,7 +39,7 @@ type ratelimitBehaviour struct {
 	rlim ratelimit.RateLimitingMiddleware
 }
 
-func NewCachingBehaviour(c cache.CacheMiddleware) DispatcherBehaviour {
+func NewCachingBehaviour(c cache.CacheMiddleware) Behaviour {
 	return &cachingBehaviour{c}
 }
 
@@ -54,7 +54,7 @@ func (c *cachingBehaviour) Apply(safe httprouter.Handle, unsafe httprouter.Handl
 	return safe, unsafe, nil
 }
 
-func NewAuthenticationBehaviour(a auth.AuthDecorator) DispatcherBehaviour {
+func NewAuthenticationBehaviour(a auth.AuthDecorator) Behaviour {
 	return &authBehaviour{a}
 }
 
@@ -70,7 +70,7 @@ func (a *authBehaviour) AddRoutes(mux *httprouter.Router) error {
 	return a.auth.RegisterRoutes(mux)
 }
 
-func NewRatelimitBehaviour(rlim ratelimit.RateLimitingMiddleware) DispatcherBehaviour {
+func NewRatelimitBehaviour(rlim ratelimit.RateLimitingMiddleware) Behaviour {
 	return &ratelimitBehaviour{rlim}
 }
 

@@ -19,29 +19,12 @@ package monitoring
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import (
-	"github.com/julienschmidt/httprouter"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
-)
+type Controller interface {
+	Metrics() *PromMetrics
+	Start() error
+	shutdown() error
 
-type MonitoringServer struct {
+	SendShutdown()
+	WaitForShutdown()
 }
 
-func NewMonitoringServer() (*MonitoringServer, error) {
-	return &MonitoringServer{}, nil
-}
-
-func (s *MonitoringServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	promHandler := promhttp.Handler()
-
-	mux := httprouter.New()
-	mux.GET("/status", func(res http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-		_, _ = res.Write([]byte("Hallo Welt!"))
-	})
-	mux.GET("/metrics", func(res http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-		promHandler.ServeHTTP(res, req)
-	})
-
-	mux.ServeHTTP(res, req)
-}

@@ -3,6 +3,7 @@ package httplogging
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"net/http"
 	"strings"
 	"time"
@@ -33,7 +34,7 @@ func NewAmqpLoggingBehaviour(cfg *config.LoggingConfiguration, logger *logging.L
 
 	err := c.connect()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	return c, nil
@@ -62,7 +63,10 @@ func (c *AmqpLoggingBehaviour) connect() error {
 			<-timer.C
 
 			c.logger.Errorf("reconnecting after connection error")
-			c.connect()
+			err := c.connect()
+			if err != nil {
+				c.logger.Errorf("reconnecting after connection error failed: %s", err.Error())
+			}
 		}()
 	}()
 
@@ -70,7 +74,7 @@ func (c *AmqpLoggingBehaviour) connect() error {
 
 	channel, err := conn.Channel()
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	c.connection = conn
@@ -78,7 +82,7 @@ func (c *AmqpLoggingBehaviour) connect() error {
 
 	err = channel.ExchangeDeclare(c.Config.Exchange, "topic", true, false, false, false, amqp.Table{})
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	return nil

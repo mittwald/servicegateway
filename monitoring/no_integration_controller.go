@@ -21,13 +21,12 @@ package monitoring
 
 import (
 	"fmt"
-	"github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"net/http"
-	"os"
 )
 
-type MonitoringController struct {
+type noIntegrationController struct {
 	Shutdown         chan bool
 	ShutdownComplete chan bool
 
@@ -38,28 +37,20 @@ type MonitoringController struct {
 	logger *logging.Logger
 
 	promMetrics *PromMetrics
-
-	consulClient    *api.Client
-	consulServiceID string
 }
 
-func NewMonitoringController(address string, port int, consul *api.Client, logger *logging.Logger) (*MonitoringController, error) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		return nil, err
-	}
-
+func NewNoIntegrationMonitoringController(address string, port int, logger *logging.Logger) (Controller, error) {
 	server, err := NewMonitoringServer()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	metrics, err := newMetrics()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
-	return &MonitoringController{
+	return &noIntegrationController{
 		Shutdown:         make(chan bool),
 		ShutdownComplete: make(chan bool),
 		httpAddress:      address,
@@ -67,57 +58,42 @@ func NewMonitoringController(address string, port int, consul *api.Client, logge
 		httpServer:       server,
 		logger:           logger,
 		promMetrics:      metrics,
-		consulClient:     consul,
-		consulServiceID:  fmt.Sprintf("servicegateway-%s", hostname),
 	}, nil
 }
 
-func (m *MonitoringController) Metrics() *PromMetrics {
+func (m *noIntegrationController) Metrics() *PromMetrics {
 	return m.promMetrics
 }
 
-func (m *MonitoringController) Start() error {
-	m.logger.Info("Registering node in Consul")
-
-	registration := api.AgentServiceRegistration{
-		ID:   m.consulServiceID,
-		Name: "servicegateway",
-		Port: m.httpPort,
-		Check: &api.AgentServiceCheck{
-			HTTP:     fmt.Sprintf("http://localhost:%d/status", m.httpPort),
-			Interval: "30s",
-		},
-	}
-
-	if err := m.consulClient.Agent().ServiceRegister(&registration); err != nil {
-		m.logger.Errorf("Error while registering node in Consul: %s", err)
-		return err
-	} else {
-		m.logger.Info("Successfully registered node in Consul")
-	}
-
+func (m *noIntegrationController) Start() error {
 	m.promMetrics.Init()
 
 	go func() {
-		http.ListenAndServe(fmt.Sprintf("%s:%d", m.httpAddress, m.httpPort), m.httpServer)
+		err := http.ListenAndServe(fmt.Sprintf("%s:%d", m.httpAddress, m.httpPort), m.httpServer)
+		if err != nil {
+			m.logger.Error(err)
+		}
 	}()
 
 	go func() {
 		<-m.Shutdown
-		m.shutdown()
+		err := m.shutdown()
+		m.logger.Error(err)
 	}()
 
 	return nil
 }
 
-func (m *MonitoringController) shutdown() error {
-	if err := m.consulClient.Agent().ServiceDeregister(m.consulServiceID); err != nil {
-		m.logger.Errorf("Error while deregistering service in Consul: %s", err)
-	} else {
-		m.logger.Info("Successfully deregistered service in Consul")
-	}
-
+func (m *noIntegrationController) shutdown() error {
 	m.ShutdownComplete <- true
 
 	return nil
+}
+
+func (m *noIntegrationController) SendShutdown() {
+	m.Shutdown <- true
+}
+
+func (m *noIntegrationController) WaitForShutdown() {
+	<-m.ShutdownComplete
 }

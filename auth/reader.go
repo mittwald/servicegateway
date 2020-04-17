@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -20,7 +20,7 @@ type BearerTokenReader struct {
 func (b *BearerTokenReader) TokenFromRequest(req *http.Request) (*JWTResponse, error) {
 	tokenString, err := b.tokenStringFromRequest(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	token, err := b.store.GetToken(tokenString)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/mittwald/servicegateway/config"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -85,5 +86,5 @@ func (h *JwtVerifier) VerifyToken(token string) (bool, *jwt.StandardClaims, jwt.
 		return false, nil, nil, fmt.Errorf("error while parsing token with map-claims. Err: '%+v'", err)
 	}
 
-	return true, &stdClaims, mapClaims, err
+	return true, &stdClaims, mapClaims, errors.WithStack(err)
 }

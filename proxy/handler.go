@@ -29,7 +29,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 )
 
@@ -60,27 +59,12 @@ func NewProxyHandler(logger *logging.Logger, config *config.Configuration, metri
 	}
 }
 
-func (p *ProxyHandler) replaceBackendUri(value string, req *http.Request, appCfg *config.Application) string {
-	proto := "http"
-	if req.TLS != nil {
-		proto = "https"
-	}
-
-	publicUrl := proto + "://" + req.Host
-
-	if appCfg.Routing.Type == "path" {
-		publicUrl = publicUrl + appCfg.Routing.Path
-	}
-
-	return strings.Replace(value, appCfg.Backend.Url, publicUrl, -1)
-}
-
 func (p *ProxyHandler) UnavailableError(rw http.ResponseWriter, req *http.Request, appName string) {
 	p.metrics.Errors.With(prometheus.Labels{"application": appName, "reason": "upstream_unavailable"}).Inc()
 
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(503)
-	rw.Write([]byte("{\"msg\": \"service unavailable\", \"reason\": \"no can do; sorry.\"}"))
+	_, _ = rw.Write([]byte("{\"msg\": \"service unavailable\", \"reason\": \"no can do; sorry.\"}"))
 }
 
 func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Request, targetUrl string, appName string, appCfg *config.Application) {
@@ -125,14 +109,14 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 
 	proxyRes, err := p.Client.Do(proxyReq)
 	if err != nil {
-		if uerr, ok := err.(*url.Error); ok == false || uerr.Err != redirectRequest {
+		if uerr, ok := err.(*url.Error); !ok || uerr.Err != redirectRequest {
 			p.Logger.Errorf("could not proxy request to %s: %s", targetUrl, uerr)
 			p.UnavailableError(rw, req, appName)
 			return
 		}
 	}
 
-	p.metrics.UpstreamResponseTimes.With(prometheus.Labels{"application": appName}).Observe(time.Now().Sub(upstreamStart).Seconds())
+	p.metrics.UpstreamResponseTimes.With(prometheus.Labels{"application": appName}).Observe(time.Since(upstreamStart).Seconds())
 
 	for header, values := range proxyRes.Header {
 		if _, ok := p.Config.Proxy.StripResponseHeaders[header]; ok {
@@ -154,7 +138,7 @@ func (p *ProxyHandler) HandleProxyRequest(rw http.ResponseWriter, req *http.Requ
 	_, err = reader.WriteTo(rw)
 
 	defer proxyRes.Body.Close()
-	p.metrics.TotalResponseTimes.With(prometheus.Labels{"application": appName}).Observe(time.Now().Sub(totalStart).Seconds())
+	p.metrics.TotalResponseTimes.With(prometheus.Labels{"application": appName}).Observe(time.Since(totalStart).Seconds())
 
 	if err != nil {
 		p.Logger.Errorf("error while writing response body: %s", err)

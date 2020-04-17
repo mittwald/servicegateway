@@ -3,6 +3,9 @@ PKG_LIST := $(shell go list ./... | grep -v /vendor/)
 
 all: dep build-static
 
+lint:
+	golangci-lint run
+
 dep:
 	go get && go mod vendor -v
 

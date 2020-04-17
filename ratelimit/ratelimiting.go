@@ -23,7 +23,8 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
-	logging "github.com/op/go-logging"
+	"github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"net"
 	"net/http"
 	"strconv"
@@ -34,8 +35,6 @@ import (
 
 type Bucket struct {
 	sync.Mutex
-	limit     int
-	fillLevel int
 }
 
 type RateLimitingMiddleware interface {
@@ -56,7 +55,7 @@ func NewRateLimiter(cfg config.RateLimiting, red *redis.Pool, logger *logging.Lo
 	t.logger = logger
 
 	if w, err := time.ParseDuration(cfg.Window); err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	} else {
 		t.window = w
 	}
@@ -79,11 +78,22 @@ func (t *RedisSimpleRateThrottler) identifyClient(req *http.Request) string {
 func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 	key := "RL_BUCKET_" + user
 	conn := t.redisPool.Get()
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
-	conn.Send("MULTI")
-	conn.Send("SET", key, t.burstSize, "EX", t.window.Seconds(), "NX")
-	conn.Send("DECR", key)
+	err := conn.Send("MULTI")
+	if err != nil {
+		return 0, 0, errors.WithStack(err)
+	}
+	err = conn.Send("SET", key, t.burstSize, "EX", t.window.Seconds(), "NX")
+	if err != nil {
+		return 0, 0, errors.WithStack(err)
+	}
+	err = conn.Send("DECR", key)
+	if err != nil {
+		return 0, 0, errors.WithStack(err)
+	}
 
 	if val, err := redis.Values(conn.Do("EXEC")); err != nil {
 		return 0, 0, err
@@ -104,7 +114,7 @@ func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 //	conn.Send("GET", key)
 //
 //	if val, err := redis.Values(conn.Do("EXEC")); err != nil {
-//		return 0, 0, err
+//		return 0, 0, errors.WithStack(err)
 //	} else {
 //		lastTstamp, _ := redis.Int64(val[1], nil)
 //		currentTokenCount, _ := redis.Int64(val[2], nil)
@@ -121,7 +131,7 @@ func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 //
 //		val2, err := redis.Int(conn.Do("INCRBY", key, addedTokensSinceLastRequest - 1))
 //		if err != nil {
-//			return 0, 0, err
+//			return 0, 0, errors.WithStack(err)
 //		}
 //
 //		return val2, int(t.burstSize), nil
@@ -137,7 +147,7 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler httprouter.Handle) ht
 			t.logger.Errorf("Error occurred while handling request from %s: %s", req.RemoteAddr, err)
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(503)
-			rw.Write([]byte("{\"msg\":\"service unavailable\"}"))
+			_, _ = rw.Write([]byte("{\"msg\":\"service unavailable\"}"))
 			return
 		}
 
@@ -151,7 +161,7 @@ func (t *RedisSimpleRateThrottler) DecorateHandler(handler httprouter.Handle) ht
 		if remaining <= 0 {
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(429)
-			rw.Write([]byte("{\"msg\":\"rate limit exceeded\"}"))
+			_, _ = rw.Write([]byte("{\"msg\":\"rate limit exceeded\"}"))
 		} else {
 			handler(rw, req, p)
 		}
