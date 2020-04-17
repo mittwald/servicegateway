@@ -51,7 +51,7 @@ func main() {
 	flag.StringVar(&startup.MonitorAddress, "monitor-addr", "0.0.0.0", "Address to listen on (monitoring port)")
 	flag.IntVar(&startup.MonitorPort, "monitor-port", 8082, "HTTP port to listen on (monitoring port)")
 	flag.BoolVar(&startup.Debug, "debug", false, "enable to add debug information to each request")
-	flag.StringVar(&startup.ConsulBaseKey, "consul-base", "gateway/ui", "base key name for configuration")
+	flag.StringVar(&startup.ConsulBaseKey, "consul-base", "", "base key name for configuration")
 	flag.StringVar(&startup.UiDir, "ui-dir", "/usr/share/servicegateway", "directory in which UI files can be found")
 
 	flag.StringVar(&startup.ProfileCpu, "cpu-profile", "", "write CPU profile to file")
