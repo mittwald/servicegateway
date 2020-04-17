@@ -29,7 +29,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 )
 
@@ -58,22 +57,6 @@ func NewProxyHandler(logger *logging.Logger, config *config.Configuration, metri
 		Config:  config,
 		metrics: metrics,
 	}
-}
-
-
-func (p *ProxyHandler) replaceBackendUri(value string, req *http.Request, appCfg *config.Application) string {
-	proto := "http"
-	if req.TLS != nil {
-		proto = "https"
-	}
-
-	publicUrl := proto + "://" + req.Host
-
-	if appCfg.Routing.Type == "path" {
-		publicUrl = publicUrl + appCfg.Routing.Path
-	}
-
-	return strings.Replace(value, appCfg.Backend.Url, publicUrl, -1)
 }
 
 func (p *ProxyHandler) UnavailableError(rw http.ResponseWriter, req *http.Request, appName string) {

@@ -23,7 +23,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
-	logging "github.com/op/go-logging"
+	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 	"net"
 	"net/http"
@@ -35,8 +35,6 @@ import (
 
 type Bucket struct {
 	sync.Mutex
-	limit     int
-	fillLevel int
 }
 
 type RateLimitingMiddleware interface {
