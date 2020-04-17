@@ -1,5 +1,7 @@
 language: go
 
+os: linux
+
 dist: xenial
 
 go:
@@ -25,7 +27,6 @@ env:
     - GO_VERSION=1.12
     - HELM_VERSION=v3.0.2
     - GOLANG_LINT_VERSION=v1.23.7
-    - secure: "l26sAILWnWkw2ffM25jHpyjhziIepX4z9bwpsWVlpRyjziALxD/pVTBVdG4j1Mw50vXfpqZDHCtjI9Qpunfd+IA2SCvP9x8NuWimu/peUXQgm4A/cJsKWg/W2HOoT1FhS76WXFT1JkNaoLERIfxPvtmO3yT0l2T/w5OpG6Zu66uEJh95ATgTx1843hV4iVS1JpA/mIxPSnsv3RkbP7jki1u0kxnrJZQ324gybk+LxxAwawlltp7oiJF2Koj7ZIv281P6mUWi4wzmYnVmzXXzuGxwEdXHGecyMF5ihKraezn1FMQx9X7SYz6S9Pel53dFceyHLEyPE+4QT0TzDlyhUT2TiBcKUSKIwOqpyvjSIzMeKsClHwhiV4DJM8rCNeqIBHkEK5ELzxDpWuCaMEIS9y8WAMImdZ0UdSYnsTKBD13EIrWSJjDzUD6vm/qZQ+6vnRNFWhFw1YnQLEIRiVOugJQ3xboQj4A6+Gl6z4ELMpyKVgW4Q3e1uwgr6wolHPs4vyoMX9sZYOXuCZbJqGwFqadIt3GWMOKtMPoeRxNwGZPOC50w95g6rxQA4Ee76I3lkBT6WUl0Vg6AV6vVAegbIqV6yVPFY+6WHxiRlRfT9CNXt1RIUZJr9L69QjrjVMHeG6rWPJvYchKvFeI41CPZ4fbvnWDjpRq5bUN3YhR8gNU="
 
 install:
   - wget https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz -O /tmp/helm.tar.gz
@@ -44,14 +45,14 @@ before_deploy:
   - export FULL_IMAGE="${DOCKER_LOGIN_URL}/mittwald/servicegateway"
 deploy:
   - provider: script
-    skip_cleanup: true
+    cleanup: false
     script: curl -sL https://git.io/goreleaser | bash -s -- --snapshot --skip-publish --rm-dist && docker push "${FULL_IMAGE}:latest"
     on:
       tags: false
       branch: master
       condition: $TRAVIS_OS_NAME = linux
   - provider: script
-    skip_cleanup: true
+    cleanup: false
     script: curl -sL https://git.io/goreleaser | bash -s -- --rm-dist
     on:
       tags: true

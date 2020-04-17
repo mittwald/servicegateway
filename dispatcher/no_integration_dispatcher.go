@@ -114,7 +114,11 @@ func buildNoIntegrationPathDispatcher(
 	log *logging.Logger,
 	prx *proxy.ProxyHandler,
 ) (*noIntegrationPathDispatcher, error) {
-	dispatcher := new(noIntegrationPathDispatcher)
+	dispatcher := &noIntegrationPathDispatcher{
+		abstractPathBasedDispatcher: &abstractPathBasedDispatcher{
+			abstractDispatcher: abstractDispatcher{},
+		},
+	}
 	dispatcher.cfg = cfg
 	dispatcher.mux = httprouter.New()
 	dispatcher.log = log
