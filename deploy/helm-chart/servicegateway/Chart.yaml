@@ -1,5 +1,9 @@
-apiVersion: v1
-appVersion: "1.0"
-description: service gateway for microservice architectures
+apiVersion: v2
 name: servicegateway
-version: 0.1.0
+description: service gateway for microservice architectures
+
+type: application
+
+version: 2.0.2
+
+appVersion: v2.0.2
