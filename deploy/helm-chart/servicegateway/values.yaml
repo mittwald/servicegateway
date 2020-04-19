@@ -6,7 +6,7 @@ replicaCount: 1
 
 image:
   repository: quay.io/mittwald/servicegateway
-  tag: latest
+  #tag: latest
   pullPolicy: Always
 
 imagePullSecrets: []
