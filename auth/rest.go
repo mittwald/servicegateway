@@ -130,7 +130,9 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName stri
 		orig(responseRecorder, req, p)
 
 		// if app was a provider app allow token rewrites
-		if cfg.Authentication.ProviderConfig.Service == appName {
+		if cfg.Authentication.ProviderConfig.Service == appName ||
+			(cfg.Applications[appName].Backend.Url != "" && cfg.Authentication.ProviderConfig.Url != "" &&
+				cfg.Applications[appName].Backend.Url == cfg.Authentication.ProviderConfig.Url) {
 			err := rewriteAccessTokens(responseRecorder, req, a)
 
 			if err != nil {
