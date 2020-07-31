@@ -24,7 +24,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/proxy"
-	"github.com/pkg/errors"
+
 	"io"
 	"net/http"
 	"net/http/httptest"

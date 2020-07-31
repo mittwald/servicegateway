@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/mittwald/servicegateway/config"
-	"github.com/pkg/errors"
+
 	"io/ioutil"
 	"net/http"
 	"sync"

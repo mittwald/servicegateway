@@ -12,7 +12,7 @@ import (
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/mittwald/servicegateway/ratelimit"
 	"github.com/op/go-logging"
-	"github.com/pkg/errors"
+
 	"net/http"
 	"regexp"
 	"strings"

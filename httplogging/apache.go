@@ -2,7 +2,7 @@ package httplogging
 
 import (
 	"github.com/gorilla/handlers"
-	"github.com/pkg/errors"
+
 	"net/http"
 	"os"
 )

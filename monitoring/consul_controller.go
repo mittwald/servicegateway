@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"
-	"github.com/pkg/errors"
+
 	"net/http"
 	"os"
 )

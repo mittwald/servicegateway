@@ -22,7 +22,7 @@ package monitoring
 import (
 	"fmt"
 	"github.com/op/go-logging"
-	"github.com/pkg/errors"
+
 	"net/http"
 )
 

@@ -3,7 +3,6 @@ package httplogging
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"net/http"
 	"strings"
 	"time"

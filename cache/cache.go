@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"github.com/bluele/gcache"
 	"github.com/julienschmidt/httprouter"
-	"github.com/pkg/errors"
+
 	"io/ioutil"
 	"net/http"
 )

@@ -2,7 +2,6 @@ package auth
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"net/http"
 	"strings"
 )

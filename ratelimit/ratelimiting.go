@@ -24,7 +24,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
-	"github.com/pkg/errors"
 	"net"
 	"net/http"
 	"strconv"

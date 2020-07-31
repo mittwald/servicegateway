@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	"github.com/op/go-logging"
-	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
