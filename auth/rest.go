@@ -99,7 +99,9 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName stri
 			return
 		}
 
-		if cfg.Authentication.ProviderConfig.Service == appName {
+		if cfg.Authentication.ProviderConfig.Service == appName ||
+			(cfg.Applications[appName].Backend.Url != "" && cfg.Authentication.ProviderConfig.Url != "" &&
+				cfg.Applications[appName].Backend.Url == cfg.Authentication.ProviderConfig.Url) {
 			goto valid
 		}
 
