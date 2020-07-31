@@ -41,3 +41,46 @@ spec:
         {{- end }}
   {{- end }}
 {{- end }}
+---
+{{- $fullName := include "servicegateway.fullname" . -}}
+{{- range $ingressName, $ingress := .Values.ingresses }}
+{{- if $ingress }}
+apiVersion: {{ template "servicegateway.ingress.apiVersion" $ }}
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-{{ $ingressName }}
+  labels:
+    {{- include "servicegateway.labels" $ | nindent 4 }}
+    {{- if $.Values.additionalLabels }}
+    {{ toYaml $.Values.additionalLabels | nindent 4 }}
+    {{- end }}
+  {{- with $ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  tls:
+    {{- range $ingress.tls }}
+    - hosts:
+      {{- range .hosts }}
+      - {{ . | quote }}
+      {{- end }}
+      {{- if .secretName }}
+      secretName: {{ .secretName }}
+      {{- end }}
+    {{- end }}
+  rules:
+  {{- range $ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+        {{- range .paths }}
+          - path: {{ . }}
+            backend:
+              serviceName: {{ $fullName }}
+              servicePort: {{ $.Values.service.port}}
+        {{- end }}
+  {{- end }}
+---
+{{- end }}
+{{- end }}
