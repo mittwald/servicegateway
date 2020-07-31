@@ -1,6 +1,6 @@
 module github.com/mittwald/servicegateway
 
-go 1.12
+go 1.14
 
 require (
 	github.com/bluele/gcache v0.0.0-20190301044115-79ae3b2d8680

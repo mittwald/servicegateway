@@ -1,12 +1,13 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 )
 
-var NoTokenError error = errors.New("No authentication token found in request")
+var NoTokenError = errors.New("no authentication token found in request")
 
 type TokenReader interface {
 	TokenFromRequest(*http.Request) (*JWTResponse, error)

@@ -3,6 +3,7 @@ package proxy
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	"github.com/op/go-logging"
@@ -16,7 +17,7 @@ import (
 )
 
 var UnmappableUrl = errors.New("unmappable URL")
-var RemoveElement = errors.New("Obsolete element")
+var RemoveElement = errors.New("obsolete element")
 
 type HostRewriter interface {
 	CanHandle(http.ResponseWriter) bool
