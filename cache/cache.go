@@ -65,7 +65,7 @@ func (r *ResponseBuffer) WriteHeader(status int) {
 
 func (r *ResponseBuffer) Write(b []byte) (int, error) {
 	l, err := r.buf.Write(b)
-	return l, errors.WithStack(err)
+	return l, err
 }
 
 func (r *ResponseBuffer) Complete() {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/golang-lru"
-	"github.com/pkg/errors"
 	"strings"
 )
 
@@ -50,7 +49,7 @@ func NewTokenStore(redisPool *redis.Pool, verifier *JwtVerifier, options TokenSt
 
 	cache, err := lru.New(bucketSize)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	return &CacheDecorator{
@@ -79,13 +78,13 @@ func (s *RedisTokenStore) SetToken(token string, jwt *JWTResponse) (int64, error
 
 	_, err = conn.Do("HMSET", key, "jwt", jwt.JWT, "token", token, "applications", strings.Join(jwt.AllowedApplications, ";"))
 	if err != nil {
-		return 0, errors.WithStack(err)
+		return 0, err
 	}
 
 	if stdClaims.ExpiresAt > 0 {
 		_, err = conn.Do("EXPIREAT", key, stdClaims.ExpiresAt)
 		if err != nil {
-			return 0, errors.WithStack(err)
+			return 0, err
 		}
 	}
 
@@ -97,14 +96,14 @@ func (s *RedisTokenStore) AddToken(jwt *JWTResponse) (string, int64, error) {
 
 	_, err := rand.Read(randomBytes)
 	if err != nil {
-		return "", 0, errors.WithStack(err)
+		return "", 0, err
 	}
 
 	tokenStr := base32.StdEncoding.EncodeToString(randomBytes)
 
 	exp, err := s.SetToken(tokenStr, jwt)
 	if err != nil {
-		return "", 0, errors.WithStack(err)
+		return "", 0, err
 	}
 
 	return tokenStr, exp, nil
@@ -121,7 +120,7 @@ func (s *RedisTokenStore) GetToken(token string) (*JWTResponse, error) {
 	if err == redis.ErrNil {
 		return nil, NoTokenError
 	} else if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	response.JWT = results[0]
@@ -138,7 +137,7 @@ func (s *RedisTokenStore) GetAllTokens() (<-chan MappedToken, error) {
 	keys, err := redis.Strings(conn.Do("KEYS", "token_*"))
 	if err != nil {
 		conn.Close()
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	c := make(chan MappedToken)
@@ -164,7 +163,7 @@ func (s *RedisTokenStore) GetAllTokens() (<-chan MappedToken, error) {
 func (s *CacheDecorator) SetToken(token string, jwt *JWTResponse) (int64, error) {
 	exp, err := s.wrapped.SetToken(token, jwt)
 	if err != nil {
-		return 0, errors.WithStack(err)
+		return 0, err
 	}
 
 	s.localCache.Add(token, &CacheRecord{token: jwt, exp: exp})
@@ -174,7 +173,7 @@ func (s *CacheDecorator) SetToken(token string, jwt *JWTResponse) (int64, error)
 func (s *CacheDecorator) AddToken(jwt *JWTResponse) (string, int64, error) {
 	token, exp, err := s.wrapped.AddToken(jwt)
 	if err != nil {
-		return "", 0, errors.WithStack(err)
+		return "", 0, err
 	}
 
 	s.localCache.Add(token, &CacheRecord{token: jwt, exp: exp})

@@ -19,10 +19,8 @@ type BearerTokenReader struct {
 
 func (b *BearerTokenReader) TokenFromRequest(req *http.Request) (*JWTResponse, error) {
 	tokenString, err := b.tokenStringFromRequest(req)
-	if err == NoTokenError {
+	if err != nil {
 		return nil, err
-	} else if err != nil {
-		return nil, errors.WithStack(err)
 	}
 
 	token, err := b.store.GetToken(tokenString)

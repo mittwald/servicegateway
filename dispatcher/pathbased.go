@@ -132,7 +132,7 @@ func (d *abstractPathBasedDispatcher) Initialize() error {
 		switch t := behaviour.(type) {
 		case RoutingBehaviour:
 			if err := t.AddRoutes(d.mux); err != nil {
-				return errors.WithStack(err)
+				return err
 			}
 		}
 	}

@@ -47,12 +47,12 @@ func BuildNoIntegrationDispatcher(
 
 	authHandler, err := auth.NewAuthenticationHandler(&localCfg.Authentication, rpool, tokenStore, tokenVerifier, logger)
 	if err != nil {
-		return nil, nil, errors.WithStack(err)
+		return nil, nil, err
 	}
 
 	authDecorator, err := auth.NewAuthDecorator(&localCfg.Authentication, rpool, logging.MustGetLogger("auth"), authHandler, tokenStore, startup.UiDir)
 	if err != nil {
-		return nil, nil, errors.WithStack(err)
+		return nil, nil, err
 	}
 
 	rlim, err := ratelimit.NewRateLimiter(localCfg.RateLimiting, rpool, logging.MustGetLogger("ratelimiter"))
@@ -71,22 +71,22 @@ func BuildNoIntegrationDispatcher(
 	for name, appCfg := range localCfg.Applications {
 		logger.Infof("registering application '%s' from local config", name)
 		if err := disp.RegisterApplication(name, appCfg, cfg); err != nil {
-			return nil, nil, errors.WithStack(err)
+			return nil, nil, err
 		}
 	}
 
 	if err = disp.Initialize(); err != nil {
-		return nil, nil, errors.WithStack(err)
+		return nil, nil, err
 	}
 
 	adminLogger, err := logging.GetLogger("admin-api")
 	if err != nil {
-		return nil, nil, errors.WithStack(err)
+		return nil, nil, err
 	}
 
 	adminServer, err := admin.NewAdminServer(tokenStore, tokenVerifier, authHandler, adminLogger)
 	if err != nil {
-		return nil, nil, errors.WithStack(err)
+		return nil, nil, err
 	}
 
 	var server http.Handler = disp
@@ -98,7 +98,7 @@ func BuildNoIntegrationDispatcher(
 
 		server, err = httpLogger.Wrap(server)
 		if err != nil {
-			return nil, nil, errors.WithStack(err)
+			return nil, nil, err
 		}
 	}
 
@@ -191,7 +191,7 @@ func (n *noIntegrationPathDispatcher) RegisterApplication(name string, appCfg co
 			var err error
 			safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, n, name, &appCfg, config)
 			if err != nil {
-				return errors.WithStack(err)
+				return err
 			}
 		}
 

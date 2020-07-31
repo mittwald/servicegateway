@@ -38,17 +38,17 @@ type consulIntegrationController struct {
 func NewConsulIntegrationMonitoringController(address string, port int, consul *api.Client, logger *logging.Logger) (Controller, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	server, err := NewMonitoringServer()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	metrics, err := newMetrics()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	return &consulIntegrationController{
@@ -85,7 +85,7 @@ func (m *consulIntegrationController) Start() error {
 
 	if err := m.consulClient.Agent().ServiceRegister(&registration); err != nil {
 		m.logger.Errorf("Error while registering node in Consul: %s", err)
-		return errors.WithStack(err)
+		return err
 	} else {
 		m.logger.Info("Successfully registered node in Consul")
 	}
@@ -111,7 +111,7 @@ func (m *consulIntegrationController) Start() error {
 func (m *consulIntegrationController) shutdown() error {
 	if err := m.consulClient.Agent().ServiceDeregister(m.consulServiceID); err != nil {
 		m.logger.Errorf("Error while deregistering service in Consul: %s", err)
-		return errors.WithStack(err)
+		return err
 	} else {
 		m.logger.Info("Successfully deregistered service in Consul")
 	}

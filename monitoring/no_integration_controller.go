@@ -42,12 +42,12 @@ type noIntegrationController struct {
 func NewNoIntegrationMonitoringController(address string, port int, logger *logging.Logger) (Controller, error) {
 	server, err := NewMonitoringServer()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	metrics, err := newMetrics()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	return &noIntegrationController{

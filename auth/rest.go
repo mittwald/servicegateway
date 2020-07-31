@@ -20,7 +20,6 @@ package auth
  */
 
 import (
-	"github.com/pkg/errors"
 	"net/http"
 
 	"encoding/json"
@@ -155,7 +154,7 @@ func (a *RestAuthDecorator) DecorateHandler(orig httprouter.Handle, appName stri
 	invalid:
 		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(403)
-		_ , _ = res.Write([]byte("{\"msg\": \"not authenticated\"}"))
+		_, _ = res.Write([]byte("{\"msg\": \"not authenticated\"}"))
 	}
 }
 
@@ -173,7 +172,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		a.logger.Errorf("error while handling authentication request: %s", err)
 		rw.Header().Set("Content-Type", "application/json;charset=utf8")
 		rw.WriteHeader(500)
-		_ , _ = rw.Write([]byte(`{"msg":"internal server error"}`))
+		_, _ = rw.Write([]byte(`{"msg":"internal server error"}`))
 	}
 
 	if a.authHandler.config.EnableCORS {
@@ -201,7 +200,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		if err == InvalidCredentialsError {
 			rw.Header().Set("Content-Type", "application/json;charset=utf8")
 			rw.WriteHeader(403)
-			_ , _ = rw.Write([]byte(`{"msg":"invalid credentials"}`))
+			_, _ = rw.Write([]byte(`{"msg":"invalid credentials"}`))
 			return
 		} else if err != nil || authResponse == nil {
 			handleError(err, rw)
@@ -231,7 +230,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		}
 
 		h.Set("Content-Type", "application/json;charset=utf8")
-		_ , _ = rw.Write(jsonResponse)
+		_, _ = rw.Write(jsonResponse)
 	})
 
 	return nil
@@ -247,12 +246,12 @@ func setCORSHeaders(headers http.Header) {
 func rewriteAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *RestAuthDecorator) error {
 	err := rewriteBodyAccessTokens(resp, req, a)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	err = rewriteHeaderAccessTokens(resp, req, a)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	return rewriteCookieAccessTokens(resp, req, a)
@@ -262,7 +261,7 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 	if resp.Header().Get("Content-Type") == "application/jwt" {
 		jwtBlob, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 
 		jwtResponse := JWTResponse{}
@@ -270,12 +269,12 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 
 		token, _, err := a.tokenStore.AddToken(&jwtResponse)
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 
 		contentLength, err := resp.Write([]byte(token))
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 
 		resp.Header().Set("Content-Type", "text/plain")
@@ -291,19 +290,19 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 		var response map[string]interface{}
 		jsonBlob, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 
 		err = json.Unmarshal(jsonBlob, &response)
 
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 
 		bodyToken, ok := response[bodyTokenKey]
 
 		if !ok {
-			return errors.WithStack(err)
+			return err
 		}
 
 		jwtResponse := JWTResponse{}
@@ -311,17 +310,17 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 
 		token, _, err := a.tokenStore.AddToken(&jwtResponse)
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 
 		response[bodyTokenKey] = token
 		jsonResponse, err := json.Marshal(&response)
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 		contentLength, err := resp.Write(jsonResponse)
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 		resp.Header().Set("Content-Length", fmt.Sprintf("%d", contentLength))
 	}
@@ -341,7 +340,7 @@ func rewriteHeaderAccessTokens(resp *httptest.ResponseRecorder, req *http.Reques
 
 		token, _, err := a.tokenStore.AddToken(&jwtResponse)
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 
 		resp.Header().Set(headerTokenKey, token)
@@ -365,7 +364,7 @@ func rewriteCookieAccessTokens(resp *httptest.ResponseRecorder, req *http.Reques
 
 		token, _, err := a.tokenStore.AddToken(&jwtResponse)
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 
 		cookie.Value = token

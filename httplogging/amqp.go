@@ -34,7 +34,7 @@ func NewAmqpLoggingBehaviour(cfg *config.LoggingConfiguration, logger *logging.L
 
 	err := c.connect()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	return c, nil
@@ -74,7 +74,7 @@ func (c *AmqpLoggingBehaviour) connect() error {
 
 	channel, err := conn.Channel()
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	c.connection = conn
@@ -82,7 +82,7 @@ func (c *AmqpLoggingBehaviour) connect() error {
 
 	err = channel.ExchangeDeclare(c.Config.Exchange, "topic", true, false, false, false, amqp.Table{})
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	return nil
@@ -112,7 +112,7 @@ func (c *AmqpLoggingBehaviour) match(req *http.Request) bool {
 func (c *AmqpLoggingBehaviour) OnAuthenticatedRequest(req *http.Request, jwt string) {
 	if c.match(req) {
 		go func(req *http.Request, jwt string) {
-			_, _, mapClaims, err  := c.verifier.VerifyToken(jwt)
+			_, _, mapClaims, err := c.verifier.VerifyToken(jwt)
 			if err != nil {
 				c.logger.Errorf("unable to verify token! Message: '%+v'", err)
 			}

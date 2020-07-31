@@ -233,7 +233,7 @@ func (c *consulPathDispatcher) RegisterApplication(name string, appCfg config.Ap
 			var err error
 			safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, c, name, &appCfg, config)
 			if err != nil {
-				return errors.WithStack(err)
+				return err
 			}
 		}
 

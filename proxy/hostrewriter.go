@@ -166,12 +166,12 @@ func (j *JsonHostRewriter) Rewrite(body []byte, reqUrl *url.URL) ([]byte, error)
 
 	jsonData, err = j.walkJson(jsonData, reqUrl, false)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	reencoded, err := json.Marshal(jsonData)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	return reencoded, nil
@@ -222,7 +222,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 				if err == RemoveElement {
 					delete(typed, key)
 				} else if err != nil {
-					return nil, errors.WithStack(err)
+					return nil, err
 				} else {
 					typed[key] = v
 				}
@@ -240,7 +240,7 @@ func (j *JsonHostRewriter) walkJson(jsonStruct interface{}, reqUrl *url.URL, inL
 			if err == RemoveElement {
 				removedCount += 1
 			} else if err != nil {
-				return nil, errors.WithStack(err)
+				return nil, err
 			} else {
 				outputList = append(outputList, v)
 			}
