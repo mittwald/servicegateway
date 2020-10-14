@@ -44,7 +44,7 @@ spec:
 ---
 {{- $fullName := include "servicegateway.fullname" . -}}
 {{- range $ingressName, $ingress := .Values.ingresses }}
-{{- if $ingress }}
+{{- if and $ingress (or $ingress.enabled (eq ($ingress.enabled | toString) "<nil>")) }}
 apiVersion: {{ template "servicegateway.ingress.apiVersion" $ }}
 kind: Ingress
 metadata:
