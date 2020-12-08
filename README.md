@@ -49,7 +49,7 @@ expected to be located in `/etc/servicegateway.json`. However, you can override
 that location using the `-config` command line parameter.
 
 Upon startup the config is parsed as a `gotemplate`.
-It's therefore possible, to inject sensitive information via env: `{{ .Env.SENSITIVE_PASSWORD }}`
+It's therefore possible to inject sensitive information via env: `{{ .Env.SENSITIVE_PASSWORD }}`
 
 Check the [example-configs](example-configs) directory for example
 configurations.

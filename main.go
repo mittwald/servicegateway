@@ -102,7 +102,7 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	// create a map with all environment-variables
+	// prepare template data
 	type templateData struct {
 		Env map[string]string
 	}
@@ -111,6 +111,7 @@ func main() {
 		Env: make(map[string]string),
 	}
 
+	// load all env-vars into template data
 	for _, e := range os.Environ() {
 		e := strings.SplitN(e, "=", 2)
 		if len(e) > 1 {

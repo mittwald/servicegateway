@@ -5,7 +5,7 @@ os: linux
 dist: xenial
 
 go:
-  - '1.14'
+  - '1.15'
 
 services:
   - docker
@@ -21,8 +21,8 @@ env:
   global:
     - GO111MODULE=on
     - CGO_ENABLED=0
-    - GO_VERSION=1.14
-    - HELM_VERSION=v3.0.2
+    - GO_VERSION=1.15
+    - HELM_VERSION=v3.4.1
     - GOLANG_LINT_VERSION=v1.23.7
 
 install:
