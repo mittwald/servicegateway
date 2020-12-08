@@ -20,9 +20,18 @@ package main
  */
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"os/signal"
+	"runtime/pprof"
+	"strings"
+
 	"github.com/braintree/manners"
 	"github.com/garyburd/redigo/redis"
 	"github.com/hashicorp/consul/api"
@@ -33,11 +42,6 @@ import (
 	"github.com/mittwald/servicegateway/monitoring"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/op/go-logging"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"os/signal"
-	"runtime/pprof"
 )
 
 func main() {
@@ -85,16 +89,47 @@ func main() {
 	logging.SetBackend(logging.NewBackendFormatter(backend, format))
 	logger.Info("Completed startup")
 
-	cfg := config.Configuration{}
-	data, err := ioutil.ReadFile(startup.ConfigFile)
+	// read in config file to get raw content
+	rawCfgContent, err := ioutil.ReadFile(startup.ConfigFile)
 	if err != nil {
 		logger.Fatal(err)
 	}
 
-	err = json.Unmarshal(data, &cfg)
+	// create a new template from the raw content of our config file
+	var tpl *template.Template
+	tpl, err = template.New("").Parse(string(rawCfgContent))
 	if err != nil {
 		logger.Fatal(err)
-		panic(err)
+	}
+
+	// create a map with all environment-variables
+	type templateData struct {
+		Env map[string]string
+	}
+
+	data := templateData{
+		Env: make(map[string]string),
+	}
+
+	for _, e := range os.Environ() {
+		e := strings.SplitN(e, "=", 2)
+		if len(e) > 1 {
+			data.Env[e[0]] = e[1]
+		}
+	}
+
+	// render the raw config in order to replace env-variables (if given)
+	renderedCfgContent := new(bytes.Buffer)
+	err = tpl.Execute(renderedCfgContent, &data)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	// unmarshal rendered config to proper json
+	cfg := config.Configuration{}
+	err = json.Unmarshal(renderedCfgContent.Bytes(), &cfg)
+	if err != nil {
+		logger.Fatal(err)
 	}
 
 	logger.Debugf("%s", cfg)
