@@ -1,0 +1,75 @@
+{
+  "applications": {
+    "httpbin": {
+      "backend": {
+        "url": "https://httpbin.org"
+      },
+      "routing": {
+        "type": "path",
+        "path": "/bin"
+      }
+    }
+  },
+  "rate_limiting": {
+    "window": "15m",
+    "burst": 1000
+  },
+  "consul": {
+    "host": "consul.service.consul",
+    "port": 8500,
+    "datacenter": "dev"
+  },
+  "redis": {
+    "address": "redis:6379",
+    "database": 0
+  },
+  "proxy": {
+    "strip_res_headers": {
+      "Set-Cookie": true
+    },
+    "set_req_headers": {
+      "X-Mittwald-Sandbox": "1"
+    },
+    "set_res_headers": {
+      "Server": "Mittwald-API-Gateway/1.0"
+    },
+    "options": {
+      "enabled": true,
+      "cors": true
+    }
+  },
+  "authentication": {
+    "mode": "rest",
+    "writer": {
+      "mode": "header",
+      "name": "X-JWT"
+    },
+    "provider": {
+      "url": "http://identity.service.consul",
+      "allow_authentication": true,
+      "authentication_uri": "/v1/authenticate",
+      "parameter_format": "json",
+      "hook_pre_authentication": "./example-configs/api.d/auth_param_map.js",
+      "parameters": {
+        "ttl": 86400,
+        "providers": [
+          "public"
+        ]
+      }
+    },
+    "verification_key": null,
+    "verification_key_url": "http://identity.service.consul/key",
+    "key_cache_ttl": "5m"
+  },
+  "logging": [
+    {
+      "type": "apache",
+      "filename": "./access.log"
+    },
+    {
+      "type": "amqp",
+      "uri": "amqp://servicegateway:{{ .Env.RABBITMQ_PASSWORD }}@rabbitmq/",
+      "exchange": "audit_log"
+    }
+  ]
+}

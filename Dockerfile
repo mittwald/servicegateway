@@ -1,4 +1,4 @@
-FROM        alpine:3.10
+FROM        alpine:3.12
 LABEL       MAINTAINER="Martin Helmich <m.helmich@mittwald.de>"
 COPY        servicegateway /usr/bin/servicegateway
 RUN         apk add --no-cache --upgrade ca-certificates && \

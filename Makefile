@@ -1,4 +1,4 @@
-GOVERSION=1.12
+GO_VERSION=1.15
 PKG_LIST := $(shell go list ./... | grep -v /vendor/)
 
 all: dep build-static
@@ -13,7 +13,7 @@ build-static:
 	CGO_ENABLED=0 GOOS=linux go build -o servicegateway
 
 servicegateway:
-	docker run --rm -v $(PWD):/usr/src/github.com/mittwald/servicegateway -w /usr/src/github.com/mittwald/servicegateway golang:$(GOVERSION) make
+	docker run --rm -v $(PWD):/usr/src/github.com/mittwald/servicegateway -w /usr/src/github.com/mittwald/servicegateway golang:$(GO_VERSION) make
 
 docker:
 	make build-static
