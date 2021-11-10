@@ -23,15 +23,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"sync"
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/garyburd/redigo/redis"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
 	"github.com/robertkrimen/otto"
-	"io/ioutil"
-	"net/http"
-	"sync"
-	"time"
 )
 
 type AuthenticationHandler struct {
@@ -253,7 +254,6 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 			}
 
 			if stdClaims.ExpiresAt > time.Now().Unix() {
-				h.logger.Debugf("JWT for token %s expires at %d", token, stdClaims.ExpiresAt)
 				h.expLock.Lock()
 				h.expCache[token.JWT] = stdClaims.ExpiresAt
 				h.expLock.Unlock()

@@ -27,7 +27,7 @@ func (b *BearerTokenReader) TokenFromRequest(req *http.Request) (*JWTResponse, e
 	if err == NoTokenError {
 		return nil, err
 	} else if err != nil {
-		return nil, fmt.Errorf("error while loading JWT for token %s: %s", tokenString, err)
+		return nil, fmt.Errorf("error while loading JWT for token: %s", err)
 	}
 
 	return token, nil
