@@ -87,6 +87,9 @@ func main() {
 	}
 
 	logging.SetBackend(logging.NewBackendFormatter(backend, format))
+	if !startup.Debug {
+		logging.SetLevel(logging.INFO, "")
+	}
 	logger.Info("Completed startup")
 
 	// read in config file to get raw content
