@@ -31,8 +31,6 @@ dockers:
       - quay.io/mittwald/servicegateway:v{{ .Major }}.{{ .Minor }}
       - quay.io/mittwald/servicegateway:{{ .Tag }}
       - quay.io/mittwald/servicegateway:stable
-    binaries:
-      - servicegateway
     goos: linux
     goarch: amd64
     goarm: ''
