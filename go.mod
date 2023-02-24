@@ -29,9 +29,6 @@ require (
 	github.com/prometheus/procfs v0.0.0-20190319110740-1ce7e0478fd3 // indirect
 	github.com/robertkrimen/otto v0.0.0-20180617131154-15f95af6e78d
 	github.com/streadway/amqp v0.0.0-20190312223743-14f78b41ce6d
-	golang.org/x/crypto v0.0.0-20190313024323-a1f597ede03a // indirect
-	golang.org/x/net v0.0.0-20190318221613-d196dffd7c2b // indirect
-	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6 // indirect
-	golang.org/x/sys v0.0.0-20190318195719-6c81ef8f67ca // indirect
+	golang.org/x/net v0.7.0 // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 )
