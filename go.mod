@@ -32,6 +32,6 @@ require (
 	golang.org/x/crypto v0.0.0-20190313024323-a1f597ede03a // indirect
 	golang.org/x/net v0.0.0-20190318221613-d196dffd7c2b // indirect
 	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6 // indirect
-	golang.org/x/sys v0.0.0-20190318195719-6c81ef8f67ca // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 )
