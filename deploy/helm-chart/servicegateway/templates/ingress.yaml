@@ -47,7 +47,7 @@ spec:
 {{- $fullName := include "servicegateway.fullname" . -}}
 {{- range $ingressName, $ingress := .Values.ingresses }}
 {{- if and $ingress (or $ingress.enabled (eq ($ingress.enabled | toString) "<nil>")) }}
-apiVersion: {{ template "servicegateway.ingress.apiVersion" $ }}
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ $fullName }}-{{ $ingressName }}
