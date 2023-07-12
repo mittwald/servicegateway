@@ -1,7 +1,7 @@
 {{- if .Values.ingress.enabled -}}
 {{- $fullName := include "servicegateway.fullname" . -}}
 {{- $svcPort := .Values.service.port -}}
-apiVersion: {{ template "servicegateway.ingress.apiVersion" . }}
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ $fullName }}
@@ -35,9 +35,12 @@ spec:
         paths:
         {{- range .paths }}
           - path: {{ . }}
+            pathType: Prefix
             backend:
-              serviceName: {{ $fullName }}
-              servicePort: {{ $svcPort }}
+              service:
+                name: {{ $fullName }}
+                port: 
+                  number: {{ $svcPort }}
         {{- end }}
   {{- end }}
 {{- end }}
@@ -45,7 +48,7 @@ spec:
 {{- $fullName := include "servicegateway.fullname" . -}}
 {{- range $ingressName, $ingress := .Values.ingresses }}
 {{- if and $ingress (or $ingress.enabled (eq ($ingress.enabled | toString) "<nil>")) }}
-apiVersion: {{ template "servicegateway.ingress.apiVersion" $ }}
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ $fullName }}-{{ $ingressName }}
@@ -76,9 +79,12 @@ spec:
         paths:
         {{- range .paths }}
           - path: {{ . }}
+            pathType: Prefix
             backend:
-              serviceName: {{ $fullName }}
-              servicePort: {{ $.Values.service.port}}
+              service:
+                name: {{ $fullName }}
+                port: 
+                  number: {{ $svcPort }}
         {{- end }}
   {{- end }}
 ---
