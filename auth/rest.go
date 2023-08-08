@@ -21,9 +21,9 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -179,6 +179,18 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		_, _ = rw.Write([]byte(`{"msg":"internal server error"}`))
 	}
 
+	handleIncompleteAuthentication := func(authenticationIncompleteErr AuthenticationIncompleteError, rw http.ResponseWriter) error {
+		rw.Header().Set("Content-Type", "application/json;charset=utf8")
+		rw.WriteHeader(202)
+
+		jsonString, err := json.Marshal(authenticationIncompleteErr.AdditionalProperties)
+		if err != nil {
+			return err
+		}
+		_, _ = rw.Write(jsonString)
+		return nil
+	}
+
 	if a.authHandler.config.EnableCORS {
 		mux.OPTIONS(
 			uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
@@ -192,7 +204,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
 			var authRequest ExternalAuthenticationRequest
 			var genericBody map[string]any
-			requestBody, err := ioutil.ReadAll(req.Body)
+			requestBody, err := io.ReadAll(req.Body)
 			if err != nil {
 				handleError(err, rw)
 				return
@@ -213,6 +225,11 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 				rw.WriteHeader(403)
 				_, _ = rw.Write([]byte(`{"msg":"invalid credentials"}`))
 				return
+			} else if errors.Is(err, AuthenticationIncompleteError{}) {
+				if err = handleIncompleteAuthentication(err.(AuthenticationIncompleteError), rw); err != nil {
+					handleError(err, rw)
+					return
+				}
 			} else if err != nil || authResponse == nil {
 				handleError(err, rw)
 				return
@@ -271,7 +288,7 @@ func rewriteAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *
 
 func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *RestAuthDecorator) error {
 	if resp.Header().Get("Content-Type") == "application/jwt" {
-		jwtBlob, err := ioutil.ReadAll(resp.Body)
+		jwtBlob, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
@@ -300,7 +317,7 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 	if bodyTokenKey != "" {
 
 		var response map[string]interface{}
-		jsonBlob, err := ioutil.ReadAll(resp.Body)
+		jsonBlob, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}

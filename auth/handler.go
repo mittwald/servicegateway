@@ -23,7 +23,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -211,7 +211,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string, a
 	}()
 
 	if resp.StatusCode >= 400 {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 
 		if resp.StatusCode == http.StatusForbidden {
 			h.logger.Warningf("invalid credentials for user %s: %s", username, body)
@@ -223,7 +223,20 @@ func (h *AuthenticationHandler) Authenticate(username string, password string, a
 		}
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode == 202 {
+		h.logger.Infof("user %s has given correct credentials, but additional authentication factor is required", username)
+		body, _ := io.ReadAll(resp.Body)
+		var unmarshalledBody map[string]any
+
+		if err := json.Unmarshal(body, &unmarshalledBody); err != nil {
+			return nil, err
+		}
+		return nil, &AuthenticationIncompleteError{
+			AdditionalProperties: unmarshalledBody,
+		}
+	}
+
+	body, _ := io.ReadAll(resp.Body)
 
 	response.JWT = string(body)
 
