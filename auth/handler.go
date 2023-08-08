@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -225,10 +226,15 @@ func (h *AuthenticationHandler) Authenticate(username string, password string, a
 
 	if resp.StatusCode == 202 {
 		h.logger.Infof("user %s has given correct credentials, but additional authentication factor is required", username)
-		body, _ := io.ReadAll(resp.Body)
-		var unmarshalledBody map[string]interface{}
+		responseBodyContentType := resp.Header.Get("Content-Type")
+		if !strings.HasPrefix(responseBodyContentType, "application/json") {
+			return nil, InvalidResponseBodyContentTypeError{
+				ContentType: responseBodyContentType,
+			}
+		}
 
-		if err := json.Unmarshal(body, &unmarshalledBody); err != nil {
+		var unmarshalledBody map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&unmarshalledBody); err != nil {
 			return nil, err
 		}
 		return nil, &AuthenticationIncompleteError{

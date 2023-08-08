@@ -31,10 +31,18 @@ import (
 	"github.com/op/go-logging"
 )
 
-var InvalidCredentialsError error = errors.New("invalid credentials given")
+var InvalidCredentialsError = errors.New("invalid credentials given")
 
 type AuthenticationIncompleteError struct {
 	AdditionalProperties map[string]interface{}
+}
+
+type InvalidResponseBodyContentTypeError struct {
+	ContentType string
+}
+
+func (e InvalidResponseBodyContentTypeError) Error() string {
+	return fmt.Sprintf("invalid response body content type: '%s'", e.ContentType)
 }
 
 func (e AuthenticationIncompleteError) Error() string {
