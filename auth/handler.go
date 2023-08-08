@@ -76,18 +76,20 @@ func NewAuthenticationHandler(
 
 	if cfg.ProviderConfig.PreAuthenticationHook != "" {
 		handler.jsVM = otto.New()
-		err := handler.jsVM.Set("log", func(call otto.FunctionCall) otto.Value {
-			format := call.Argument(0).String()
-			args := call.ArgumentList[1:]
-			values := make([]interface{}, len(args))
+		err := handler.jsVM.Set(
+			"log", func(call otto.FunctionCall) otto.Value {
+				format := call.Argument(0).String()
+				args := call.ArgumentList[1:]
+				values := make([]interface{}, len(args))
 
-			for i := range args {
-				values[i], _ = args[i].Export()
-			}
+				for i := range args {
+					values[i], _ = args[i].Export()
+				}
 
-			logger.Debugf(format, values...)
-			return otto.UndefinedValue()
-		})
+				logger.Debugf(format, values...)
+				return otto.UndefinedValue()
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +104,7 @@ func NewAuthenticationHandler(
 	return &handler, nil
 }
 
-func (h *AuthenticationHandler) Authenticate(username string, password string) (*JWTResponse, error) {
+func (h *AuthenticationHandler) Authenticate(username string, password string, additionalBodyProperties map[string]any) (*JWTResponse, error) {
 	response := JWTResponse{}
 
 	authRequest := h.config.ProviderConfig.Parameters
@@ -122,7 +124,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 			return nil, fmt.Errorf("hook script must export a function!")
 		}
 
-		hookResult, err := export.Call(otto.UndefinedValue(), username, password)
+		hookResult, err := export.Call(otto.UndefinedValue(), username, password, additionalBodyProperties)
 		if err != nil {
 			return nil, fmt.Errorf("error while calling hook function: %s", err.Error())
 		}

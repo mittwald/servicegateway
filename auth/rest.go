@@ -20,17 +20,17 @@ package auth
  */
 
 import (
-	"net/http"
-
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"time"
+
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
-	"io"
-	"io/ioutil"
-	"net/http/httptest"
-	"time"
 )
 
 type RestAuthDecorator struct {
@@ -180,62 +180,70 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 	}
 
 	if a.authHandler.config.EnableCORS {
-		mux.OPTIONS(uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
-			setCORSHeaders(rw.Header())
-			rw.WriteHeader(200)
-		})
+		mux.OPTIONS(
+			uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
+				setCORSHeaders(rw.Header())
+				rw.WriteHeader(200)
+			},
+		)
 	}
 
-	mux.POST(uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		var authRequest ExternalAuthenticationRequest
+	mux.POST(
+		uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
+			var authRequest ExternalAuthenticationRequest
+			var genericBody map[string]any
+			requestBody, err := ioutil.ReadAll(req.Body)
+			if err != nil {
+				handleError(err, rw)
+				return
+			}
 
-		requestBody, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			handleError(err, rw)
-			return
-		}
+			if err := json.Unmarshal(requestBody, &authRequest); err != nil {
+				handleError(err, rw)
+				return
+			}
+			if err := json.Unmarshal(requestBody, &genericBody); err != nil {
+				handleError(err, rw)
+				return
+			}
 
-		if err := json.Unmarshal(requestBody, &authRequest); err != nil {
-			handleError(err, rw)
-			return
-		}
+			authResponse, err := a.authHandler.Authenticate(authRequest.Username, authRequest.Password, genericBody)
+			if err == InvalidCredentialsError {
+				rw.Header().Set("Content-Type", "application/json;charset=utf8")
+				rw.WriteHeader(403)
+				_, _ = rw.Write([]byte(`{"msg":"invalid credentials"}`))
+				return
+			} else if err != nil || authResponse == nil {
+				handleError(err, rw)
+				return
+			}
 
-		authResponse, err := a.authHandler.Authenticate(authRequest.Username, authRequest.Password)
-		if err == InvalidCredentialsError {
-			rw.Header().Set("Content-Type", "application/json;charset=utf8")
-			rw.WriteHeader(403)
-			_, _ = rw.Write([]byte(`{"msg":"invalid credentials"}`))
-			return
-		} else if err != nil || authResponse == nil {
-			handleError(err, rw)
-			return
-		}
+			token, exp, err := a.tokenStore.AddToken(authResponse)
+			if err != nil {
+				handleError(err, rw)
+				return
+			}
 
-		token, exp, err := a.tokenStore.AddToken(authResponse)
-		if err != nil {
-			handleError(err, rw)
-			return
-		}
+			response := ExternalAuthenticationResponse{
+				Token:   token,
+				Expires: time.Unix(exp, 0).Format(time.RFC3339),
+			}
+			jsonResponse, err := json.Marshal(&response)
+			if err != nil {
+				handleError(err, rw)
+				return
+			}
 
-		response := ExternalAuthenticationResponse{
-			Token:   token,
-			Expires: time.Unix(exp, 0).Format(time.RFC3339),
-		}
-		jsonResponse, err := json.Marshal(&response)
-		if err != nil {
-			handleError(err, rw)
-			return
-		}
+			h := rw.Header()
 
-		h := rw.Header()
+			if a.authHandler.config.EnableCORS {
+				setCORSHeaders(h)
+			}
 
-		if a.authHandler.config.EnableCORS {
-			setCORSHeaders(h)
-		}
-
-		h.Set("Content-Type", "application/json;charset=utf8")
-		_, _ = rw.Write(jsonResponse)
-	})
+			h.Set("Content-Type", "application/json;charset=utf8")
+			_, _ = rw.Write(jsonResponse)
+		},
+	)
 
 	return nil
 }
