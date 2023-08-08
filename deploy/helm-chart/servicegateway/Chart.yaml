@@ -4,6 +4,6 @@ description: service gateway for microservice architectures
 
 type: application
 
-version: 2.2.5
+version: 2.3.0-beta.1
 
-appVersion: v2.2.5
+appVersion: v2.3.0-beta.1
