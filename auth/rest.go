@@ -225,11 +225,12 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 				rw.WriteHeader(403)
 				_, _ = rw.Write([]byte(`{"msg":"invalid credentials"}`))
 				return
-			} else if errors.Is(err, &AuthenticationIncompleteError{}) {
-				if err = handleIncompleteAuthentication(err.(*AuthenticationIncompleteError), rw); err != nil {
-					handleError(err, rw)
+			} else if errors.Is(err, AuthenticationIncompleteError{}) {
+				if innerErr := handleIncompleteAuthentication(err.(*AuthenticationIncompleteError), rw); innerErr != nil {
+					handleError(innerErr, rw)
 					return
 				}
+				return
 			} else if err != nil || authResponse == nil {
 				handleError(err, rw)
 				return
