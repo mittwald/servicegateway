@@ -179,7 +179,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		_, _ = rw.Write([]byte(`{"msg":"internal server error"}`))
 	}
 
-	handleIncompleteAuthentication := func(authenticationIncompleteErr AuthenticationIncompleteError, rw http.ResponseWriter) error {
+	handleIncompleteAuthentication := func(authenticationIncompleteErr *AuthenticationIncompleteError, rw http.ResponseWriter) error {
 		rw.Header().Set("Content-Type", "application/json;charset=utf8")
 		rw.WriteHeader(202)
 
@@ -225,8 +225,8 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 				rw.WriteHeader(403)
 				_, _ = rw.Write([]byte(`{"msg":"invalid credentials"}`))
 				return
-			} else if errors.Is(err, AuthenticationIncompleteError{}) {
-				if err = handleIncompleteAuthentication(err.(AuthenticationIncompleteError), rw); err != nil {
+			} else if errors.Is(err, &AuthenticationIncompleteError{}) {
+				if err = handleIncompleteAuthentication(err.(*AuthenticationIncompleteError), rw); err != nil {
 					handleError(err, rw)
 					return
 				}
