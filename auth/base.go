@@ -34,7 +34,7 @@ import (
 var InvalidCredentialsError error = errors.New("invalid credentials given")
 
 type AuthenticationIncompleteError struct {
-	AdditionalProperties map[string]any
+	AdditionalProperties map[string]interface{}
 }
 
 func (e AuthenticationIncompleteError) Error() string {

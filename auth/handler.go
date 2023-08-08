@@ -104,7 +104,7 @@ func NewAuthenticationHandler(
 	return &handler, nil
 }
 
-func (h *AuthenticationHandler) Authenticate(username string, password string, additionalBodyProperties map[string]any) (*JWTResponse, error) {
+func (h *AuthenticationHandler) Authenticate(username string, password string, additionalBodyProperties map[string]interface{}) (*JWTResponse, error) {
 	response := JWTResponse{}
 
 	authRequest := h.config.ProviderConfig.Parameters
@@ -226,7 +226,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string, a
 	if resp.StatusCode == 202 {
 		h.logger.Infof("user %s has given correct credentials, but additional authentication factor is required", username)
 		body, _ := io.ReadAll(resp.Body)
-		var unmarshalledBody map[string]any
+		var unmarshalledBody map[string]interface{}
 
 		if err := json.Unmarshal(body, &unmarshalledBody); err != nil {
 			return nil, err

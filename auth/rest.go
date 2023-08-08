@@ -203,7 +203,7 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 	mux.POST(
 		uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
 			var authRequest ExternalAuthenticationRequest
-			var genericBody map[string]any
+			var genericBody map[string]interface{}
 			requestBody, err := io.ReadAll(req.Body)
 			if err != nil {
 				handleError(err, rw)
