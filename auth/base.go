@@ -22,14 +22,36 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"reflect"
+
 	"github.com/garyburd/redigo/redis"
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
-	logging "github.com/op/go-logging"
-	"net/http"
+	"github.com/op/go-logging"
 )
 
-var InvalidCredentialsError error = errors.New("invalid credentials given")
+var InvalidCredentialsError = errors.New("invalid credentials given")
+
+type AuthenticationIncompleteError struct {
+	AdditionalProperties map[string]interface{}
+}
+
+type InvalidResponseBodyContentTypeError struct {
+	ContentType string
+}
+
+func (e InvalidResponseBodyContentTypeError) Error() string {
+	return fmt.Sprintf("invalid response body content type: '%s'", e.ContentType)
+}
+
+func (e AuthenticationIncompleteError) Error() string {
+	return fmt.Sprint("authentication incomplete")
+}
+
+func (e AuthenticationIncompleteError) Is(target error) bool {
+	return reflect.TypeOf(target) == reflect.TypeOf(e)
+}
 
 type AuthDecorator interface {
 	DecorateHandler(httprouter.Handle, string, *config.Application, *config.Configuration) httprouter.Handle

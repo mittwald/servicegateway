@@ -23,8 +23,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,18 +77,20 @@ func NewAuthenticationHandler(
 
 	if cfg.ProviderConfig.PreAuthenticationHook != "" {
 		handler.jsVM = otto.New()
-		err := handler.jsVM.Set("log", func(call otto.FunctionCall) otto.Value {
-			format := call.Argument(0).String()
-			args := call.ArgumentList[1:]
-			values := make([]interface{}, len(args))
+		err := handler.jsVM.Set(
+			"log", func(call otto.FunctionCall) otto.Value {
+				format := call.Argument(0).String()
+				args := call.ArgumentList[1:]
+				values := make([]interface{}, len(args))
 
-			for i := range args {
-				values[i], _ = args[i].Export()
-			}
+				for i := range args {
+					values[i], _ = args[i].Export()
+				}
 
-			logger.Debugf(format, values...)
-			return otto.UndefinedValue()
-		})
+				logger.Debugf(format, values...)
+				return otto.UndefinedValue()
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +105,7 @@ func NewAuthenticationHandler(
 	return &handler, nil
 }
 
-func (h *AuthenticationHandler) Authenticate(username string, password string) (*JWTResponse, error) {
+func (h *AuthenticationHandler) Authenticate(username string, password string, additionalBodyProperties map[string]interface{}) (*JWTResponse, error) {
 	response := JWTResponse{}
 
 	authRequest := h.config.ProviderConfig.Parameters
@@ -122,7 +125,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 			return nil, fmt.Errorf("hook script must export a function!")
 		}
 
-		hookResult, err := export.Call(otto.UndefinedValue(), username, password)
+		hookResult, err := export.Call(otto.UndefinedValue(), username, password, additionalBodyProperties)
 		if err != nil {
 			return nil, fmt.Errorf("error while calling hook function: %s", err.Error())
 		}
@@ -209,7 +212,7 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 	}()
 
 	if resp.StatusCode >= 400 {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 
 		if resp.StatusCode == http.StatusForbidden {
 			h.logger.Warningf("invalid credentials for user %s: %s", username, body)
@@ -221,7 +224,25 @@ func (h *AuthenticationHandler) Authenticate(username string, password string) (
 		}
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode == 202 {
+		h.logger.Infof("user %s has given correct credentials, but additional authentication factor is required", username)
+		responseBodyContentType := resp.Header.Get("Content-Type")
+		if !strings.HasPrefix(responseBodyContentType, "application/json") {
+			return nil, InvalidResponseBodyContentTypeError{
+				ContentType: responseBodyContentType,
+			}
+		}
+
+		var unmarshalledBody map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&unmarshalledBody); err != nil {
+			return nil, err
+		}
+		return nil, &AuthenticationIncompleteError{
+			AdditionalProperties: unmarshalledBody,
+		}
+	}
+
+	body, _ := io.ReadAll(resp.Body)
 
 	response.JWT = string(body)
 
