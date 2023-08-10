@@ -204,6 +204,12 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 		uri, func(rw http.ResponseWriter, req *http.Request, params httprouter.Params) {
 			var authRequest ExternalAuthenticationRequest
 			var genericBody map[string]interface{}
+
+			h := rw.Header()
+			if a.authHandler.config.EnableCORS {
+				setCORSHeaders(h)
+			}
+
 			requestBody, err := io.ReadAll(req.Body)
 			if err != nil {
 				handleError(err, rw)
@@ -250,12 +256,6 @@ func (a *RestAuthDecorator) RegisterRoutes(mux *httprouter.Router) error {
 			if err != nil {
 				handleError(err, rw)
 				return
-			}
-
-			h := rw.Header()
-
-			if a.authHandler.config.EnableCORS {
-				setCORSHeaders(h)
 			}
 
 			h.Set("Content-Type", "application/json;charset=utf8")
