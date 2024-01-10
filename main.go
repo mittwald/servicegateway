@@ -33,7 +33,7 @@ import (
 	"strings"
 
 	"github.com/braintree/manners"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"github.com/hashicorp/consul/api"
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/config"
@@ -309,7 +309,6 @@ func main() {
 			logger.Infof("starting admin server on address %s", adminListenAddress)
 			_ = adminServer.ListenAndServe()
 		}()
-
 	}()
 
 	logger.Info("waiting to die")

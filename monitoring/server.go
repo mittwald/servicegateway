@@ -20,9 +20,10 @@ package monitoring
  */
 
 import (
+	"net/http"
+
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
 )
 
 type MonitoringServer struct {

@@ -20,16 +20,17 @@ package ratelimit
  */
 
 import (
-	"github.com/garyburd/redigo/redis"
-	"github.com/julienschmidt/httprouter"
-	"github.com/mittwald/servicegateway/config"
-	"github.com/op/go-logging"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gomodule/redigo/redis"
+	"github.com/julienschmidt/httprouter"
+	"github.com/mittwald/servicegateway/config"
+	"github.com/op/go-logging"
 )
 
 type Bucket struct {
@@ -101,7 +102,7 @@ func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 	}
 }
 
-//func (t *RateThrottler) TakeToken(user string) (int, int, error) {
+// func (t *RateThrottler) TakeToken(user string) (int, int, error) {
 //	key := "RL_BUCKET_" + user
 //	keyLA := "RL_BUCKET_LASTACCESS_" + user
 //	conn := t.redisPool.Get()
@@ -135,7 +136,7 @@ func (t *RedisSimpleRateThrottler) takeToken(user string) (int, int, error) {
 //
 //		return val2, int(t.burstSize), nil
 //	}
-//}
+// }
 
 func (t *RedisSimpleRateThrottler) DecorateHandler(handler httprouter.Handle) httprouter.Handle {
 	return func(rw http.ResponseWriter, req *http.Request, p httprouter.Params) {

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/julienschmidt/httprouter"
-	"github.com/op/go-logging"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +12,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/julienschmidt/httprouter"
+	"github.com/op/go-logging"
 )
 
 var UnmappableUrl = errors.New("unmappable URL")

@@ -26,13 +26,13 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
+	cache "github.com/patrickmn/go-cache"
 	"github.com/robertkrimen/otto"
 )
 
@@ -46,8 +46,7 @@ type AuthenticationHandler struct {
 
 	hookPreAuth *otto.Script
 
-	expCache map[string]int64
-	expLock  sync.RWMutex
+	expCache *cache.Cache
 
 	jsVM *otto.Otto
 }
@@ -71,8 +70,7 @@ func NewAuthenticationHandler(
 		httpClient:  &http.Client{},
 		logger:      logger,
 		verifier:    verifier,
-		expCache:    make(map[string]int64),
-		expLock:     sync.RWMutex{},
+		expCache:    cache.New(cache.NoExpiration, 5*time.Minute),
 	}
 
 	if cfg.ProviderConfig.PreAuthenticationHook != "" {
@@ -258,34 +256,24 @@ func (h *AuthenticationHandler) IsAuthenticated(req *http.Request) (bool, *JWTRe
 		return false, nil, err
 	}
 
-	h.expLock.RLock()
-	exp, ok := h.expCache[token.JWT]
-	h.expLock.RUnlock()
+	exp, ok := h.expCache.Get(token.JWT)
+	var expiry int64
+	if ok {
+		expiry = exp.(int64)
+	}
 
-	if ok && (exp == 0 || exp > time.Now().Unix()) {
+	if ok && (exp == 0 || expiry > time.Now().Unix()) {
 		return true, token, nil
 	} else if !ok {
 		valid, stdClaims, _, err := h.verifier.VerifyToken(token.JWT)
 		if err == nil && valid {
 			if stdClaims.ExpiresAt == 0 {
-				h.expLock.Lock()
-				h.expCache[token.JWT] = 0
-				h.expLock.Unlock()
+				h.expCache.Set(token.JWT, 0, cache.NoExpiration)
 				return true, token, nil
 			}
 
 			if stdClaims.ExpiresAt > time.Now().Unix() {
-				h.expLock.Lock()
-				h.expCache[token.JWT] = stdClaims.ExpiresAt
-				h.expLock.Unlock()
-
-				c := time.After(time.Duration(stdClaims.ExpiresAt-time.Now().Unix()) * time.Second)
-				go func() {
-					<-c
-					h.expLock.Lock()
-					delete(h.expCache, token.JWT)
-					h.expLock.Unlock()
-				}()
+				h.expCache.Set(token.JWT, stdClaims.ExpiresAt, time.Duration(stdClaims.ExpiresAt-time.Now().Unix())*time.Second)
 
 				return true, token, nil
 			}

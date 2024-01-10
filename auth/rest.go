@@ -302,7 +302,7 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 			return err
 		}
 
-		contentLength, err := resp.Write([]byte(token))
+		contentLength, err := resp.WriteString(token)
 		if err != nil {
 			return err
 		}
@@ -316,7 +316,6 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 	// rewrite body tokens
 	bodyTokenKey := resp.Header().Get("X-Gateway-BodyToken")
 	if bodyTokenKey != "" {
-
 		var response map[string]interface{}
 		jsonBlob, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -359,10 +358,8 @@ func rewriteBodyAccessTokens(resp *httptest.ResponseRecorder, req *http.Request,
 }
 
 func rewriteHeaderAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *RestAuthDecorator) error {
-
 	headerTokenKey := resp.Header().Get("X-Gateway-HeaderToken")
 	if headerTokenKey != "" {
-
 		header := resp.Header().Get(headerTokenKey)
 
 		jwtResponse := JWTResponse{}
@@ -382,7 +379,6 @@ func rewriteHeaderAccessTokens(resp *httptest.ResponseRecorder, req *http.Reques
 func rewriteCookieAccessTokens(resp *httptest.ResponseRecorder, req *http.Request, a *RestAuthDecorator) error {
 	cookieTokenKey := resp.Header().Get("X-Gateway-CookieToken")
 	if cookieTokenKey != "" {
-
 		cookie := parseCookie(resp, cookieTokenKey)
 
 		if cookie == nil {

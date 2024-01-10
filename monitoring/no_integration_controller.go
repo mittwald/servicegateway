@@ -21,6 +21,7 @@ package monitoring
 
 import (
 	"fmt"
+
 	"github.com/op/go-logging"
 
 	"net/http"

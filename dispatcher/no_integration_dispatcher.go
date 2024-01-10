@@ -2,7 +2,8 @@ package dispatcher
 
 import (
 	"fmt"
-	"github.com/garyburd/redigo/redis"
+
+	"github.com/gomodule/redigo/redis"
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/admin"
 	"github.com/mittwald/servicegateway/auth"
@@ -62,8 +63,8 @@ func BuildNoIntegrationDispatcher(
 
 	cch := cache.NewCache(4096)
 
-	// Order is important here! Behaviours will be called in LIFO order;
-	// behaviours that are added last will be called first!
+	// Order is important here! Behaviors will be called in LIFO order;
+	// behaviors that are added last will be called first!
 	disp.AddBehaviour(NewCachingBehaviour(cch))
 	disp.AddBehaviour(NewAuthenticationBehaviour(authDecorator))
 	disp.AddBehaviour(NewRatelimitBehaviour(rlim))
@@ -123,7 +124,7 @@ func buildNoIntegrationPathDispatcher(
 	dispatcher.mux = httprouter.New()
 	dispatcher.log = log
 	dispatcher.prx = prx
-	dispatcher.behaviours = make([]Behaviour, 0, 8)
+	dispatcher.behaviors = make([]Behavior, 0, 8)
 
 	return dispatcher, nil
 }
@@ -187,9 +188,9 @@ func (n *noIntegrationPathDispatcher) RegisterApplication(name string, appCfg co
 		safeHandler := handler
 		unsafeHandler := handler
 
-		for _, behaviour := range n.behaviours {
+		for _, behavior := range n.behaviors {
 			var err error
-			safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, n, name, &appCfg, config)
+			safeHandler, unsafeHandler, err = behavior.Apply(safeHandler, unsafeHandler, n, name, &appCfg, config)
 			if err != nil {
 				return err
 			}

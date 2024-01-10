@@ -21,6 +21,7 @@ package monitoring
 
 import (
 	"fmt"
+
 	"github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"
 

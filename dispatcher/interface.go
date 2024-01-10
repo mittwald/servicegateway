@@ -20,21 +20,22 @@ package dispatcher
  */
 
 import (
+	"net/http"
+
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/proxy"
 	"github.com/op/go-logging"
-	"net/http"
 )
 
 type Dispatcher interface {
 	http.Handler
 	RegisterApplication(string, config.Application, *config.Configuration) error
 	Initialize() error
-	AddBehaviour(...Behaviour)
+	AddBehaviour(...Behavior)
 }
 
-type Behaviour interface {
+type Behavior interface {
 	Apply(httprouter.Handle, httprouter.Handle, Dispatcher, string, *config.Application, *config.Configuration) (httprouter.Handle, httprouter.Handle, error)
 }
 
@@ -43,20 +44,20 @@ type RoutingBehaviour interface {
 }
 
 // avoid `cfg` is unused (structcheck)
-// nolint: structcheck
+//nolint: structcheck
 type abstractDispatcher struct {
 	cfg *config.Configuration
 	mux *httprouter.Router
 	prx *proxy.ProxyHandler
 	log *logging.Logger
 
-	behaviours []Behaviour
+	behaviors []Behavior
 }
 
 func (d *abstractDispatcher) setProxy(p *proxy.ProxyHandler) {
 	d.prx = p
 }
 
-func (d *abstractDispatcher) AddBehaviour(behaviours ...Behaviour) {
-	d.behaviours = append(d.behaviours, behaviours...)
+func (d *abstractDispatcher) AddBehaviour(behaviors ...Behavior) {
+	d.behaviors = append(d.behaviors, behaviors...)
 }

@@ -3,13 +3,14 @@ package admin
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-zoo/bone"
-	"github.com/mittwald/servicegateway/auth"
-	"github.com/op/go-logging"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/go-zoo/bone"
+	"github.com/mittwald/servicegateway/auth"
+	"github.com/op/go-logging"
 )
 
 func writeError(res http.ResponseWriter, msg string) {
@@ -62,7 +63,7 @@ func NewAdminServer(
 
 		if req.Header.Get("Content-Type") != "application/jwt" {
 			res.WriteHeader(415)
-			_ , _ = res.Write([]byte(`{"msg":"only 'application/jwt' is allowed as content-type"}`))
+			_, _ = res.Write([]byte(`{"msg":"only 'application/jwt' is allowed as content-type"}`))
 			return
 		}
 
@@ -78,7 +79,7 @@ func NewAdminServer(
 		valid, _, _, err := tokenVerifier.VerifyToken(jwt)
 		if err != nil || !valid {
 			res.WriteHeader(400)
-			_ , _ = res.Write([]byte(fmt.Sprintf(`{"msg":"invalid token","reason":"%s"}`, err)))
+			_, _ = res.Write([]byte(fmt.Sprintf(`{"msg":"invalid token","reason":"%s"}`, err)))
 			return
 		}
 
@@ -88,16 +89,16 @@ func NewAdminServer(
 		if err != nil {
 			logger.Errorf("error while storing token: %s", err)
 			res.WriteHeader(500)
-			_ , _ = res.Write([]byte(`{"msg":"could not store token"}`))
+			_, _ = res.Write([]byte(`{"msg":"could not store token"}`))
 			return
 		}
 
 		res.WriteHeader(200)
 
 		if exp != 0 {
-			_ , _ = res.Write([]byte(fmt.Sprintf(`{"token":"%s","expires":"%s"}`, tokenString, time.Unix(exp, 0).Format(time.RFC3339))))
+			_, _ = res.Write([]byte(fmt.Sprintf(`{"token":"%s","expires":"%s"}`, tokenString, time.Unix(exp, 0).Format(time.RFC3339))))
 		} else {
-			_ , _ = res.Write([]byte(fmt.Sprintf(`{"token":"%s"}`, tokenString)))
+			_, _ = res.Write([]byte(fmt.Sprintf(`{"token":"%s"}`, tokenString)))
 		}
 	}))
 
@@ -106,7 +107,7 @@ func NewAdminServer(
 
 		if req.Header.Get("Content-Type") != "application/jwt" {
 			res.WriteHeader(415)
-			_ , _ = res.Write([]byte(`{"msg":"only 'application/jwt' is allowed as content-type"}`))
+			_, _ = res.Write([]byte(`{"msg":"only 'application/jwt' is allowed as content-type"}`))
 			return
 		}
 
@@ -122,7 +123,7 @@ func NewAdminServer(
 		valid, _, _, err := tokenVerifier.VerifyToken(jwt)
 		if err != nil || !valid {
 			res.WriteHeader(400)
-			_ , _ = res.Write([]byte(fmt.Sprintf(`{"msg":"invalid token","reason":"%s"}`, err)))
+			_, _ = res.Write([]byte(fmt.Sprintf(`{"msg":"invalid token","reason":"%s"}`, err)))
 			return
 		}
 
@@ -130,15 +131,15 @@ func NewAdminServer(
 		if err != nil {
 			logger.Errorf("error while storing token: %s", err)
 			res.WriteHeader(500)
-			_ , _ = res.Write([]byte(`{"msg":"could not store token"}`))
+			_, _ = res.Write([]byte(`{"msg":"could not store token"}`))
 			return
 		}
 
 		res.WriteHeader(200)
 		if exp != 0 {
-			_ , _ = res.Write([]byte(fmt.Sprintf(`{"token":"%s","expires":"%s"}`, tokenString, time.Unix(exp, 0).Format(time.RFC3339))))
+			_, _ = res.Write([]byte(fmt.Sprintf(`{"token":"%s","expires":"%s"}`, tokenString, time.Unix(exp, 0).Format(time.RFC3339))))
 		} else {
-			_ , _ = res.Write([]byte(fmt.Sprintf(`{"token":"%s"}`, tokenString)))
+			_, _ = res.Write([]byte(fmt.Sprintf(`{"token":"%s"}`, tokenString)))
 		}
 	}))
 

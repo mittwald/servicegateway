@@ -21,6 +21,7 @@ package dispatcher
 
 import (
 	"fmt"
+
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/mittwald/servicegateway/proxy"
@@ -128,8 +129,8 @@ func (d *abstractPathBasedDispatcher) buildOptionsHandler(inner httprouter.Handl
 }
 
 func (d *abstractPathBasedDispatcher) Initialize() error {
-	for _, behaviour := range d.behaviours {
-		switch t := behaviour.(type) {
+	for _, behavior := range d.behaviors {
+		switch t := behavior.(type) {
 		case RoutingBehaviour:
 			if err := t.AddRoutes(d.mux); err != nil {
 				return err

@@ -79,7 +79,7 @@ package dispatcher
 //	safeHandler := handler
 //	unsafeHandler := handler
 //
-//	for _, behaviour := range d.behaviours {
+//	for _, behavior := range d.behaviours {
 //		var err error
 //		safeHandler, unsafeHandler, err = behaviour.Apply(safeHandler, unsafeHandler, d, &app)
 //		if err != nil {
@@ -96,8 +96,8 @@ package dispatcher
 //}
 //
 //func (d *hostBasedDispatcher) Initialize() error {
-//	for _, behaviour := range d.behaviours {
-//		switch t := behaviour.(type) {
+//	for _, behavior := range d.behaviours {
+//		switch t := behavior.(type) {
 //		case RoutingBehaviour:
 //			if err := t.AddRoutes(d.mux); err != nil {
 //				return err
