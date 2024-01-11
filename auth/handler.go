@@ -26,6 +26,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -49,7 +50,8 @@ type AuthenticationHandler struct {
 
 	expCache *cache.Cache
 
-	jsVM *otto.Otto
+	jsVM     *otto.Otto
+	jsVMLock *sync.Mutex
 }
 
 type JWTResponse struct {
@@ -72,6 +74,7 @@ func NewAuthenticationHandler(
 		logger:      logger,
 		verifier:    verifier,
 		expCache:    cache.New(cache.NoExpiration, 5*time.Minute),
+		jsVMLock:    &sync.Mutex{},
 	}
 
 	if cfg.ProviderConfig.PreAuthenticationHook != "" {
@@ -118,17 +121,21 @@ func (h *AuthenticationHandler) Authenticate(username string, password string, a
 	requestURL := h.config.ProviderConfig.Url + "/authenticate"
 
 	if h.hookPreAuth != nil {
+		h.jsVMLock.Lock()
 		_, err := h.jsVM.Run(h.hookPreAuth)
 		if err != nil {
+			h.jsVMLock.Unlock()
 			return nil, err
 		}
 
 		export, _ := h.jsVM.Get("exports")
 		if !export.IsFunction() {
+			h.jsVMLock.Unlock()
 			return nil, fmt.Errorf("hook script must export a function!")
 		}
 
 		hookResult, err := export.Call(otto.UndefinedValue(), username, password, additionalBodyProperties)
+		h.jsVMLock.Unlock()
 		if err != nil {
 			return nil, fmt.Errorf("error while calling hook function: %s", err.Error())
 		}
