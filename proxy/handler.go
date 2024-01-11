@@ -22,14 +22,15 @@ package proxy
 import (
 	"bufio"
 	"errors"
-	"github.com/mittwald/servicegateway/config"
-	"github.com/mittwald/servicegateway/monitoring"
-	logging "github.com/op/go-logging"
-	"github.com/prometheus/client_golang/prometheus"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/mittwald/servicegateway/config"
+	"github.com/mittwald/servicegateway/monitoring"
+	logging "github.com/op/go-logging"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var redirectRequest error = errors.New("redirect")

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/mittwald/servicegateway/config"
 

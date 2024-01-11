@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"github.com/julienschmidt/httprouter"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"

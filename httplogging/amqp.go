@@ -10,7 +10,7 @@ import (
 	"github.com/mittwald/servicegateway/auth"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
-	"github.com/streadway/amqp"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type AmqpLoggingBehaviour struct {

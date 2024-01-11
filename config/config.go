@@ -2,7 +2,8 @@ package config
 
 import (
 	"fmt"
-	"github.com/garyburd/redigo/redis"
+
+	"github.com/gomodule/redigo/redis"
 	"github.com/hashicorp/consul/api"
 )
 

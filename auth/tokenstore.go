@@ -4,9 +4,10 @@ import (
 	"crypto/rand"
 	"encoding/base32"
 	"fmt"
-	"github.com/garyburd/redigo/redis"
-	"github.com/hashicorp/golang-lru"
 	"strings"
+
+	"github.com/gomodule/redigo/redis"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 type MappedToken struct {

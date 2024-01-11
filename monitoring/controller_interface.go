@@ -27,4 +27,3 @@ type Controller interface {
 	SendShutdown()
 	WaitForShutdown()
 }
-
