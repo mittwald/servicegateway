@@ -30,6 +30,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gomodule/redigo/redis"
+	"github.com/jinzhu/copier"
 	"github.com/mittwald/servicegateway/config"
 	"github.com/op/go-logging"
 	cache "github.com/patrickmn/go-cache"
@@ -106,7 +107,11 @@ func NewAuthenticationHandler(
 func (h *AuthenticationHandler) Authenticate(username string, password string, additionalBodyProperties map[string]interface{}) (*JWTResponse, error) {
 	response := JWTResponse{}
 
-	authRequest := h.config.ProviderConfig.Parameters
+	authRequest := make(map[string]interface{})
+	err := copier.Copy(&authRequest, h.config.ProviderConfig.Parameters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy default parameters!")
+	}
 	authRequest["username"] = username
 	authRequest["password"] = password
 
