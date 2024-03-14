@@ -14,6 +14,6 @@ setup(
         install_requires=[
             'click==6.2',
             'python-consul==0.6.0',
-            'requests==2.9.1'
+            'requests==2.31.0'
         ]
 )

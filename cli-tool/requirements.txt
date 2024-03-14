@@ -1,6 +1,6 @@
 argparse==1.2.1
 click==6.2
 python-consul==0.6.0
-requests==2.9.1
+requests==2.31.0
 six==1.10.0
 wsgiref==0.1.2
